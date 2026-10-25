@@ -18,6 +18,12 @@
 // after the SSA optimizations, which would fold the copy away, and
 // M6809RegisterInfo::shouldCoalesce stops the coalescer from undoing it.
 //
+// The D-offset accesses ("ldb d,x", "leax d,y") have the opposite problem:
+// their offset must be in D, and when that value has other uses its whole
+// live range is pinned to D, even across instructions that need A or B.
+// Such offsets are read through a fresh ACC16 copy just before the access,
+// and the original register is widened to whatever its other uses allow.
+//
 //===----------------------------------------------------------------------===//
 
 #include "M6809.h"
@@ -59,10 +65,12 @@ static bool hasTiedDUse(const MachineInstr &MI,
   return false;
 }
 
+static bool splitDOffsets(MachineFunction &MF);
+
 bool M6809SplitDOperands::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
-  bool Changed = false;
+  bool Changed = splitDOffsets(MF);
 
   for (MachineBasicBlock &MBB : MF) {
     for (MachineInstr &MI : MBB) {
@@ -83,6 +91,47 @@ bool M6809SplitDOperands::runOnMachineFunction(MachineFunction &MF) {
             .addReg(MO.getReg());
         MO.setReg(Copy);
         MO.setIsKill(false);
+        Changed = true;
+      }
+    }
+  }
+  return Changed;
+}
+
+static bool isDOffsetAccess(unsigned Opc) {
+  switch (Opc) {
+  case M6809::LEA16dr:
+  case M6809::LD8dr:
+  case M6809::LD16dr:
+  case M6809::ST16dr:
+    return true;
+  default:
+    return false;
+  }
+}
+
+// See the second paragraph at the top of the file.
+static bool splitDOffsets(MachineFunction &MF) {
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  bool Changed = false;
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineInstr &MI : MBB) {
+      if (!isDOffsetAccess(MI.getOpcode()))
+        continue;
+      for (MachineOperand &MO : MI.explicit_uses()) {
+        if (!MO.isReg() || !MO.getReg().isVirtual())
+          continue;
+        Register Reg = MO.getReg();
+        if (MRI.getRegClass(Reg) != &M6809::ACC16RegClass ||
+            MRI.hasOneNonDBGUse(Reg))
+          continue;
+        Register Copy = MRI.createVirtualRegister(&M6809::ACC16RegClass);
+        BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(TargetOpcode::COPY), Copy)
+            .addReg(Reg);
+        MO.setReg(Copy);
+        MO.setIsKill(true);
+        MRI.recomputeRegClass(Reg);
         Changed = true;
       }
     }
