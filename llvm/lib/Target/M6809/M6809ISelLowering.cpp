@@ -65,10 +65,12 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   }
   setTruncStoreAction(MVT::i16, MVT::i8, Expand);
 
-  // ,R+ and ,R++: a load or store that steps its pointer by its size.
+  // ,R+ and ,R++ (and ,-R and ,--R): a load or store that steps its
+  // pointer by its size, after or before the access.  The pre-indexed form
+  // is PRE_INC by minus the size.
   for (MVT VT : {MVT::i8, MVT::i16}) {
-    setIndexedLoadAction(ISD::POST_INC, VT, Legal);
-    setIndexedStoreAction(ISD::POST_INC, VT, Legal);
+    setIndexedLoadAction({ISD::POST_INC, ISD::PRE_INC}, VT, Legal);
+    setIndexedStoreAction({ISD::POST_INC, ISD::PRE_INC}, VT, Legal);
   }
 
   // One CPU, and an interrupt never splits an instruction: 8- and 16-bit
@@ -511,6 +513,78 @@ SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
 static bool isOrderedCompare32(SDValue Cond);
 static SDValue combineSelect32(SDNode *N, SelectionDAG &DAG);
 
+// Whether the loaded value's one use can take the load as a memory
+// operand.  "addb ,x" plus "leax 1,x" beats "lda ,x+" plus an add of two
+// registers, which the 6809 does through the stack.
+static bool hasFoldingUser(LoadSDNode *LD) {
+  if (!SDValue(LD, 0).hasOneUse())
+    return false;
+  for (SDUse &U : LD->uses()) {
+    if (U.getResNo() != 0)
+      continue;
+    switch (U.getUser()->getOpcode()) {
+    case ISD::ADD:
+    case ISD::SUB:
+    case ISD::AND:
+    case ISD::OR:
+    case ISD::XOR:
+    case ISD::ADDC:
+    case ISD::ADDE:
+    case ISD::SUBC:
+    case ISD::SUBE:
+    case ISD::SETCC:
+    case ISD::BR_CC:
+    case ISD::SELECT_CC:
+      return true;
+    default:
+      return false;
+    }
+  }
+  return false;
+}
+
+// The parts of a load or store that getPre/PostIndexedAddressParts check.
+static bool getIndexedParts(SDNode *N, EVT &VT, SDValue &Ptr) {
+  if (auto *LD = dyn_cast<LoadSDNode>(N)) {
+    if (LD->getExtensionType() != ISD::NON_EXTLOAD)
+      return false;
+    VT = LD->getMemoryVT();
+    Ptr = LD->getBasePtr();
+  } else if (auto *ST = dyn_cast<StoreSDNode>(N)) {
+    if (ST->isTruncatingStore())
+      return false;
+    VT = ST->getMemoryVT();
+    Ptr = ST->getBasePtr();
+  } else {
+    return false;
+  }
+  return VT == MVT::i8 || VT == MVT::i16;
+}
+
+// A load or store at p - size whose p - size is also used: ,-R for a byte,
+// ,--R for a word.
+bool M6809TargetLowering::getPreIndexedAddressParts(SDNode *N, SDValue &Base,
+                                                    SDValue &Offset,
+                                                    ISD::MemIndexedMode &AM,
+                                                    SelectionDAG &DAG) const {
+  EVT VT;
+  SDValue Ptr;
+  if (!getIndexedParts(N, VT, Ptr) || Ptr.getOpcode() != ISD::ADD)
+    return false;
+  if (auto *LD = dyn_cast<LoadSDNode>(N); LD && hasFoldingUser(LD))
+    return false;
+  auto *C = dyn_cast<ConstantSDNode>(Ptr.getOperand(1));
+  if (!C || C->getSExtValue() != -int64_t(VT.getStoreSize()))
+    return false;
+  if (auto *ST = dyn_cast<StoreSDNode>(N);
+      ST && ST->getValue() == Ptr.getOperand(0))
+    return false;
+  Base = Ptr.getOperand(0);
+  Offset = Ptr.getOperand(1);
+  AM = ISD::PRE_INC;
+  return true;
+}
+
 // A load or store at p followed by p + size: ,R+ for a byte, ,R++ for a
 // word.  Storing the pointer through itself is left alone; "stx ,x++"
 // stores the old or the new X depending on the CPU's timing.
@@ -519,48 +593,11 @@ bool M6809TargetLowering::getPostIndexedAddressParts(
     ISD::MemIndexedMode &AM, SelectionDAG &DAG) const {
   EVT VT;
   SDValue Ptr;
-  if (auto *LD = dyn_cast<LoadSDNode>(N)) {
-    if (LD->getExtensionType() != ISD::NON_EXTLOAD)
-      return false;
-    // "addb ,x" plus "leax 1,x" beats "lda ,x+" plus an add of two
-    // registers, which the 6809 does through the stack.
-    SDValue V(LD, 0);
-    if (V.hasOneUse()) {
-      SDNode *User = nullptr;
-      for (SDUse &U : LD->uses())
-        if (U.getResNo() == 0)
-          User = U.getUser();
-      switch (User->getOpcode()) {
-      case ISD::ADD:
-      case ISD::SUB:
-      case ISD::AND:
-      case ISD::OR:
-      case ISD::XOR:
-      case ISD::ADDC:
-      case ISD::ADDE:
-      case ISD::SUBC:
-      case ISD::SUBE:
-      case ISD::SETCC:
-      case ISD::BR_CC:
-      case ISD::SELECT_CC:
-        return false;
-      default:
-        break;
-      }
-    }
-    VT = LD->getMemoryVT();
-    Ptr = LD->getBasePtr();
-  } else if (auto *ST = dyn_cast<StoreSDNode>(N)) {
-    if (ST->isTruncatingStore())
-      return false;
-    VT = ST->getMemoryVT();
-    Ptr = ST->getBasePtr();
-    if (ST->getValue() == Ptr)
-      return false;
-  } else {
+  if (!getIndexedParts(N, VT, Ptr) || Op->getOpcode() != ISD::ADD)
     return false;
-  }
-  if ((VT != MVT::i8 && VT != MVT::i16) || Op->getOpcode() != ISD::ADD)
+  if (auto *LD = dyn_cast<LoadSDNode>(N); LD && hasFoldingUser(LD))
+    return false;
+  if (auto *ST = dyn_cast<StoreSDNode>(N); ST && ST->getValue() == Ptr)
     return false;
   auto *C = dyn_cast<ConstantSDNode>(Op->getOperand(1));
   if (Op->getOperand(0) != Ptr || !C ||

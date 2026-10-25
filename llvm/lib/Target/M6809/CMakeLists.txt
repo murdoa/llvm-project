@@ -26,6 +26,7 @@ add_llvm_target(M6809CodeGen
   M6809SplitDOperands.cpp
   M6809Subtarget.cpp
   M6809TargetMachine.cpp
+  M6809TargetTransformInfo.cpp
 
   LINK_COMPONENTS
   M6809Desc

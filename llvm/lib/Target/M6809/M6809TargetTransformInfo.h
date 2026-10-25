@@ -6,9 +6,10 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Cost information for the IR passes.  The indexed modes ,R+ and ,R++ make
-// a pointer that steps through memory cheaper than a counter plus an
-// offset, so loops are given post-incremented pointers.
+// Cost information for the IR passes.  The indexed modes ,R+ and ,R++ (and
+// ,-R and ,--R) make a pointer that steps through memory cheaper than a
+// counter plus an offset, so loops are given post-incremented pointers, or
+// pre-decremented ones when they walk down.
 //
 //===----------------------------------------------------------------------===//
 
@@ -41,9 +42,11 @@ public:
         TLI(ST->getTargetLowering()) {}
 
   TTI::AddressingModeKind
-  getPreferredAddressingMode(const Loop *L, ScalarEvolution *SE) const override {
-    return TTI::AMK_PostIndexed;
-  }
+  getPreferredAddressingMode(const Loop *L,
+                             ScalarEvolution *SE) const override;
+
+  bool isLSRCostLess(const TTI::LSRCost &C1,
+                     const TTI::LSRCost &C2) const override;
 };
 
 } // end namespace llvm

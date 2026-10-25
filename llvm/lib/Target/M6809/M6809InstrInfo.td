@@ -219,6 +219,22 @@ let Defs = [CC], hasSideEffects = 0 in {
   }
 }
 
+// Pre-decrement: ",-x" and ",--x", selected and lowered the same way.
+let Defs = [CC], hasSideEffects = 0 in {
+  let mayLoad = 1, Constraints = "$ptr = $wb" in
+  def LD8pd : M6809Pseudo<(outs ACC8:$dst, IDX16:$wb), (ins IDX16:$ptr), "",
+                          []>;
+  let mayLoad = 1, Constraints = "$ptr = $wb,@earlyclobber $dst" in
+  def LD16pd : M6809Pseudo<(outs GR16:$dst, IDX16:$wb), (ins IDX16:$ptr), "",
+                           []>;
+  let mayStore = 1, Constraints = "$ptr = $wb" in {
+    def ST8pd : M6809Pseudo<(outs IDX16:$wb), (ins ACC8:$src, IDX16:$ptr),
+                            "", []>;
+    def ST16pd : M6809Pseudo<(outs IDX16:$wb), (ins GR16:$src, IDX16:$ptr),
+                             "", []>;
+  }
+}
+
 // Stack pointer adjustment for the prologue and epilogue. LEAS leaves the
 // flags alone.
 let Defs = [S], Uses = [S], isCodeGenOnly = 1 in

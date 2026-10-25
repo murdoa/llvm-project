@@ -198,3 +198,64 @@ loop:
 done:
   ret i8 %s1
 }
+
+; Pointers that step down before each access use ,-x and ,--x.
+define void @copy_down(ptr %d, ptr %s, i16 %n) {
+; CHECK-LABEL: copy_down:
+; CHECK:       ; %bb.0: ; %entry
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldu 6,s
+; CHECK-NEXT:    beq .LBB6_3
+; CHECK-NEXT:  ; %bb.1: ; %loop.preheader
+; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:  .LBB6_2: ; %loop
+; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    ldb ,-x
+; CHECK-NEXT:    stb ,-y
+; CHECK-NEXT:    leau -1,u
+; CHECK-NEXT:    cmpu #0
+; CHECK-NEXT:    bne .LBB6_2
+; CHECK-NEXT:  .LBB6_3: ; %done
+; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    rts
+entry:
+  %z = icmp eq i16 %n, 0
+  br i1 %z, label %done, label %loop
+loop:
+  %dp = phi ptr [ %d, %entry ], [ %dp1, %loop ]
+  %sp = phi ptr [ %s, %entry ], [ %sp1, %loop ]
+  %k = phi i16 [ %n, %entry ], [ %k1, %loop ]
+  %sp1 = getelementptr i8, ptr %sp, i16 -1
+  %dp1 = getelementptr i8, ptr %dp, i16 -1
+  %v = load i8, ptr %sp1
+  store i8 %v, ptr %dp1
+  %k1 = add i16 %k, -1
+  %c = icmp eq i16 %k1, 0
+  br i1 %c, label %done, label %loop
+done:
+  ret void
+}
+
+define void @push_words(ptr %top, i16 %a, i16 %b) {
+; CHECK-LABEL: push_words:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldd 4,s
+; CHECK-NEXT:    std -4,x
+; CHECK-NEXT:    ldd 2,s
+; CHECK-NEXT:    std -2,x
+; CHECK-NEXT:    leax -6,x
+; CHECK-NEXT:    stx sp
+; CHECK-NEXT:    rts
+  %p1 = getelementptr i8, ptr %top, i16 -2
+  store i16 %a, ptr %p1
+  %p2 = getelementptr i8, ptr %p1, i16 -2
+  store i16 %b, ptr %p2
+  %p3 = getelementptr i8, ptr %p2, i16 -2
+  store ptr %p3, ptr @sp
+  ret void
+}
+@sp = global ptr null
