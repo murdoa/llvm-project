@@ -539,6 +539,15 @@ SDValue M6809TargetLowering::LowerFormalArguments(
 
     // Stack argument. Offsets are relative to S on entry, which points at
     // the return address.
+    ISD::ArgFlagsTy Flags = Ins[VA.getValNo()].Flags;
+    if (Flags.isByVal()) {
+      // The caller's copy of the struct; its address is the argument.
+      int FI = MFI.CreateFixedObject(Flags.getByValSize(),
+                                     VA.getLocMemOffset() + ReturnAddressSize,
+                                     /*IsImmutable=*/false);
+      InVals.push_back(DAG.getFrameIndex(FI, MVT::i16));
+      continue;
+    }
     int FI = MFI.CreateFixedObject(VT.getStoreSize(),
                                    VA.getLocMemOffset() + ReturnAddressSize,
                                    /*IsImmutable=*/true);
@@ -582,8 +591,7 @@ SDValue M6809TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
     const CCValAssign &VA = ArgLocs[I];
     SDValue Arg = CLI.OutVals[I];
-    if (CLI.Outs[I].Flags.isByVal())
-      report_fatal_error("M6809: byval arguments are not supported yet");
+    ISD::ArgFlagsTy Flags = CLI.Outs[I].Flags;
 
     if (VA.isRegLoc()) {
       RegsToPass.push_back({VA.getLocReg(), Arg});
@@ -594,6 +602,16 @@ SDValue M6809TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
       StackPtr = DAG.getCopyFromReg(Chain, DL, M6809::S, MVT::i16);
     SDValue Addr = DAG.getNode(ISD::ADD, DL, MVT::i16, StackPtr,
                                DAG.getIntPtrConstant(VA.getLocMemOffset(), DL));
+    if (Flags.isByVal()) {
+      // Arg points at the struct. Copy it inline: a call to memcpy here
+      // would nest inside this call's frame.
+      SDValue Size = DAG.getConstant(Flags.getByValSize(), DL, MVT::i16);
+      MemOpChains.push_back(DAG.getMemcpy(
+          Chain, DL, Addr, Arg, Size, Align(1), Align(1), /*isVol=*/false,
+          /*AlwaysInline=*/true, /*CI=*/nullptr, std::nullopt,
+          MachinePointerInfo(), MachinePointerInfo()));
+      continue;
+    }
     MemOpChains.push_back(
         DAG.getStore(Chain, DL, Arg, Addr, MachinePointerInfo()));
   }

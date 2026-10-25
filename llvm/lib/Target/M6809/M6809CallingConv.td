@@ -26,6 +26,8 @@ def RetCC_M6809 : CallingConv<[
 ]>;
 
 def CC_M6809 : CallingConv<[
+  // Structs passed by value are copied into the argument area.
+  CCIfByVal<CCPassByVal<1, 1>>,
   CCIfType<[i1], CCPromoteToType<i8>>,
   CCIfArgVarArg<CCIfType<[i8], CCAssignToStack<1, 1>>>,
   CCIfArgVarArg<CCIfType<[i16], CCAssignToStack<2, 1>>>,
