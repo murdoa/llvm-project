@@ -8,64 +8,56 @@
 define i16 @f(ptr %q) {
 ; CHECK-LABEL: f:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    subd #10
+; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    txs
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    ldd #-1
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
 ; CHECK-NEXT:  .LBB0_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    inx
 ; CHECK-NEXT:    inx
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
+; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    addd #1
+; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldx 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldx 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
+; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 0,x ; 2-byte Folded Reload
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
+; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    subd 0,x
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
 ; CHECK-NEXT:    beq .LBB0_1
 ; CHECK-NEXT:  ; %bb.2: ; %out
 entry:

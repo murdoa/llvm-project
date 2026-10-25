@@ -88,8 +88,38 @@ static bool widenTiedSources(MachineFunction &MF,
   return Changed;
 }
 
+// A 16-bit compare against memory takes its left side in D or X, but when
+// the address is in X the left side can only be in D. Say so before
+// allocation: read it through a copy into D. Otherwise the allocator may
+// find X taken by the address and D by a value it cannot move, and run out
+// of registers.
+static bool narrowCompareLhs(MachineFunction &MF) {
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  bool Changed = false;
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineInstr &MI : MBB) {
+      if (MI.getOpcode() != M6800::CB16rm)
+        continue;
+      MachineOperand &Lhs = MI.getOperand(0);
+      const MachineOperand &Base = MI.getOperand(1);
+      if (!Base.isReg() || !Base.getReg() || !Lhs.getReg().isVirtual() ||
+          isDClass(MRI.getRegClass(Lhs.getReg())))
+        continue;
+      Register Copy = MRI.createVirtualRegister(&M6800::ACC16RegClass);
+      BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(TargetOpcode::COPY), Copy)
+          .addReg(Lhs.getReg());
+      Lhs.setReg(Copy);
+      Lhs.setIsKill(true);
+      Changed = true;
+    }
+  }
+  return Changed;
+}
+
 bool M6800SplitDOperands::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = widenTiedSources(MF, isXClass);
+  Changed |= narrowCompareLhs(MF);
   // At -O0 a chain of D-only operations would pin every value to D.
   if (MF.getTarget().getOptLevel() == CodeGenOptLevel::None)
     Changed |= widenTiedSources(MF, isDClass);
