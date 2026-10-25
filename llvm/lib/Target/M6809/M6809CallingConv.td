@@ -38,3 +38,4 @@ def CC_M6809 : CallingConv<[
 ]>;
 
 def CSR_M6809 : CalleeSavedRegs<(add U)>;
+def CSR_NoRegs : CalleeSavedRegs<(add)>;

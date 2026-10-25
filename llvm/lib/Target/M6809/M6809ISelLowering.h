@@ -51,6 +51,10 @@ private:
   MachineBasicBlock *emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const;
   MachineBasicBlock *emitShiftLoop(MachineInstr &MI,
                                    MachineBasicBlock *MBB) const;
+  MachineBasicBlock *emitSjLjSetjmp(MachineInstr &MI,
+                                    MachineBasicBlock *MBB) const;
+  MachineBasicBlock *emitSjLjLongjmp(MachineInstr &MI,
+                                     MachineBasicBlock *MBB) const;
 
   SDValue lowerShift(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBR_CC(SDValue Op, SelectionDAG &DAG) const;

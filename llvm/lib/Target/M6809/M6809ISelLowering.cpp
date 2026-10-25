@@ -102,6 +102,9 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::VAEND, MVT::Other, Expand);
 
   setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
+  // __builtin_setjmp gives an i32; see ReplaceNodeResults.
+  setOperationAction(ISD::EH_SJLJ_SETJMP, MVT::i32, Custom);
+  setOperationAction(ISD::EH_SJLJ_LONGJMP, MVT::Other, Custom);
   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
   setOperationAction(ISD::RETURNADDR, MVT::i16, Custom);
@@ -144,6 +147,9 @@ MVT M6809TargetLowering::getScalarShiftAmountTy(const DataLayout &,
 SDValue M6809TargetLowering::LowerOperation(SDValue Op,
                                             SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
+  case ISD::EH_SJLJ_LONGJMP:
+    return DAG.getNode(M6809ISD::EH_SJLJ_LONGJMP, SDLoc(Op), MVT::Other,
+                       Op.getOperand(0), Op.getOperand(1));
   case ISD::GlobalAddress:
     return lowerGlobalAddress(Op, DAG);
   case ISD::ExternalSymbol:
@@ -295,6 +301,15 @@ void M6809TargetLowering::ReplaceNodeResults(SDNode *N,
                                              SmallVectorImpl<SDValue> &Results,
                                              SelectionDAG &DAG) const {
   unsigned Opc = N->getOpcode();
+  if (Opc == ISD::EH_SJLJ_SETJMP) {
+    SDLoc DL(N);
+    SDValue R = DAG.getNode(M6809ISD::EH_SJLJ_SETJMP, DL,
+                            DAG.getVTList(MVT::i16, MVT::Other),
+                            N->getOperand(0), N->getOperand(1));
+    Results.push_back(DAG.getNode(ISD::ZERO_EXTEND, DL, MVT::i32, R));
+    Results.push_back(R.getValue(1));
+    return;
+  }
   if ((Opc != ISD::SHL && Opc != ISD::SRL && Opc != ISD::SRA) ||
       N->getValueType(0) != MVT::i32)
     return;
@@ -399,9 +414,109 @@ M6809TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case M6809::ASRV_8:
   case M6809::ASRV_16:
     return emitShiftLoop(MI, MBB);
+  case M6809::SJLJ_SETJMP:
+    return emitSjLjSetjmp(MI, MBB);
+  case M6809::SJLJ_LONGJMP:
+    return emitSjLjLongjmp(MI, MBB);
   default:
     return emitSelect(MI, MBB);
   }
+}
+
+// SJLJ_SETJMP stores the resume address and U, then gives 0 on the way in
+// and 1 when SJLJ_LONGJMP jumps to RestoreMBB:
+//
+//   ThisMBB:    ldx #RestoreMBB; stx 2,buf; stu 6,buf
+//               SJLJ_SETUP RestoreMBB   ; clobbers every register
+//   MainMBB:    v0 = 0
+//   SinkMBB:    dst = PHI [v0, MainMBB], [v1, RestoreMBB]
+//   ...
+//   RestoreMBB: v1 = 1; lbra SinkMBB
+MachineBasicBlock *
+M6809TargetLowering::emitSjLjSetjmp(MachineInstr &MI,
+                                    MachineBasicBlock *MBB) const {
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  MachineFunction *MF = MBB->getParent();
+  MachineRegisterInfo &MRI = MF->getRegInfo();
+  const BasicBlock *BB = MBB->getBasicBlock();
+  MachineFunction::iterator It = std::next(MBB->getIterator());
+
+  MachineBasicBlock *MainMBB = MF->CreateMachineBasicBlock(BB);
+  MachineBasicBlock *SinkMBB = MF->CreateMachineBasicBlock(BB);
+  MachineBasicBlock *RestoreMBB = MF->CreateMachineBasicBlock(BB);
+  MF->insert(It, MainMBB);
+  MF->insert(It, SinkMBB);
+  MF->push_back(RestoreMBB);
+  RestoreMBB->setMachineBlockAddressTaken();
+
+  SinkMBB->splice(SinkMBB->begin(), MBB,
+                  std::next(MachineBasicBlock::iterator(MI)), MBB->end());
+  SinkMBB->transferSuccessorsAndUpdatePHIs(MBB);
+  MBB->addSuccessor(MainMBB);
+  MBB->addSuccessor(RestoreMBB);
+  MainMBB->addSuccessor(SinkMBB);
+  RestoreMBB->addSuccessor(SinkMBB);
+
+  Register Dst = MI.getOperand(0).getReg();
+  Register Buf = MI.getOperand(1).getReg();
+  Register Addr = MRI.createVirtualRegister(&M6809::GR16RegClass);
+  Register V0 = MRI.createVirtualRegister(&M6809::GR16RegClass);
+  Register V1 = MRI.createVirtualRegister(&M6809::GR16RegClass);
+
+  BuildMI(MBB, DL, TII.get(M6809::LD16i), Addr).addMBB(RestoreMBB);
+  BuildMI(MBB, DL, TII.get(M6809::ST16m))
+      .addReg(Addr)
+      .addReg(Buf)
+      .addImm(2)
+      .addImm(M6809Mem::Auto);
+  // U only has a value to keep when it is the frame pointer, and then it is
+  // reserved; otherwise any value will do.
+  BuildMI(MBB, DL, TII.get(M6809::ST16m))
+      .addReg(M6809::U, RegState::Undef)
+      .addReg(Buf)
+      .addImm(6)
+      .addImm(M6809Mem::Auto);
+  BuildMI(MBB, DL, TII.get(M6809::SJLJ_SETUP))
+      .addMBB(RestoreMBB)
+      .addRegMask(Subtarget.getRegisterInfo()->getNoPreservedMask());
+
+  BuildMI(MainMBB, DL, TII.get(M6809::LD16i), V0).addImm(0);
+  BuildMI(RestoreMBB, DL, TII.get(M6809::LD16i), V1).addImm(1);
+  BuildMI(RestoreMBB, DL, TII.get(M6809::LBRA)).addMBB(SinkMBB);
+  BuildMI(*SinkMBB, SinkMBB->begin(), DL, TII.get(TargetOpcode::PHI), Dst)
+      .addReg(V0)
+      .addMBB(MainMBB)
+      .addReg(V1)
+      .addMBB(RestoreMBB);
+
+  MI.eraseFromParent();
+  return SinkMBB;
+}
+
+// SJLJ_LONGJMP restores U and S from the buffer and jumps to the resume
+// address: ldu 6,x; lds 4,x; jmp [2,x].
+MachineBasicBlock *
+M6809TargetLowering::emitSjLjLongjmp(MachineInstr &MI,
+                                     MachineBasicBlock *MBB) const {
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY), M6809::X)
+      .addReg(MI.getOperand(0).getReg());
+  BuildMI(*MBB, MI, DL, TII.get(M6809::LD16m), M6809::U)
+      .addReg(M6809::X)
+      .addImm(6)
+      .addImm(M6809Mem::Auto);
+  BuildMI(*MBB, MI, DL, TII.get(M6809::LDSm))
+      .addReg(M6809::X)
+      .addImm(4)
+      .addImm(M6809Mem::Auto);
+  BuildMI(*MBB, MI, DL, TII.get(M6809::JMPm))
+      .addReg(M6809::X)
+      .addImm(2)
+      .addImm(M6809Mem::Auto | M6809Mem::Indirect);
+  MI.eraseFromParent();
+  return MBB;
 }
 
 // Variable shifts become a count-down loop:

@@ -33,6 +33,10 @@ M6809RegisterInfo::getCallPreservedMask(const MachineFunction &MF,
   return CSR_M6809_RegMask;
 }
 
+const uint32_t *M6809RegisterInfo::getNoPreservedMask() const {
+  return CSR_NoRegs_RegMask;
+}
+
 BitVector M6809RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   BitVector Reserved(getNumRegs());
   Reserved.set(M6809::S);

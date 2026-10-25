@@ -36,6 +36,8 @@ public:
   StringRef getPassName() const override { return "M6809 Assembly Printer"; }
 
   void emitInstruction(const MachineInstr *MI) override {
+    if (MI->getOpcode() == M6809::SJLJ_SETUP)
+      return;
     M6809_MC::verifyInstructionPredicates(MI->getOpcode(),
                                           getSubtargetInfo().getFeatureBits());
     MCInst Inst;
