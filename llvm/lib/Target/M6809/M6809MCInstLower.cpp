@@ -218,8 +218,6 @@ MCOperand M6809MCInstLower::lowerOperand(const MachineOperand &MO) const {
   }
 }
 
-
-
 void M6809MCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
   OutMI.setOpcode(MI->getOpcode());
 
@@ -237,7 +235,7 @@ void M6809MCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
       MI->getMF()->getSubtarget<M6809Subtarget>().has6309() &&
       OutMI.getOperand(1).isImm() && OutMI.getOperand(1).getImm() == 0 &&
       !M6809InstrInfo::isCarryReadFrom(*MI->getParent(),
-                                        std::next(MI->getIterator()))) {
+                                       std::next(MI->getIterator()))) {
     MCRegister R = OutMI.getOperand(0).getReg();
     if (R == M6809::D || R == M6809::W) {
       OutMI = MCInst();

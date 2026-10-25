@@ -320,9 +320,9 @@ static bool storeToScratch(MachineInstr &MI, const MachineOperand &Rhs,
     return false;
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   Base = MF.getSubtarget().getRegisterInfo()->getFrameRegister(MF);
-  Off = MFI.getObjectOffset(FI) + (Base == M6809::U
-                                       ? M6809FrameLowering::FPSaveSize
-                                       : MFI.getStackSize());
+  Off =
+      MFI.getObjectOffset(FI) +
+      (Base == M6809::U ? M6809FrameLowering::FPSaveSize : MFI.getStackSize());
   bool Is8 = M6809::ACC8RegClass.contains(Rhs.getReg());
   BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(Is8 ? M6809::ST8m : M6809::ST16m))
       .addReg(Rhs.getReg()) // may also be the other operand
@@ -545,9 +545,8 @@ static bool flagsAlreadySet(MachineBasicBlock &MBB,
         return false;
       if (!Clobbers)
         return true;
-      if (!all_of(Between, [&](MachineInstr *B) {
-            return canSinkPast(*I, *B, TRI);
-          }))
+      if (!all_of(Between,
+                  [&](MachineInstr *B) { return canSinkPast(*I, *B, TRI); }))
         return false;
       MBB.splice(MI, &MBB, I);
       return true;
@@ -569,8 +568,8 @@ void M6809InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
     return;
   bool EqNe = CC == M6809CC::EQ || CC == M6809CC::NE;
   // TST leaves C alone, so it serves every condition but the unsigned ones.
-  bool Unsigned = CC == M6809CC::HI || CC == M6809CC::LS ||
-                  CC == M6809CC::HS || CC == M6809CC::LO;
+  bool Unsigned = CC == M6809CC::HI || CC == M6809CC::LS || CC == M6809CC::HS ||
+                  CC == M6809CC::LO;
   if (M6809::ACC8RegClass.contains(R)) {
     if (Unsigned)
       BuildMI(MBB, MI, DL, get(M6809::CMP8i)).add(Lhs).addImm(0);

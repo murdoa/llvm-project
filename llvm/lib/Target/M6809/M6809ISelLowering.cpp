@@ -593,9 +593,11 @@ bool M6809TargetLowering::getPreIndexedAddressParts(SDNode *N, SDValue &Base,
 // A load or store at p followed by p + size: ,R+ for a byte, ,R++ for a
 // word.  Storing the pointer through itself is left alone; "stx ,x++"
 // stores the old or the new X depending on the CPU's timing.
-bool M6809TargetLowering::getPostIndexedAddressParts(
-    SDNode *N, SDNode *Op, SDValue &Base, SDValue &Offset,
-    ISD::MemIndexedMode &AM, SelectionDAG &DAG) const {
+bool M6809TargetLowering::getPostIndexedAddressParts(SDNode *N, SDNode *Op,
+                                                     SDValue &Base,
+                                                     SDValue &Offset,
+                                                     ISD::MemIndexedMode &AM,
+                                                     SelectionDAG &DAG) const {
   EVT VT;
   SDValue Ptr;
   if (!getIndexedParts(N, VT, Ptr) || Op->getOpcode() != ISD::ADD)
@@ -605,8 +607,7 @@ bool M6809TargetLowering::getPostIndexedAddressParts(
   if (auto *ST = dyn_cast<StoreSDNode>(N); ST && ST->getValue() == Ptr)
     return false;
   auto *C = dyn_cast<ConstantSDNode>(Op->getOperand(1));
-  if (Op->getOperand(0) != Ptr || !C ||
-      C->getZExtValue() != VT.getStoreSize())
+  if (Op->getOperand(0) != Ptr || !C || C->getZExtValue() != VT.getStoreSize())
     return false;
   Base = Ptr;
   Offset = Op->getOperand(1);

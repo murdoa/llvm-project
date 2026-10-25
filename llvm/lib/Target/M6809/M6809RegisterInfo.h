@@ -36,8 +36,7 @@ public:
 
   bool getRegAllocationHints(Register VirtReg, ArrayRef<MCPhysReg> Order,
                              SmallSetVector<MCPhysReg, 16> &Hints,
-                             const MachineFunction &MF,
-                             const VirtRegMap *VRM,
+                             const MachineFunction &MF, const VirtRegMap *VRM,
                              const LiveRegMatrix *Matrix) const override;
 
   // Values that an instruction forces into D (or X/Y/U) may live in any

@@ -8,8 +8,8 @@
 
 #include "M6809TargetTransformInfo.h"
 #include "llvm/Analysis/LoopInfo.h"
-#include "llvm/IR/Instructions.h"
 #include "llvm/Analysis/ScalarEvolutionExpressions.h"
+#include "llvm/IR/Instructions.h"
 #include "llvm/Support/CommandLine.h"
 
 using namespace llvm;
@@ -36,8 +36,8 @@ M6809TTIImpl::getPreferredAddressingMode(const Loop *L,
       const Value *Ptr = getLoadStorePointerOperand(&I);
       if (!Ptr || !SE->isSCEVable(Ptr->getType()))
         continue;
-      if (auto *AR = dyn_cast<SCEVAddRecExpr>(
-              SE->getSCEV(const_cast<Value *>(Ptr))))
+      if (auto *AR =
+              dyn_cast<SCEVAddRecExpr>(SE->getSCEV(const_cast<Value *>(Ptr))))
         if (AR->getLoop() == L)
           if (auto *Step = dyn_cast<SCEVConstant>(AR->getStepRecurrence(*SE)))
             if (Step->getAPInt().isNegative())

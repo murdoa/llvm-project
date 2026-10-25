@@ -200,9 +200,9 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
     bool Post = LD->getAddressingMode() == ISD::POST_INC;
     unsigned Opc = Post ? (Byte ? M6809::LD8pi : M6809::LD16pi)
                         : (Byte ? M6809::LD8pd : M6809::LD16pd);
-    MachineSDNode *MN = CurDAG->getMachineNode(
-        Opc, SDLoc(N), LD->getValueType(0),
-        MVT::i16, MVT::Other, {LD->getBasePtr(), LD->getChain()});
+    MachineSDNode *MN =
+        CurDAG->getMachineNode(Opc, SDLoc(N), LD->getValueType(0), MVT::i16,
+                               MVT::Other, {LD->getBasePtr(), LD->getChain()});
     CurDAG->setNodeMemRefs(MN, {LD->getMemOperand()});
     ReplaceNode(N, MN);
     return;

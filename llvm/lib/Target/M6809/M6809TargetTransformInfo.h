@@ -42,8 +42,7 @@ public:
         TLI(ST->getTargetLowering()) {}
 
   TTI::AddressingModeKind
-  getPreferredAddressingMode(const Loop *L,
-                             ScalarEvolution *SE) const override;
+  getPreferredAddressingMode(const Loop *L, ScalarEvolution *SE) const override;
 
   bool isLSRCostLess(const TTI::LSRCost &C1,
                      const TTI::LSRCost &C2) const override;

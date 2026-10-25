@@ -780,11 +780,10 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       // beats "tst >n" (6, 3) when A or B is free. LDA leaves C alone where
       // TST clears it, so only for conditions that do not read C.
       const MachineOperand &Base = MI.getOperand(0), &Off = MI.getOperand(1);
-      bool PageZero =
-          !(Base.isReg() && Base.getReg()) &&
-          (MI.getOperand(2).getImm() == M6800Mem::Direct ||
-           (MI.getOperand(2).getImm() == M6800Mem::Auto && Off.isImm() &&
-            isUInt<8>(Off.getImm())));
+      bool PageZero = !(Base.isReg() && Base.getReg()) &&
+                      (MI.getOperand(2).getImm() == M6800Mem::Direct ||
+                       (MI.getOperand(2).getImm() == M6800Mem::Auto &&
+                        Off.isImm() && isUInt<8>(Off.getImm())));
       bool UsesC = CC == M6800CC::HI || CC == M6800CC::LS ||
                    CC == M6800CC::HS || CC == M6800CC::LO;
       Register Free;
