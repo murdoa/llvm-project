@@ -349,10 +349,16 @@ void M6800TargetLowering::ReplaceNodeResults(SDNode *N,
 // Maps an integer condition to a 6800 branch condition. A constant LHS is
 // swapped to the right first, since only the right side can be an immediate.
 static M6800CC::CondCode prepareCompare(SDValue &LHS, SDValue &RHS,
-                                        ISD::CondCode CC) {
+                                        ISD::CondCode CC, SelectionDAG &DAG,
+                                        const SDLoc &DL) {
   if (isa<ConstantSDNode>(LHS) && !isa<ConstantSDNode>(RHS)) {
     std::swap(LHS, RHS);
     CC = ISD::getSetCCSwappedOperands(CC);
+  }
+  // x <= -1 and x > -1 are sign tests: against zero, they are a TST.
+  if (isAllOnesConstant(RHS) && (CC == ISD::SETLE || CC == ISD::SETGT)) {
+    RHS = DAG.getConstant(0, DL, RHS.getValueType());
+    CC = CC == ISD::SETLE ? ISD::SETLT : ISD::SETGE;
   }
   switch (CC) {
   case ISD::SETEQ: return M6800CC::EQ;
@@ -380,7 +386,7 @@ SDValue M6800TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   SDValue Dest = Op.getOperand(4);
   SDLoc DL(Op);
 
-  M6800CC::CondCode MCC = prepareCompare(LHS, RHS, CC);
+  M6800CC::CondCode MCC = prepareCompare(LHS, RHS, CC, DAG, DL);
   return DAG.getNode(M6800ISD::CMPBR, DL, MVT::Other, Chain, LHS, RHS,
                      DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
 }
@@ -544,7 +550,7 @@ SDValue M6800TargetLowering::lowerSELECT_CC(SDValue Op,
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
   SDLoc DL(Op);
 
-  M6800CC::CondCode MCC = prepareCompare(LHS, RHS, CC);
+  M6800CC::CondCode MCC = prepareCompare(LHS, RHS, CC, DAG, DL);
   return DAG.getNode(M6800ISD::SELECT_CC, DL, Op.getValueType(), TVal, FVal,
                      LHS, RHS, DAG.getTargetConstant(MCC, DL, MVT::i8));
 }
