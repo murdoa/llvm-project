@@ -47,6 +47,10 @@ public:
 
   bool isLSRCostLess(const TTI::LSRCost &C1,
                      const TTI::LSRCost &C2) const override;
+
+  void getUnrollingPreferences(Loop *L, ScalarEvolution &SE,
+                               TTI::UnrollingPreferences &UP,
+                               OptimizationRemarkEmitter *ORE) const override;
 };
 
 } // end namespace llvm
