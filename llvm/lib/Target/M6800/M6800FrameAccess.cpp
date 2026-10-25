@@ -74,6 +74,7 @@ private:
 
   void computeLiveness(MachineBasicBlock &MBB);
   bool rewrite(MachineInstr &MI, unsigned MemIdx);
+  void rewriteInlineAsm(MachineInstr &MI);
   void rewriteLEAFI(MachineInstr &MI);
   void rewriteStoreX(MachineInstr &MI, Register Base, int64_t Off);
   void addToX(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
@@ -335,6 +336,48 @@ bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
   return true;
 }
 
+// Stack slot operands of inline asm become "off,x" after a TSX (or "ldx
+// __m6800_fp"), with X pushed and pulled around the asm when it is live.
+// The asm must leave X alone, and each offset must fit the indexed mode.
+void M6800FrameAccess::rewriteInlineAsm(MachineInstr &MI) {
+  MachineBasicBlock &MBB = *MI.getParent();
+  DebugLoc DL = MI.getDebugLoc();
+  LiveAfter LA = Live.lookup(&MI);
+  if (MI.readsRegister(M6800::X, TRI) || MI.modifiesRegister(M6800::X, TRI)) {
+    MI.emitInlineAsmError(
+        "inline asm with a stack slot operand cannot also use X");
+    return;
+  }
+  Register Base;
+  for (int I = findStackOperand(MI); I >= 0; I = findStackOperand(MI)) {
+    Register B = MI.getOperand(I).getReg();
+    if (Base && B != Base) {
+      MI.emitInlineAsmError(
+          "inline asm operands on both SP and the frame pointer");
+      return;
+    }
+    Base = B;
+    int64_t Off = MI.getOperand(I + 1).getImm();
+    if (LA.X && Base == M6800::SP)
+      Off += 2;
+    if (Off < 0 || Off > 255) {
+      MI.emitInlineAsmError(
+          "inline asm stack slot operand out of indexed range");
+      return;
+    }
+    MI.getOperand(I).setReg(M6800::X);
+    MI.getOperand(I + 1).setImm(Off);
+  }
+  if (LA.X)
+    BuildMI(MBB, MI, DL, TII->get(M6800::PSHX)).addReg(M6800::X);
+  if (LA.X || XBase != Base)
+    loadBase(MBB, MI, DL, Base);
+  if (LA.X)
+    BuildMI(MBB, std::next(MI.getIterator()), DL, TII->get(M6800::PULX),
+            M6800::X);
+  XBase = LA.X ? Register() : Base;
+}
+
 bool M6800FrameAccess::runOnMachineFunction(MachineFunction &MF) {
   TII = MF.getSubtarget<M6800Subtarget>().getInstrInfo();
   TRI = MF.getSubtarget().getRegisterInfo();
@@ -353,7 +396,14 @@ bool M6800FrameAccess::runOnMachineFunction(MachineFunction &MF) {
         continue;
       }
       int MemIdx = findStackOperand(MI);
-      if (MemIdx >= 0 && !MI.isInlineAsm()) {
+      if (MemIdx >= 0 && MI.isInlineAsm()) {
+        rewriteInlineAsm(MI);
+        Changed = true;
+        if (MI.modifiesRegister(M6800::SP, TRI))
+          XBase = Register();
+        continue;
+      }
+      if (MemIdx >= 0) {
         Changed = true;
         if (!rewrite(MI, MemIdx))
           continue;

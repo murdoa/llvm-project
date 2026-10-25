@@ -120,14 +120,57 @@ define void @mem_global() {
   ret void
 }
 
-; FIXME: a stack slot as an "m" operand is printed as "0,sp", which is not
-; a 6800 addressing mode: M6800FrameAccess does not rewrite inline asm
-; memory operands.
-; define void @mem_stack() {
-;   %v = alloca i16
-;   call void asm sideeffect "clr $0", "*m"(ptr elementtype(i16) %v)
-;   ret void
-; }
+; A stack slot "m" operand is "off,x" after tsx, with X kept around the asm
+; when it is live.
+define void @mem_stack() {
+; CHECK-LABEL: mem_stack:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ;APP
+; CHECK-NEXT:    clr 0,x
+; CHECK-EMPTY:
+; CHECK-NEXT:    ;NO_APP
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    rts
+  %v = alloca i16
+  call void asm sideeffect "clr $0", "*m"(ptr elementtype(i16) %v)
+  ret void
+}
+
+define i16 @mem_stack_xlive(ptr %p) {
+; CHECK-LABEL: mem_stack_xlive:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ;APP
+; CHECK-NEXT:    clr 2,x
+; CHECK-EMPTY:
+; CHECK-NEXT:    ;NO_APP
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    ldab #1
+; CHECK-NEXT:    stab 1,x
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ;APP
+; CHECK-NEXT:    inc 3,x
+; CHECK-EMPTY:
+; CHECK-NEXT:    ;NO_APP
+; CHECK-NEXT:    ldd 0,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    rts
+  %v = alloca [4 x i8]
+  %q = getelementptr i8, ptr %p, i16 1
+  call void asm sideeffect "clr $0", "*m"(ptr elementtype(i8) %v)
+  store i8 1, ptr %q
+  %w = getelementptr i8, ptr %v, i16 3
+  call void asm sideeffect "inc $0", "*m"(ptr elementtype(i8) %w)
+  %r = load i16, ptr %v
+  ret i16 %r
+}
 
 define void @mem_ptr(ptr %p) {
 ; CHECK-LABEL: mem_ptr:
