@@ -16,8 +16,9 @@ using namespace clang::CodeGen;
 // M6809 ABI Implementation
 //
 // Aggregates are passed by value in the argument area and returned through a
-// hidden pointer, as DefaultABIInfo does. Arguments are packed with no
-// padding, so the variadic area is read one value after another.
+// hidden pointer, as DefaultABIInfo does, except that zero-sized ones (a GNU
+// C extension) take no space. Arguments are packed with no padding, so the
+// variadic area is read one value after another.
 //===----------------------------------------------------------------------===//
 
 namespace {
@@ -25,6 +26,20 @@ namespace {
 class M6809ABIInfo : public DefaultABIInfo {
 public:
   M6809ABIInfo(CodeGenTypes &CGT) : DefaultABIInfo(CGT) {}
+
+  ABIArgInfo classifyArgumentType(QualType Ty) const {
+    if (isAggregateTypeForABI(Ty) && getContext().getTypeSize(Ty) == 0 &&
+        !getRecordArgABI(Ty, getCXXABI()))
+      return ABIArgInfo::getIgnore();
+    return DefaultABIInfo::classifyArgumentType(Ty);
+  }
+
+  void computeInfo(CGFunctionInfo &FI) const override {
+    if (!getCXXABI().classifyReturnType(FI))
+      FI.getReturnInfo() = classifyReturnType(FI.getReturnType());
+    for (auto &I : FI.arguments())
+      I.info = classifyArgumentType(I.type);
+  }
 
   RValue EmitVAArg(CodeGenFunction &CGF, Address VAListAddr, QualType Ty,
                    AggValueSlot Slot) const override {

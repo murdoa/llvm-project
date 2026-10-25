@@ -32,3 +32,10 @@ long get_long(int n, ...) {
 // CHECK-LABEL: define{{.*}} void @pass_struct
 // CHECK: call void (ptr, i16, ...) @get_struct(ptr {{.*}}sret(%struct.s3) {{.*}}, i16 noundef 1, ptr noundef byval(%struct.s3) align 1
 struct s3 pass_struct(struct s3 x) { return get_struct(1, x); }
+
+struct empty {};
+
+// A zero-sized struct takes no argument space.
+// CHECK-LABEL: define{{.*}} void @pass_empty
+// CHECK: call void (ptr, i16, ...) @get_struct(ptr {{.*}}, i16 noundef 2, ptr noundef byval(%struct.s3) align 1 %{{.*}})
+struct s3 pass_empty(struct empty e, struct s3 x) { return get_struct(2, e, x); }
