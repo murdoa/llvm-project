@@ -105,6 +105,7 @@ define i16 @zextload(ptr %p) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldb ,x
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    rts
   %v = load i8, ptr %p
@@ -117,6 +118,7 @@ define i16 @sextload(ptr %p) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldb ,x
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    sex
 ; CHECK-NEXT:    rts
   %v = load i8, ptr %p
@@ -127,6 +129,7 @@ define i16 @sextload(ptr %p) {
 define void @truncstore(i16 %v, ptr %p) {
 ; CHECK-LABEL: truncstore:
 ; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ; kill: def $b killed $b killed $d
 ; CHECK-NEXT:    ldx 2,s
 ; CHECK-NEXT:    stb ,x
 ; CHECK-NEXT:    rts

@@ -22,6 +22,7 @@ add_llvm_target(M6809CodeGen
   M6809MCInstLower.cpp
   M6809RegisterInfo.cpp
   M6809SelectionDAGInfo.cpp
+  M6809SplitDOperands.cpp
   M6809Subtarget.cpp
   M6809TargetMachine.cpp
 

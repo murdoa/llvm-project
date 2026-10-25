@@ -36,6 +36,15 @@ public:
   // Values that an instruction forces into D (or X/Y/U) may live in any
   // 16-bit register between uses. Letting the allocator widen split ranges
   // is what makes "D op D" (both sides computed in D) allocatable.
+  // Don't merge a copy that moves a value out of D (or into it) if that
+  // would pin both sides to D. See M6809SplitDOperands.cpp.
+  bool shouldCoalesce(MachineInstr *MI, const TargetRegisterClass *SrcRC,
+                      unsigned SubReg, const TargetRegisterClass *DstRC,
+                      unsigned DstSubReg, const TargetRegisterClass *NewRC,
+                      LiveIntervals &LIS) const override {
+    return NewRC != &M6809::ACC16RegClass || (SrcRC == NewRC && DstRC == NewRC);
+  }
+
   const TargetRegisterClass *
   getLargestLegalSuperClass(const TargetRegisterClass *RC,
                             const MachineFunction &) const override {

@@ -509,6 +509,31 @@ let Constraints = "$src = $dst", Defs = [CC] in {
                           [(set ACC16:$dst, (M6809Asr ACC16:$src))]>;
 }
 
+// Carry-linked one-bit shifts for multi-word values. The first node shifts
+// one word and leaves the bit that fell out in C; the second rotates C into
+// the next word.
+def SDT_M6809Shift1C : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>,
+                                            SDTCisVT<0, i16>]>;
+def M6809LslC : SDNode<"M6809ISD::LSL_C", SDT_M6809Shift1C, [SDNPOutGlue]>;
+def M6809LsrC : SDNode<"M6809ISD::LSR_C", SDT_M6809Shift1C, [SDNPOutGlue]>;
+def M6809AsrC : SDNode<"M6809ISD::ASR_C", SDT_M6809Shift1C, [SDNPOutGlue]>;
+def M6809RolC : SDNode<"M6809ISD::ROL_C", SDT_M6809Shift1C,
+                       [SDNPInGlue, SDNPOutGlue]>;
+def M6809RorC : SDNode<"M6809ISD::ROR_C", SDT_M6809Shift1C,
+                       [SDNPInGlue, SDNPOutGlue]>;
+
+def : Pat<(M6809LslC ACC16:$x), (LSL16 ACC16:$x)>;
+def : Pat<(M6809LsrC ACC16:$x), (LSR16 ACC16:$x)>;
+def : Pat<(M6809AsrC ACC16:$x), (ASR16 ACC16:$x)>;
+
+// "rolb; rola" and "rora; rorb".
+let Constraints = "$src = $dst", Defs = [CC], Uses = [CC] in {
+  def ROL16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                          [(set ACC16:$dst, (M6809RolC ACC16:$src))]>;
+  def ROR16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                          [(set ACC16:$dst, (M6809RorC ACC16:$src))]>;
+}
+
 // Shifting D by 8 moves one byte across and fills the other. These are
 // pseudos on a single D value, expanded after register allocation into
 // "tfr b,a; clrb", "tfr a,b; clra" and "tfr a,b; sex". Doing it with

@@ -20,9 +20,11 @@ class PassRegistry;
 
 FunctionPass *createM6809ISelDag(M6809TargetMachine &TM,
                                  CodeGenOptLevel OptLevel);
+FunctionPass *createM6809SplitDOperandsPass();
 
 void initializeM6809AsmPrinterPass(PassRegistry &);
 void initializeM6809DAGToDAGISelLegacyPass(PassRegistry &);
+void initializeM6809SplitDOperandsPass(PassRegistry &);
 
 } // namespace llvm
 

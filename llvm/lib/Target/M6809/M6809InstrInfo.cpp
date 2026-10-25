@@ -190,6 +190,12 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   case M6809::ASR16:
     FirstOpc = M6809::ASR8;
     break;
+  case M6809::ROL16:
+    FirstOpc = M6809::ROL8;
+    break;
+  case M6809::ROR16:
+    FirstOpc = M6809::ROR8;
+    break;
   }
   if (Opc == M6809::SHL16_8 || Opc == M6809::LSR16_8 ||
       Opc == M6809::ASR16_8) {
@@ -209,7 +215,7 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   }
 
   if (FirstOpc) {
-    bool Left = Opc == M6809::LSL16;
+    bool Left = Opc == M6809::LSL16 || Opc == M6809::ROL16;
     Register First = Left ? M6809::B : M6809::A;
     Register Second = Left ? M6809::A : M6809::B;
     BuildMI(MBB, MI, DL, get(FirstOpc), First).addReg(First);

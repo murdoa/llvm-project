@@ -96,8 +96,10 @@ define i16 @ashr16_8(i16 %a) {
 define i16 @shl16_10(i16 %a) {
 ; CHECK-LABEL: shl16_10:
 ; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ; kill: def $b killed $b killed $d
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    aslb
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:    rts
@@ -108,11 +110,12 @@ define i16 @shl16_10(i16 %a) {
 define i16 @lshr16_12(i16 %a) {
 ; CHECK-LABEL: lshr16_12:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    lsra
-; CHECK-NEXT:    lsra
-; CHECK-NEXT:    lsra
-; CHECK-NEXT:    lsra
 ; CHECK-NEXT:    tfr a, b
+; CHECK-NEXT:    lsrb
+; CHECK-NEXT:    lsrb
+; CHECK-NEXT:    lsrb
+; CHECK-NEXT:    lsrb
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    rts
   %r = lshr i16 %a, 12
@@ -122,14 +125,15 @@ define i16 @lshr16_12(i16 %a) {
 define i16 @ashr16_15(i16 %a) {
 ; CHECK-LABEL: ashr16_15:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    asra
-; CHECK-NEXT:    asra
-; CHECK-NEXT:    asra
-; CHECK-NEXT:    asra
-; CHECK-NEXT:    asra
-; CHECK-NEXT:    asra
-; CHECK-NEXT:    asra
 ; CHECK-NEXT:    tfr a, b
+; CHECK-NEXT:    asrb
+; CHECK-NEXT:    asrb
+; CHECK-NEXT:    asrb
+; CHECK-NEXT:    asrb
+; CHECK-NEXT:    asrb
+; CHECK-NEXT:    asrb
+; CHECK-NEXT:    asrb
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    sex
 ; CHECK-NEXT:    rts
   %r = ashr i16 %a, 15
@@ -152,6 +156,7 @@ define i8 @shl8_var(i8 %a, i8 %n) {
 ; CHECK-NEXT:    leas -1,s
 ; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
 ; CHECK-NEXT:    ldb 3,s
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    cmpx #0
@@ -179,22 +184,19 @@ define i16 @lshr16_var(i16 %a, i16 %n) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldb 3,s
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    cmpx #0
-; CHECK-NEXT:    lbeq .LBB14_1
-; CHECK-NEXT:  ; %bb.2:
 ; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:  .LBB14_3: ; =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    cmpx #0
+; CHECK-NEXT:    lbeq .LBB14_2
+; CHECK-NEXT:  .LBB14_1: ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    lsra
 ; CHECK-NEXT:    rorb
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    cmpx #0
-; CHECK-NEXT:    lbne .LBB14_3
-; CHECK-NEXT:  ; %bb.4:
-; CHECK-NEXT:    rts
-; CHECK-NEXT:  .LBB14_1:
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    lbne .LBB14_1
+; CHECK-NEXT:  .LBB14_2:
 ; CHECK-NEXT:    rts
   %r = lshr i16 %a, %n
   ret i16 %r
@@ -205,22 +207,19 @@ define i16 @ashr16_var(i16 %a, i16 %n) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldb 3,s
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    cmpx #0
-; CHECK-NEXT:    lbeq .LBB15_1
-; CHECK-NEXT:  ; %bb.2:
 ; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:  .LBB15_3: ; =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    cmpx #0
+; CHECK-NEXT:    lbeq .LBB15_2
+; CHECK-NEXT:  .LBB15_1: ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    asra
 ; CHECK-NEXT:    rorb
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    cmpx #0
-; CHECK-NEXT:    lbne .LBB15_3
-; CHECK-NEXT:  ; %bb.4:
-; CHECK-NEXT:    rts
-; CHECK-NEXT:  .LBB15_1:
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    lbne .LBB15_1
+; CHECK-NEXT:  .LBB15_2:
 ; CHECK-NEXT:    rts
   %r = ashr i16 %a, %n
   ret i16 %r
@@ -254,6 +253,7 @@ define i16 @rotl16_3(i16 %a) {
 ; CHECK-NEXT:    lsrb
 ; CHECK-NEXT:    lsrb
 ; CHECK-NEXT:    lsrb
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    tfr x, d
@@ -263,7 +263,8 @@ define i16 @rotl16_3(i16 %a) {
 ; CHECK-NEXT:    rola
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
-; CHECK-NEXT:    pshs y
+; CHECK-NEXT:    tfr y, x
+; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    ora ,s+
 ; CHECK-NEXT:    orb ,s+
 ; CHECK-NEXT:    rts
@@ -274,35 +275,14 @@ define i16 @rotl16_3(i16 %a) {
 define i32 @shl32_1(i32 %a) {
 ; CHECK-LABEL: shl32_1:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldy 4,s
-; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    aslb
-; CHECK-NEXT:    rola
-; CHECK-NEXT:    pshs u
-; CHECK-NEXT:    ora ,s+
-; CHECK-NEXT:    orb ,s+
-; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldd 2,s
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    rolb
+; CHECK-NEXT:    rola
 ; CHECK-NEXT:    rts
   %r = shl i32 %a, 1
   ret i32 %r
@@ -316,6 +296,7 @@ define i32 @shl32_var(i32 %a, i32 %n) {
 ; CHECK-NEXT:    ldd 6,s
 ; CHECK-NEXT:    std ,s
 ; CHECK-NEXT:    ldb 11,s
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    std 2,s
 ; CHECK-NEXT:    tfr x, d

@@ -52,11 +52,10 @@ define void @add32_mem(ptr %p, ptr %q) {
 ; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldu 2,x
-; CHECK-NEXT:    ldd ,x
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 2,x
+; CHECK-NEXT:    ldu ,x
+; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldy 6,s
-; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    addd 2,y
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
@@ -117,35 +116,14 @@ define i64 @add64(i64 %a, i64 %b) {
 define i32 @shl32_1(i32 %a) {
 ; CHECK-LABEL: shl32_1:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldy 4,s
-; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    aslb
-; CHECK-NEXT:    rola
-; CHECK-NEXT:    pshs u
-; CHECK-NEXT:    ora ,s+
-; CHECK-NEXT:    orb ,s+
-; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldd 2,s
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    rolb
+; CHECK-NEXT:    rola
 ; CHECK-NEXT:    rts
   %r = shl i32 %a, 1
   ret i32 %r
@@ -169,5 +147,86 @@ define i32 @neg32(i32 %a) {
 ; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %r = sub i32 0, %a
+  ret i32 %r
+}
+
+define i32 @lshr32_2(i32 %a) {
+; CHECK-LABEL: lshr32_2:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    lsra
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    rora
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    lsra
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    rora
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    rts
+  %r = lshr i32 %a, 2
+  ret i32 %r
+}
+
+define i32 @ashr32_1(i32 %a) {
+; CHECK-LABEL: ashr32_1:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    asra
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    rora
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    rts
+  %r = ashr i32 %a, 1
+  ret i32 %r
+}
+
+define i32 @shl32_16(i32 %a) {
+; CHECK-LABEL: shl32_16:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ldd 2,s
+; CHECK-NEXT:    ldx #0
+; CHECK-NEXT:    rts
+  %r = shl i32 %a, 16
+  ret i32 %r
+}
+
+define i32 @lshr32_8(i32 %a) {
+; CHECK-LABEL: lshr32_8:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    tfr d, u
+; CHECK-NEXT:    ldb 4,s
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
+; CHECK-NEXT:    clra
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    tfr b, a
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    pshs x
+; CHECK-NEXT:    ora ,s+
+; CHECK-NEXT:    orb ,s+
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    tfr a, b
+; CHECK-NEXT:    clra
+; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    rts
+  %r = lshr i32 %a, 8
   ret i32 %r
 }

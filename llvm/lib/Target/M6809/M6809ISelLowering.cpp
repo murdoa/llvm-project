@@ -97,6 +97,10 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   for (unsigned Op : {ISD::ADDC, ISD::ADDE, ISD::SUBC, ISD::SUBE})
     setOperationAction(Op, MVT::i16, Legal);
 
+  // i32 shifts by a small constant are carry chains; see ReplaceNodeResults.
+  for (unsigned Op : {ISD::SHL, ISD::SRL, ISD::SRA})
+    setOperationAction(Op, MVT::i32, Custom);
+
   // Shifts are one bit at a time; see lowerShift. Everything built from
   // shifts falls back to the generic expansion.
   for (MVT VT : {MVT::i8, MVT::i16}) {
@@ -222,6 +226,37 @@ SDValue M6809TargetLowering::lowerShift(SDValue Op, SelectionDAG &DAG) const {
                        DL, VT, Hi);
   }
   return Repeat(Val, N);
+}
+
+// Longest i32 constant shift done as a carry chain. Each bit costs about a
+// dozen bytes, because both halves pass through D in turn.
+static constexpr uint64_t MaxShiftChain32 = 3;
+
+void M6809TargetLowering::ReplaceNodeResults(SDNode *N,
+                                             SmallVectorImpl<SDValue> &Results,
+                                             SelectionDAG &DAG) const {
+  unsigned Opc = N->getOpcode();
+  if ((Opc != ISD::SHL && Opc != ISD::SRL && Opc != ISD::SRA) ||
+      N->getValueType(0) != MVT::i32)
+    return;
+  auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1));
+  if (!C || C->isZero() || C->getZExtValue() > MaxShiftChain32)
+    return; // Leave it to the generic expansion.
+
+  SDLoc DL(N);
+  auto [Lo, Hi] = DAG.SplitScalar(N->getOperand(0), DL, MVT::i16, MVT::i16);
+  SDVTList VTs = DAG.getVTList(MVT::i16, MVT::Glue);
+  for (uint64_t I = 0, E = C->getZExtValue(); I != E; ++I) {
+    if (Opc == ISD::SHL) {
+      Lo = DAG.getNode(M6809ISD::LSL_C, DL, VTs, Lo);
+      Hi = DAG.getNode(M6809ISD::ROL_C, DL, VTs, Hi, Lo.getValue(1));
+    } else {
+      Hi = DAG.getNode(Opc == ISD::SRL ? M6809ISD::LSR_C : M6809ISD::ASR_C,
+                       DL, VTs, Hi);
+      Lo = DAG.getNode(M6809ISD::ROR_C, DL, VTs, Lo, Hi.getValue(1));
+    }
+  }
+  Results.push_back(DAG.getNode(ISD::BUILD_PAIR, DL, MVT::i32, Lo, Hi));
 }
 
 // Maps an integer condition to a 6809 branch condition. A constant LHS is
