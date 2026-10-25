@@ -38,6 +38,14 @@ def M6809CmpBr : SDNode<"M6809ISD::CMPBR",
                                              SDTCisVT<3, OtherVT>]>,
                         [SDNPHasChain]>;
 
+// Subtract rhs and the carry from lhs, and branch on cc: the high half of an
+// i32 compare, after a SUBC of the low halves.
+def M6809SbcBr : SDNode<"M6809ISD::SBCBR",
+                        SDTypeProfile<0, 4, [SDTCisSameAs<0, 1>,
+                                             SDTCisVT<2, i8>,
+                                             SDTCisVT<3, OtherVT>]>,
+                        [SDNPHasChain, SDNPInGlue]>;
+
 // result = (lhs cc rhs) ? tval : fval
 def M6809SelectCC : SDNode<"M6809ISD::SELECT_CC",
                            SDTypeProfile<1, 5, [SDTCisSameAs<0, 1>,
@@ -277,6 +285,12 @@ def : Pat<(addc ACC16:$s, IDX16:$r), (ADDDrr ACC16:$s, IDX16:$r)>;
 def : Pat<(subc ACC16:$s, imm:$i), (SUBDi ACC16:$s, imm:$i)>;
 def : Pat<(subc ACC16:$s, (load addr:$a)), (SUBDm ACC16:$s, addr:$a)>;
 def : Pat<(subc ACC16:$s, IDX16:$r), (SUBDrr ACC16:$s, IDX16:$r)>;
+// SUBC for the low half of an i32 compare, which the generic combines must
+// not fold away (subc x, 0 would leave a carry_false glue).
+def M6809Subc : SDNode<"M6809ISD::SUBC", SDTIntBinOp, [SDNPOutGlue]>;
+def : Pat<(M6809Subc ACC16:$s, imm:$i), (SUBDi ACC16:$s, imm:$i)>;
+def : Pat<(M6809Subc ACC16:$s, (load addr:$a)), (SUBDm ACC16:$s, addr:$a)>;
+def : Pat<(M6809Subc ACC16:$s, IDX16:$r), (SUBDrr ACC16:$s, IDX16:$r)>;
 
 // The higher halves: the 6809 has no 16-bit add or subtract with carry, so
 // these pseudos become adcb/adca (sbcb/sbca), low byte first. Nothing the
@@ -441,6 +455,31 @@ let isBranch = 1, isTerminator = 1 in {
   }
 }
 
+// The high half of an i32 compare-and-branch: SBC16* then LBcc after
+// register allocation. The subtraction overwrites D, which is pushed and
+// pulled around it when still live (PULS leaves the flags alone): a
+// terminator that clobbers a register leaves the register allocator no
+// place to move a value out of it.
+let isBranch = 1, isTerminator = 1, Uses = [CC], Defs = [CC] in {
+  def SBCBRi : M6809Pseudo<(outs),
+                           (ins ACC16:$lhs, i16imm_op:$rhs, ccode:$cc,
+                                brtarget:$dst), "",
+                           [(M6809SbcBr ACC16:$lhs, (i16 imm:$rhs), timm:$cc,
+                                        bb:$dst)]>;
+  let mayLoad = 1 in
+  def SBCBRm : M6809Pseudo<(outs),
+                           (ins ACC16:$lhs, memidx:$rhs, ccode:$cc,
+                                brtarget:$dst), "",
+                           [(M6809SbcBr ACC16:$lhs, (i16 (load addr:$rhs)),
+                                        timm:$cc, bb:$dst)]>;
+  let Uses = [S, CC], Defs = [S, CC] in
+  def SBCBRrr : M6809Pseudo<(outs),
+                            (ins ACC16:$lhs, IDX16:$rhs, ccode:$cc,
+                                 brtarget:$dst), "",
+                            [(M6809SbcBr ACC16:$lhs, IDX16:$rhs, timm:$cc,
+                                         bb:$dst)]>;
+}
+
 // select_cc. The custom inserter turns these into a CB* diamond and a PHI.
 multiclass SELECT<RegisterClass ValRC> {
   let usesCustomInserter = 1 in {
@@ -482,6 +521,38 @@ multiclass SELECTI<RegisterClass ValRC> {
 
 defm SELECT8 : SELECT<ACC8>, SELECTI<ACC8>;
 defm SELECT16 : SELECT<GR16>, SELECTI<GR16>;
+
+// {dst.lo, dst.hi} = (lhs cc rhs) ? t : f for i32 lhs and rhs, given as
+// halves: t.lo, t.hi, f.lo, f.hi, lhs.lo, lhs.hi, rhs.lo, rhs.hi, cc.
+def M6809Select32
+    : SDNode<"M6809ISD::SELECT32",
+             SDTypeProfile<2, 9, [SDTCisVT<0, i16>, SDTCisVT<1, i16>,
+                                  SDTCisVT<2, i16>, SDTCisVT<3, i16>,
+                                  SDTCisVT<4, i16>, SDTCisVT<5, i16>,
+                                  SDTCisVT<6, i16>, SDTCisVT<7, i16>,
+                                  SDTCisVT<8, i16>, SDTCisVT<9, i16>,
+                                  SDTCisVT<10, i8>]>>;
+let usesCustomInserter = 1 in {
+  def SELECT32rr
+      : M6809Pseudo<(outs GR16:$dlo, GR16:$dhi),
+                    (ins GR16:$tlo, GR16:$thi, GR16:$flo, GR16:$fhi,
+                         GR16:$llo, GR16:$lhi, GR16:$rlo, GR16:$rhi,
+                         i8imm_op:$cc), "",
+                    [(set GR16:$dlo, GR16:$dhi,
+                          (M6809Select32 GR16:$tlo, GR16:$thi, GR16:$flo,
+                                         GR16:$fhi, GR16:$llo, GR16:$lhi,
+                                         GR16:$rlo, GR16:$rhi, timm:$cc))]>;
+  def SELECT32ri
+      : M6809Pseudo<(outs GR16:$dlo, GR16:$dhi),
+                    (ins GR16:$tlo, GR16:$thi, GR16:$flo, GR16:$fhi,
+                         GR16:$llo, GR16:$lhi, i16imm_op:$rlo, i16imm_op:$rhi,
+                         i8imm_op:$cc), "",
+                    [(set GR16:$dlo, GR16:$dhi,
+                          (M6809Select32 GR16:$tlo, GR16:$thi, GR16:$flo,
+                                         GR16:$fhi, GR16:$llo, GR16:$lhi,
+                                         (i16 imm:$rlo), (i16 imm:$rhi),
+                                         timm:$cc))]>;
+}
 
 //===----------------------------------------------------------------------===//
 // Multiply

@@ -9,6 +9,7 @@
 #include "M6809InstrInfo.h"
 #include "M6809.h"
 #include "M6809Subtarget.h"
+#include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineMemOperand.h"
@@ -411,6 +412,41 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
+  if (Opc == M6809::SBCBRi || Opc == M6809::SBCBRm || Opc == M6809::SBCBRrr) {
+    unsigned N = MI.getNumExplicitOperands();
+    unsigned SbcOpc = Opc == M6809::SBCBRi   ? M6809::SBC16i
+                      : Opc == M6809::SBCBRm ? M6809::SBC16m
+                                             : M6809::SBC16rr;
+    // Is D (still holding lhs) needed after the branch?
+    LivePhysRegs Live(getRegisterInfo());
+    Live.addLiveOuts(MBB);
+    for (MachineBasicBlock::iterator I = MBB.end(); --I != MI.getIterator();)
+      Live.stepBackward(*I);
+    bool KeepD = !Live.available(MBB.getParent()->getRegInfo(), M6809::D);
+    // The pushed D moves an S-relative operand along by two.
+    bool SRel = SbcOpc == M6809::SBC16m && MI.getOperand(1).isReg() &&
+                MI.getOperand(1).getReg() == M6809::S;
+    if (KeepD)
+      BuildMI(MBB, MI, DL, get(M6809::PSHS16)).addReg(M6809::D);
+    MachineInstrBuilder Sbc =
+        BuildMI(MBB, MI, DL, get(SbcOpc), M6809::D).addReg(M6809::D);
+    for (unsigned I = 1; I + 2 < N; ++I) {
+      if (KeepD && SRel && I == 2)
+        addOffset(Sbc, MI.getOperand(I), 2);
+      else
+        Sbc.add(MI.getOperand(I));
+    }
+    Sbc.cloneMemRefs(MI);
+    if (KeepD)
+      BuildMI(MBB, MI, DL, get(M6809::PULS16), M6809::D);
+    BuildMI(MBB, MI, DL, get(M6809::LBcc))
+        .add(MI.getOperand(N - 2))
+        .add(MI.getOperand(N - 1));
+    MI.eraseFromParent();
+    expandPostRAPseudo(*Sbc);
+    return true;
+  }
+
   if (isCompareAndBranch(Opc)) {
     unsigned N = MI.getNumExplicitOperands();
     const MachineOperand &Lhs = MI.getOperand(0);
@@ -468,6 +504,9 @@ bool M6809InstrInfo::isCompareAndBranch(unsigned Opc) {
   case M6809::CB16ri:
   case M6809::CB16rm:
   case M6809::CB16rr:
+  case M6809::SBCBRi:
+  case M6809::SBCBRm:
+  case M6809::SBCBRrr:
     return true;
   default:
     return false;

@@ -81,6 +81,11 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
     setOperationAction(ISD::SETCC, VT, Expand);
     setOperationAction(ISD::SELECT, VT, Expand);
   }
+  // Ordered i32 compares become a subtract with carry; see lowerBR_CC32.
+  // The generic combine only makes BR_CC for legal types, so
+  // PerformDAGCombine makes the i32 ones.
+  setOperationAction(ISD::BR_CC, MVT::i32, Custom);
+  setTargetDAGCombine({ISD::BRCOND, ISD::SELECT});
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
@@ -358,6 +363,8 @@ static M6809CC::CondCode prepareCompare(SDValue &LHS, SDValue &RHS,
 }
 
 SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
+  if (Op.getOperand(2).getValueType() == MVT::i32)
+    return lowerBR_CC32(Op, DAG);
   SDValue Chain = Op.getOperand(0);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(1))->get();
   SDValue LHS = Op.getOperand(2);
@@ -368,6 +375,144 @@ SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC);
   return DAG.getNode(M6809ISD::CMPBR, DL, MVT::Other, Chain, LHS, RHS,
                      DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
+}
+
+static bool isOrderedCompare32(SDValue Cond);
+static SDValue combineSelect32(SDNode *N, SelectionDAG &DAG);
+
+SDValue M6809TargetLowering::PerformDAGCombine(SDNode *N,
+                                               DAGCombinerInfo &DCI) const {
+  if (!DCI.isBeforeLegalize())
+    return SDValue();
+  if (N->getOpcode() == ISD::SELECT)
+    return combineSelect32(N, DCI.DAG);
+  // brcond (setcc a, b, cc), dest -> br_cc cc, a, b, dest, for i32 a and b.
+  if (N->getOpcode() != ISD::BRCOND)
+    return SDValue();
+  SDValue Cond = N->getOperand(1);
+  if (!isOrderedCompare32(Cond) || !Cond.hasOneUse())
+    return SDValue();
+  return DCI.DAG.getNode(ISD::BR_CC, SDLoc(N), MVT::Other, N->getOperand(0),
+                         Cond.getOperand(2), Cond.getOperand(0),
+                         Cond.getOperand(1), N->getOperand(2));
+}
+
+// An ordered i32 compare is a 32-bit subtraction: subd on the low halves,
+// then sbcb/sbca on the high halves leave C, N and V as for the whole value.
+// Z is only the high half's, so GT, LE, HI and LS become the other four,
+// with the operands swapped or a constant moved by one. Equality compares
+// are left to the generic expansion.
+static M6809CC::CondCode prepareCompare32(SDValue &LHS, SDValue &RHS,
+                                          ISD::CondCode CC, SelectionDAG &DAG,
+                                          const SDLoc &DL) {
+  if (isa<ConstantSDNode>(LHS) && !isa<ConstantSDNode>(RHS)) {
+    std::swap(LHS, RHS);
+    CC = ISD::getSetCCSwappedOperands(CC);
+  }
+  if (auto *C = dyn_cast<ConstantSDNode>(RHS)) {
+    const APInt &V = C->getAPIntValue();
+    ISD::CondCode NewCC = ISD::SETCC_INVALID;
+    switch (CC) {
+    case ISD::SETGT:
+    case ISD::SETLE:
+      if (!V.isMaxSignedValue())
+        NewCC = CC == ISD::SETGT ? ISD::SETGE : ISD::SETLT;
+      break;
+    case ISD::SETUGT:
+    case ISD::SETULE:
+      if (!V.isMaxValue())
+        NewCC = CC == ISD::SETUGT ? ISD::SETUGE : ISD::SETULT;
+      break;
+    default:
+      break;
+    }
+    if (NewCC != ISD::SETCC_INVALID) {
+      CC = NewCC;
+      RHS = DAG.getConstant(V + 1, DL, MVT::i32);
+    }
+  }
+  switch (CC) {
+  case ISD::SETGT:
+  case ISD::SETLE:
+  case ISD::SETUGT:
+  case ISD::SETULE:
+    std::swap(LHS, RHS);
+    CC = ISD::getSetCCSwappedOperands(CC);
+    break;
+  default:
+    break;
+  }
+  switch (CC) {
+  case ISD::SETLT: return M6809CC::LT;
+  case ISD::SETGE: return M6809CC::GE;
+  case ISD::SETULT: return M6809CC::LO;
+  case ISD::SETUGE: return M6809CC::HS;
+  default:
+    llvm_unreachable("M6809: unexpected i32 condition");
+  }
+}
+
+static bool isOrderedCompare32(SDValue Cond) {
+  if (Cond.getOpcode() != ISD::SETCC ||
+      Cond.getOperand(0).getValueType() != MVT::i32)
+    return false;
+  ISD::CondCode CC = cast<CondCodeSDNode>(Cond.getOperand(2))->get();
+  return CC != ISD::SETEQ && CC != ISD::SETNE;
+}
+
+SDValue M6809TargetLowering::lowerBR_CC32(SDValue Op,
+                                          SelectionDAG &DAG) const {
+  SDValue Chain = Op.getOperand(0);
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(1))->get();
+  SDValue LHS = Op.getOperand(2);
+  SDValue RHS = Op.getOperand(3);
+  SDValue Dest = Op.getOperand(4);
+  SDLoc DL(Op);
+  if (CC == ISD::SETEQ || CC == ISD::SETNE)
+    return SDValue();
+
+  M6809CC::CondCode MCC = prepareCompare32(LHS, RHS, CC, DAG, DL);
+  auto [LHSLo, LHSHi] = DAG.SplitScalar(LHS, DL, MVT::i16, MVT::i16);
+  auto [RHSLo, RHSHi] = DAG.SplitScalar(RHS, DL, MVT::i16, MVT::i16);
+  // Subtracting zero from the low half never borrows: compare the high
+  // halves. This covers the sign tests (x < 0) too.
+  if (isNullConstant(RHSLo))
+    return DAG.getNode(M6809ISD::CMPBR, DL, MVT::Other, Chain, LHSHi, RHSHi,
+                       DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
+  SDValue Lo = DAG.getNode(M6809ISD::SUBC, DL,
+                           DAG.getVTList(MVT::i16, MVT::Glue), LHSLo, RHSLo);
+  return DAG.getNode(M6809ISD::SBCBR, DL, MVT::Other,
+                     {Chain, LHSHi, RHSHi,
+                      DAG.getTargetConstant(MCC, DL, MVT::i8), Dest,
+                      Lo.getValue(1)});
+}
+
+// select (setcc a, b, cc), t, f with i32 a and b, and i16 or i32 t and f,
+// becomes SELECT32, which the custom inserter makes a branch diamond.
+static SDValue combineSelect32(SDNode *N, SelectionDAG &DAG) {
+  SDValue Cond = N->getOperand(0);
+  EVT VT = N->getValueType(0);
+  if (!isOrderedCompare32(Cond) || (VT != MVT::i16 && VT != MVT::i32))
+    return SDValue();
+  SDLoc DL(N);
+  SDValue LHS = Cond.getOperand(0), RHS = Cond.getOperand(1);
+  ISD::CondCode CC = cast<CondCodeSDNode>(Cond.getOperand(2))->get();
+  M6809CC::CondCode MCC = prepareCompare32(LHS, RHS, CC, DAG, DL);
+  auto [LHSLo, LHSHi] = DAG.SplitScalar(LHS, DL, MVT::i16, MVT::i16);
+  auto [RHSLo, RHSHi] = DAG.SplitScalar(RHS, DL, MVT::i16, MVT::i16);
+  SDValue T = N->getOperand(1), F = N->getOperand(2);
+  SDValue TLo = T, THi = T, FLo = F, FHi = F;
+  if (VT == MVT::i32) {
+    std::tie(TLo, THi) = DAG.SplitScalar(T, DL, MVT::i16, MVT::i16);
+    std::tie(FLo, FHi) = DAG.SplitScalar(F, DL, MVT::i16, MVT::i16);
+  }
+  SDValue R = DAG.getNode(M6809ISD::SELECT32, DL,
+                          DAG.getVTList(MVT::i16, MVT::i16),
+                          {TLo, THi, FLo, FHi, LHSLo, LHSHi, RHSLo, RHSHi,
+                           DAG.getTargetConstant(MCC, DL, MVT::i8)});
+  if (VT == MVT::i16)
+    return R;
+  return DAG.getNode(ISD::BUILD_PAIR, DL, MVT::i32, R, R.getValue(1));
 }
 
 // va_start stores the address of the first variadic argument into the
@@ -416,6 +561,9 @@ M6809TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
     return emitShiftLoop(MI, MBB);
   case M6809::SJLJ_SETJMP:
     return emitSjLjSetjmp(MI, MBB);
+  case M6809::SELECT32rr:
+  case M6809::SELECT32ri:
+    return emitSelect32(MI, MBB);
   case M6809::SJLJ_LONGJMP:
     return emitSjLjLongjmp(MI, MBB);
   default:
@@ -679,6 +827,87 @@ M6809TargetLowering::emitSelect(MachineInstr &MI,
       .addMBB(MBB)
       .addReg(MI.getOperand(2).getReg())
       .addMBB(FalseMBB);
+
+  MI.eraseFromParent();
+  return SinkMBB;
+}
+
+// SELECT32 compares two i32 values (as halves) and picks between two pairs
+// of halves:
+//
+//   ThisMBB:  subd lhs.lo, rhs.lo              ; only for C
+//             SBCBR* lhs.hi, rhs.hi, cc, SinkMBB
+//   FalseMBB: (falls through)
+//   SinkMBB:  dst.lo = PHI [t.lo, ThisMBB], [f.lo, FalseMBB]
+//             dst.hi = PHI [t.hi, ThisMBB], [f.hi, FalseMBB]
+//
+// With a zero rhs.lo the low halves cannot borrow, and a CB16 on the high
+// halves does.
+MachineBasicBlock *
+M6809TargetLowering::emitSelect32(MachineInstr &MI,
+                                  MachineBasicBlock *MBB) const {
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  MachineFunction *MF = MBB->getParent();
+  MachineRegisterInfo &MRI = MF->getRegInfo();
+  const BasicBlock *BB = MBB->getBasicBlock();
+  MachineFunction::iterator It = std::next(MBB->getIterator());
+  bool Imm = MI.getOpcode() == M6809::SELECT32ri;
+
+  MachineBasicBlock *FalseMBB = MF->CreateMachineBasicBlock(BB);
+  MachineBasicBlock *SinkMBB = MF->CreateMachineBasicBlock(BB);
+  MF->insert(It, FalseMBB);
+  MF->insert(It, SinkMBB);
+  SinkMBB->splice(SinkMBB->begin(), MBB,
+                  std::next(MachineBasicBlock::iterator(MI)), MBB->end());
+  SinkMBB->transferSuccessorsAndUpdatePHIs(MBB);
+  MBB->addSuccessor(FalseMBB);
+  MBB->addSuccessor(SinkMBB);
+  FalseMBB->addSuccessor(SinkMBB);
+
+  Register LLo = MI.getOperand(6).getReg(), LHi = MI.getOperand(7).getReg();
+  const MachineOperand &RLo = MI.getOperand(8), &RHi = MI.getOperand(9);
+  int64_t CC = MI.getOperand(10).getImm();
+  auto CopyTo = [&](const TargetRegisterClass *RC, Register R) {
+    Register V = MRI.createVirtualRegister(RC);
+    BuildMI(MBB, DL, TII.get(TargetOpcode::COPY), V).addReg(R);
+    return V;
+  };
+
+  if (Imm && RLo.getImm() == 0) {
+    BuildMI(MBB, DL, TII.get(M6809::CB16ri))
+        .addReg(LHi)
+        .add(RHi)
+        .addImm(CC)
+        .addMBB(SinkMBB);
+  } else {
+    Register A = CopyTo(&M6809::ACC16RegClass, LLo);
+    Register Dead = MRI.createVirtualRegister(&M6809::ACC16RegClass);
+    if (Imm) {
+      BuildMI(MBB, DL, TII.get(M6809::SUBDi), Dead).addReg(A).add(RLo);
+    } else {
+      Register RL = CopyTo(&M6809::IDX16RegClass, RLo.getReg());
+      BuildMI(MBB, DL, TII.get(M6809::SUBDrr), Dead).addReg(A).addReg(RL);
+    }
+    Register H = CopyTo(&M6809::ACC16RegClass, LHi);
+    Register RH = Imm ? Register() : CopyTo(&M6809::IDX16RegClass, RHi.getReg());
+    MachineInstrBuilder Br =
+        BuildMI(MBB, DL, TII.get(Imm ? M6809::SBCBRi : M6809::SBCBRrr))
+            .addReg(H);
+    if (Imm)
+      Br.add(RHi);
+    else
+      Br.addReg(RH);
+    Br.addImm(CC).addMBB(SinkMBB);
+  }
+
+  for (unsigned I = 0; I != 2; ++I)
+    BuildMI(*SinkMBB, SinkMBB->begin(), DL, TII.get(TargetOpcode::PHI),
+            MI.getOperand(I).getReg())
+        .addReg(MI.getOperand(2 + I).getReg())
+        .addMBB(MBB)
+        .addReg(MI.getOperand(4 + I).getReg())
+        .addMBB(FalseMBB);
 
   MI.eraseFromParent();
   return SinkMBB;

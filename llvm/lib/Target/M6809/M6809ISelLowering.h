@@ -24,6 +24,7 @@ public:
                                const M6809Subtarget &STI);
 
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
+  SDValue PerformDAGCombine(SDNode *N, DAGCombinerInfo &DCI) const override;
   void ReplaceNodeResults(SDNode *N, SmallVectorImpl<SDValue> &Results,
                           SelectionDAG &DAG) const override;
 
@@ -49,6 +50,8 @@ private:
   MachineBasicBlock *emitSelect(MachineInstr &MI,
                                 MachineBasicBlock *MBB) const;
   MachineBasicBlock *emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const;
+  MachineBasicBlock *emitSelect32(MachineInstr &MI,
+                                  MachineBasicBlock *MBB) const;
   MachineBasicBlock *emitShiftLoop(MachineInstr &MI,
                                    MachineBasicBlock *MBB) const;
   MachineBasicBlock *emitSjLjSetjmp(MachineInstr &MI,
@@ -58,6 +61,7 @@ private:
 
   SDValue lowerShift(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerBR_CC32(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
