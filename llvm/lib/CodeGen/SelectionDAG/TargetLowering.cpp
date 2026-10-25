@@ -8352,8 +8352,9 @@ bool TargetLowering::expandMUL_LOHI(unsigned Opcode, EVT VT, const SDLoc &dl,
   SDValue Zero = DAG.getConstant(0, dl, HiLoVT);
   EVT BoolType = getSetCCResultType(DAG.getDataLayout(), *DAG.getContext(), VT);
 
+  // The ADDC is on VT and the ADDE on HiLoVT.
   bool UseGlue = (isOperationLegalOrCustom(ISD::ADDC, VT) &&
-                  isOperationLegalOrCustom(ISD::ADDE, VT));
+                  isOperationLegalOrCustom(ISD::ADDE, HiLoVT));
   if (UseGlue)
     Next = DAG.getNode(ISD::ADDC, dl, DAG.getVTList(VT, MVT::Glue), Next,
                        Merge(Lo, Hi));
