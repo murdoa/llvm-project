@@ -1283,5 +1283,12 @@ M6800TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
       break;
     }
   }
-  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+  std::pair<unsigned, const TargetRegisterClass *> R =
+      TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+  // CC does not copy to or from the allocatable registers: as an operand it
+  // is an error, not a copy the backend cannot emit.  As a clobber (VT
+  // Other) it stands.
+  if (VT != MVT::Other && R.first == M6800::CC)
+    return {0, nullptr};
+  return R;
 }
