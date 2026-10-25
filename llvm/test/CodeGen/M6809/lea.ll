@@ -12,7 +12,7 @@ define i16 @two_counters(i16 %n) {
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    addd #3
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbne .LBB0_1
+; CHECK-NEXT:    bne .LBB0_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts
 entry:
@@ -41,7 +41,7 @@ define i8 @sum_bytes(ptr %p, i16 %n) {
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    leay 1,y
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbne .LBB1_1
+; CHECK-NEXT:    bne .LBB1_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts
 entry:

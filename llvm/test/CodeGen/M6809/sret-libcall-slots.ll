@@ -20,7 +20,7 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-NEXT:    ldy 40,s
 ; CHECK-NEXT:    ldu 38,s
 ; CHECK-NEXT:    tstb
-; CHECK-NEXT:    lbeq .LBB0_2
+; CHECK-NEXT:    beq .LBB0_2
 ; CHECK-NEXT:  ; %bb.1: ; %x
 ; CHECK-NEXT:    ldd 52,s
 ; CHECK-NEXT:    std 22,s ; 2-byte Folded Spill
@@ -54,7 +54,7 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-NEXT:    std g+2
 ; CHECK-NEXT:    ldd 26,s
 ; CHECK-NEXT:    std g
-; CHECK-NEXT:    lbra .LBB0_3
+; CHECK-NEXT:    bra .LBB0_3
 ; CHECK-NEXT:  .LBB0_2: ; %y
 ; CHECK-NEXT:    sty 10,s
 ; CHECK-NEXT:    stu 8,s

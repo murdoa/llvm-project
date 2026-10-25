@@ -48,8 +48,8 @@ define i16 @cmp_both_in_d(i16 %a, i16 %b) {
 ; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    cmpd ,s++
-; CHECK-NEXT:    lbhs .LBB1_2
-; CHECK-NEXT:    lbra .LBB1_1
+; CHECK-NEXT:    bhs .LBB1_2
+; CHECK-NEXT:    bra .LBB1_1
 ; CHECK-NEXT:  .LBB1_1: ; %t
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    leas 4,s

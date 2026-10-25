@@ -160,13 +160,13 @@ define i8 @shl8_var(i8 %a, i8 %n) {
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbeq .LBB13_1
+; CHECK-NEXT:    beq .LBB13_1
 ; CHECK-NEXT:  ; %bb.2:
 ; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
 ; CHECK-NEXT:  .LBB13_3: ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    leax -1,x
-; CHECK-NEXT:    lbne .LBB13_3
+; CHECK-NEXT:    bne .LBB13_3
 ; CHECK-NEXT:  ; %bb.4:
 ; CHECK-NEXT:    leas 1,s
 ; CHECK-NEXT:    rts
@@ -188,12 +188,12 @@ define i16 @lshr16_var(i16 %a, i16 %n) {
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbeq .LBB14_2
+; CHECK-NEXT:    beq .LBB14_2
 ; CHECK-NEXT:  .LBB14_1: ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    lsra
 ; CHECK-NEXT:    rorb
 ; CHECK-NEXT:    leax -1,x
-; CHECK-NEXT:    lbne .LBB14_1
+; CHECK-NEXT:    bne .LBB14_1
 ; CHECK-NEXT:  .LBB14_2:
 ; CHECK-NEXT:    rts
   %r = lshr i16 %a, %n
@@ -210,12 +210,12 @@ define i16 @ashr16_var(i16 %a, i16 %n) {
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbeq .LBB15_2
+; CHECK-NEXT:    beq .LBB15_2
 ; CHECK-NEXT:  .LBB15_1: ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    asra
 ; CHECK-NEXT:    rorb
 ; CHECK-NEXT:    leax -1,x
-; CHECK-NEXT:    lbne .LBB15_1
+; CHECK-NEXT:    bne .LBB15_1
 ; CHECK-NEXT:  .LBB15_2:
 ; CHECK-NEXT:    rts
   %r = ashr i16 %a, %n

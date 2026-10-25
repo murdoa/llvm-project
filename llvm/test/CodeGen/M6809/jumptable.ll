@@ -6,7 +6,7 @@ define i16 @dense(i16 %x) {
 ; CHECK-LABEL: dense:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cmpd #4
-; CHECK-NEXT:    lbhi .LBB0_7
+; CHECK-NEXT:    bhi .LBB0_7
 ; CHECK-NEXT:  ; %bb.1: ; %entry
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola

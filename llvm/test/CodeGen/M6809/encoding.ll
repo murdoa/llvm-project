@@ -33,12 +33,12 @@ define i16 @f(i16 %a, ptr %p, i8 %c) {
 
 declare i16 @h(i16)
 
-; Long offsets and branches.
+; Long offsets. Branches start short (the assembler lengthens them).
 define void @far(ptr %p, i16 %n) {
 ; CHECK-LABEL: far:
 ; CHECK: ldx 2,s ; encoding: [0xae,0x62]
-; CHECK: lbeq .LBB1_2 ; encoding: [0x10,0x27,A,A]
-; CHECK-NEXT: fixup A - offset: 2, value: .LBB1_2, kind: fixup_pcrel16
+; CHECK: beq .LBB1_2 ; encoding: [0x27,A]
+; CHECK-NEXT: fixup A - offset: 1, value: .LBB1_2, kind: fixup_pcrel8
 ; CHECK: stb -100,y ; encoding: [0xe7,0xa8,0x9c]
 ; CHECK: stb 300,y ; encoding: [0xe7,0xa9,0x01,0x2c]
 ; CHECK: stx g+2 ; encoding: [0xbf,A,A]

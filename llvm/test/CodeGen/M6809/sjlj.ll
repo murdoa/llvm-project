@@ -18,7 +18,7 @@ define i16 @setjmp() {
 ; CHECK-NEXT:    stu 6,x
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    lbra .LBB0_2
+; CHECK-NEXT:    bra .LBB0_2
 ; CHECK-NEXT:  .LBB0_3: ; Block address taken
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:  .LBB0_2:

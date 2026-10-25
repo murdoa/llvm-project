@@ -106,6 +106,14 @@ static void toRealInstruction(MCInst &MI) {
   switch (Opc) {
   default:
     return;
+  // Codegen branches start short; the assembler makes them long when the
+  // target is out of range (see M6809AsmBackend).
+  case M6809::LBRA:
+    MI.setOpcode(M6809::BRA);
+    return;
+  case M6809::LBcc:
+    MI.setOpcode(M6809::Bcc);
+    return;
   case M6809::JSRe: // jsr sym
     Out.setOpcode(M6809::JSRm);
     addMem(Out, MCRegister(), MI.getOperand(0));

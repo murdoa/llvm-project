@@ -23,8 +23,8 @@ define void @cmp_sext(i16 %n) {
 ; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    cmpd ,s++
-; CHECK-NEXT:    lbeq .LBB0_2
-; CHECK-NEXT:    lbra .LBB0_1
+; CHECK-NEXT:    beq .LBB0_2
+; CHECK-NEXT:    bra .LBB0_1
 ; CHECK-NEXT:  .LBB0_1: ; %yes
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    std g

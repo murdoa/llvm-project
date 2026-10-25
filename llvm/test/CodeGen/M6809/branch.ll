@@ -7,7 +7,7 @@ define void @if_eq_imm(i16 %a) {
 ; CHECK-LABEL: if_eq_imm:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cmpd #10
-; CHECK-NEXT:    lbne .LBB0_2
+; CHECK-NEXT:    bne .LBB0_2
 ; CHECK-NEXT:  ; %bb.1: ; %then
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    std g
@@ -27,7 +27,7 @@ define void @if_ult_rr(i16 %a, i16 %b) {
 ; CHECK-LABEL: if_ult_rr:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cmpd 2,s
-; CHECK-NEXT:    lbhs .LBB1_2
+; CHECK-NEXT:    bhs .LBB1_2
 ; CHECK-NEXT:  ; %bb.1: ; %then
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    std g
@@ -47,7 +47,7 @@ define void @if_slt8(i8 %a) {
 ; CHECK-LABEL: if_slt8:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cmpb #-1
-; CHECK-NEXT:    lble .LBB2_1
+; CHECK-NEXT:    ble .LBB2_1
 ; CHECK-NEXT:  ; %bb.2: ; %end
 ; CHECK-NEXT:    rts
 ; CHECK-NEXT:  .LBB2_1: ; %then
@@ -69,7 +69,7 @@ define void @if_const_lhs(i16 %a) {
 ; CHECK-LABEL: if_const_lhs:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    cmpd #99
-; CHECK-NEXT:    lbgt .LBB3_2
+; CHECK-NEXT:    bgt .LBB3_2
 ; CHECK-NEXT:  ; %bb.1: ; %then
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    std g
@@ -91,7 +91,7 @@ define i16 @max_u16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    ldx 2,s
 ; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    cmpd ,s++
-; CHECK-NEXT:    lbhi .LBB4_2
+; CHECK-NEXT:    bhi .LBB4_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:  .LBB4_2:
@@ -107,7 +107,7 @@ define i8 @setcc_eq(i16 %a) {
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldb #1
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbeq .LBB5_2
+; CHECK-NEXT:    beq .LBB5_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB5_2:
@@ -127,7 +127,7 @@ define i16 @count_down(i16 %n) {
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    addd #3
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbne .LBB6_1
+; CHECK-NEXT:    bne .LBB6_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts
 entry:
@@ -150,7 +150,7 @@ define i8 @select_neg(i8 %a, i8 %b, i8 %c) {
 ; CHECK-NEXT:    leay 3,s
 ; CHECK-NEXT:    leax 2,s
 ; CHECK-NEXT:    tstb
-; CHECK-NEXT:    lblt .LBB7_2
+; CHECK-NEXT:    blt .LBB7_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tfr y, x
 ; CHECK-NEXT:  .LBB7_2:
@@ -167,7 +167,7 @@ define i16 @select_imm16(i16 %a, i16 %b, i16 %c) {
 ; CHECK-NEXT:    leay 4,s
 ; CHECK-NEXT:    leax 2,s
 ; CHECK-NEXT:    cmpd #100
-; CHECK-NEXT:    lbhi .LBB8_2
+; CHECK-NEXT:    bhi .LBB8_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tfr y, x
 ; CHECK-NEXT:  .LBB8_2:
@@ -183,14 +183,14 @@ define i16 @list_sum(ptr %n) {
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbeq .LBB9_1
+; CHECK-NEXT:    beq .LBB9_1
 ; CHECK-NEXT:  ; %bb.2: ; %loop.preheader
 ; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:  .LBB9_3: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    addd 2,x
 ; CHECK-NEXT:    ldx ,x
-; CHECK-NEXT:    lbne .LBB9_3
+; CHECK-NEXT:    bne .LBB9_3
 ; CHECK-NEXT:  ; %bb.4: ; %done
 ; CHECK-NEXT:    rts
 ; CHECK-NEXT:  .LBB9_1:
@@ -218,7 +218,7 @@ define void @clear_bytes(ptr %p, i16 %n) {
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldx 2,s
-; CHECK-NEXT:    lbeq .LBB10_3
+; CHECK-NEXT:    beq .LBB10_3
 ; CHECK-NEXT:  ; %bb.1: ; %loop.preheader
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB10_2: ; %loop
@@ -227,7 +227,7 @@ define void @clear_bytes(ptr %p, i16 %n) {
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    leay 1,y
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbne .LBB10_2
+; CHECK-NEXT:    bne .LBB10_2
 ; CHECK-NEXT:  .LBB10_3: ; %done
 ; CHECK-NEXT:    rts
 entry:
@@ -251,7 +251,7 @@ define i8 @test_d_zero(i16 %a) {
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldb #1
 ; CHECK-NEXT:    leax ,x
-; CHECK-NEXT:    lbeq .LBB11_2
+; CHECK-NEXT:    beq .LBB11_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB11_2:

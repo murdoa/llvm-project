@@ -42,6 +42,34 @@ public:
     return Infos[Kind - FirstTargetFixupKind];
   }
 
+  // Short branches become long ones when the target is out of range or not
+  // known (another section or symbol).
+  bool mayNeedRelaxation(unsigned Opcode, ArrayRef<MCOperand> Operands,
+                         const MCSubtargetInfo &STI) const override {
+    return getRelaxedOpcode(Opcode) != Opcode;
+  }
+
+  bool fixupNeedsRelaxationAdvanced(const MCFragment &, const MCFixup &Fixup,
+                                    const MCValue &, uint64_t Value,
+                                    bool Resolved) const override {
+    // The offset counts from the end of the instruction (see applyFixup).
+    return !Resolved || !isInt<8>(static_cast<int64_t>(Value) - 1);
+  }
+
+  void relaxInstruction(MCInst &Inst,
+                        const MCSubtargetInfo &STI) const override {
+    Inst.setOpcode(getRelaxedOpcode(Inst.getOpcode()));
+  }
+
+  static unsigned getRelaxedOpcode(unsigned Opcode) {
+    switch (Opcode) {
+    case M6809::BRA: return M6809::LBRA;
+    case M6809::Bcc: return M6809::LBcc;
+    case M6809::BSR: return M6809::LBSR;
+    default: return Opcode;
+    }
+  }
+
   void applyFixup(const MCFragment &F, const MCFixup &Fixup,
                   const MCValue &Target, uint8_t *Data, uint64_t Value,
                   bool IsResolved) override;

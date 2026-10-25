@@ -24,7 +24,7 @@ define <2 x i16> @select_v2i16(<2 x i16> %a, <2 x i16> %b) {
 ; CHECK-NEXT:    ldx 4,s
 ; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    cmpd ,s++
-; CHECK-NEXT:    lblo .LBB1_2
+; CHECK-NEXT:    blo .LBB1_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:  .LBB1_2:
@@ -32,7 +32,7 @@ define <2 x i16> @select_v2i16(<2 x i16> %a, <2 x i16> %b) {
 ; CHECK-NEXT:    ldx 2,s
 ; CHECK-NEXT:    pshs y
 ; CHECK-NEXT:    cmpx ,s++
-; CHECK-NEXT:    lblo .LBB1_4
+; CHECK-NEXT:    blo .LBB1_4
 ; CHECK-NEXT:  ; %bb.3:
 ; CHECK-NEXT:    tfr y, x
 ; CHECK-NEXT:  .LBB1_4:
