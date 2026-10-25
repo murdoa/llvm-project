@@ -33,7 +33,7 @@ define i8 @sum_bytes(ptr %p, i16 %n) {
 ; CHECK-LABEL: sum_bytes:
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldb #0
+; CHECK-NEXT:    clrb
 ; CHECK-NEXT:    ldx 2,s
 ; CHECK-NEXT:  .LBB1_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1

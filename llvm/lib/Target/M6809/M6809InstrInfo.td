@@ -128,6 +128,12 @@ let Defs = [CC], isReMaterializable = 1, isAsCheapAsAMove = 1,
                         [(set GR16:$dst, imm:$imm)], 3>;
 }
 
+// clra/clrb: one byte shorter than "ldb #0". Also clears C.
+let Defs = [CC], isReMaterializable = 1, isAsCheapAsAMove = 1,
+    AddedComplexity = 1 in
+def CLR8 : M6809Inst<(outs ACC8:$dst), (ins), "clr${dst}",
+                     [(set ACC8:$dst, 0)], 1>;
+
 // Register to register. TFR leaves the flags alone unless CC is the
 // destination.
 let isMoveReg = 1 in {
@@ -410,3 +416,79 @@ def MUL : M6809Inst<(outs), (ins), "mul", [], 1>;
 let usesCustomInserter = 1 in
 def MUL8 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$a, ACC8:$b), "",
                        [(set ACC8:$dst, (mul ACC8:$a, ACC8:$b))]>;
+
+//===----------------------------------------------------------------------===//
+// Shifts
+//===----------------------------------------------------------------------===//
+
+// The 6809 shifts one bit at a time. Shift lowering turns a constant
+// amount into a chain of these nodes and a variable amount into a loop.
+def SDT_M6809Shift1 : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisInt<0>]>;
+def M6809Lsl : SDNode<"M6809ISD::LSL", SDT_M6809Shift1>;
+def M6809Lsr : SDNode<"M6809ISD::LSR", SDT_M6809Shift1>;
+def M6809Asr : SDNode<"M6809ISD::ASR", SDT_M6809Shift1>;
+
+// Shift by a variable amount. The amount is an i16 count, held in an index
+// register so "leax -1,x" can count it down.
+def SDT_M6809ShiftLoop : SDTypeProfile<1, 2, [SDTCisSameAs<0, 1>,
+                                              SDTCisInt<0>,
+                                              SDTCisVT<2, i16>]>;
+def M6809LslLoop : SDNode<"M6809ISD::LSL_LOOP", SDT_M6809ShiftLoop>;
+def M6809LsrLoop : SDNode<"M6809ISD::LSR_LOOP", SDT_M6809ShiftLoop>;
+def M6809AsrLoop : SDNode<"M6809ISD::ASR_LOOP", SDT_M6809ShiftLoop>;
+
+// asla/aslb, lsra/lsrb, asra/asrb, and the rotates through carry.
+let Constraints = "$src = $dst", Defs = [CC] in {
+  def ASL8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "asl${dst}",
+                       [(set ACC8:$dst, (M6809Lsl ACC8:$src))], 1>;
+  def LSR8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "lsr${dst}",
+                       [(set ACC8:$dst, (M6809Lsr ACC8:$src))], 1>;
+  def ASR8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "asr${dst}",
+                       [(set ACC8:$dst, (M6809Asr ACC8:$src))], 1>;
+  let Uses = [CC] in {
+    def ROL8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "rol${dst}", [],
+                         1>;
+    def ROR8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "ror${dst}", [],
+                         1>;
+  }
+
+  // One-bit shifts of D, expanded after register allocation into
+  // "aslb; rola", "lsra; rorb" and "asra; rorb".
+  def LSL16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                          [(set ACC16:$dst, (M6809Lsl ACC16:$src))]>;
+  def LSR16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                          [(set ACC16:$dst, (M6809Lsr ACC16:$src))]>;
+  def ASR16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                          [(set ACC16:$dst, (M6809Asr ACC16:$src))]>;
+}
+
+// Shifting D by 8 moves one byte across and fills the other. These are
+// pseudos on a single D value, expanded after register allocation into
+// "tfr b,a; clrb", "tfr a,b; clra" and "tfr a,b; sex". Doing it with
+// sub-register copies instead would need two values in D at once.
+let Constraints = "$src = $dst", Defs = [CC] in {
+  def SHL16_8 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                            [(set ACC16:$dst, (shl ACC16:$src, (i8 8)))]>;
+  def LSR16_8 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                            [(set ACC16:$dst, (srl ACC16:$src, (i8 8)))]>;
+  def ASR16_8 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                            [(set ACC16:$dst, (sra ACC16:$src, (i8 8)))]>;
+}
+def : Pat<(i8 (trunc (srl ACC16:$x, (i8 8)))),
+          (EXTRACT_SUBREG ACC16:$x, sub_hi)>;
+def : Pat<(i8 (trunc (sra ACC16:$x, (i8 8)))),
+          (EXTRACT_SUBREG ACC16:$x, sub_hi)>;
+
+// Variable shifts. The custom inserter builds the loop.
+multiclass SHIFTLOOP<SDNode node> {
+  let usesCustomInserter = 1, Defs = [CC] in {
+    def _8 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src, IDX16:$cnt), "",
+                         [(set ACC8:$dst, (node ACC8:$src, IDX16:$cnt))]>;
+    def _16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, IDX16:$cnt), "",
+                          [(set ACC16:$dst, (node ACC16:$src, IDX16:$cnt))]>;
+  }
+}
+
+defm LSLV : SHIFTLOOP<M6809LslLoop>;
+defm LSRV : SHIFTLOOP<M6809LsrLoop>;
+defm ASRV : SHIFTLOOP<M6809AsrLoop>;

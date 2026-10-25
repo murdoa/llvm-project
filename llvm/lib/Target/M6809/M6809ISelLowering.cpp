@@ -92,9 +92,25 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
 
+  // Shifts are one bit at a time; see lowerShift. Everything built from
+  // shifts falls back to the generic expansion.
+  for (MVT VT : {MVT::i8, MVT::i16}) {
+    for (unsigned Op : {ISD::SHL, ISD::SRL, ISD::SRA})
+      setOperationAction(Op, VT, Custom);
+    for (unsigned Op :
+         {ISD::ROTL, ISD::ROTR, ISD::FSHL, ISD::FSHR, ISD::SHL_PARTS,
+          ISD::SRL_PARTS, ISD::SRA_PARTS, ISD::BSWAP, ISD::CTPOP, ISD::CTLZ,
+          ISD::CTTZ, ISD::ABS, ISD::SMIN, ISD::SMAX, ISD::UMIN, ISD::UMAX})
+      setOperationAction(Op, VT, Expand);
+  }
+
   // TODO: everything not listed here is left Legal and fails instruction
-  // selection until it is added. Next up: shifts, multiply, divide and
-  // calls.
+  // selection until it is added.
+}
+
+MVT M6809TargetLowering::getScalarShiftAmountTy(const DataLayout &,
+                                                EVT) const {
+  return MVT::i8;
 }
 
 //===----------------------------------------------------------------------===//
@@ -116,6 +132,10 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
     return lowerSELECT_CC(Op, DAG);
   case ISD::VASTART:
     return lowerVASTART(Op, DAG);
+  case ISD::SHL:
+  case ISD::SRL:
+  case ISD::SRA:
+    return lowerShift(Op, DAG);
   default:
     llvm_unreachable("M6809: unexpected operation to lower");
   }
@@ -145,6 +165,58 @@ SDValue M6809TargetLowering::lowerBlockAddress(SDValue Op,
   SDValue BA = DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i16,
                                          N->getOffset());
   return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, BA);
+}
+
+// Shifts. A constant amount becomes a chain of one-bit shifts. On i16,
+// amounts of 8 or more move a byte first (see the patterns in
+// M6809InstrInfo.td) and finish with 8-bit shifts. A variable amount becomes
+// a loop.
+SDValue M6809TargetLowering::lowerShift(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  EVT VT = Op.getValueType();
+  unsigned Opc = Op.getOpcode();
+  SDValue Val = Op.getOperand(0);
+  SDValue Amt = Op.getOperand(1);
+
+  auto *C = dyn_cast<ConstantSDNode>(Amt);
+  if (!C) {
+    unsigned LoopOpc = Opc == ISD::SHL   ? M6809ISD::LSL_LOOP
+                       : Opc == ISD::SRL ? M6809ISD::LSR_LOOP
+                                         : M6809ISD::ASR_LOOP;
+    SDValue Cnt = DAG.getZExtOrTrunc(Amt, DL, MVT::i16);
+    return DAG.getNode(LoopOpc, DL, VT, Val, Cnt);
+  }
+
+  uint64_t N = C->getZExtValue();
+  if (N >= VT.getSizeInBits())
+    return DAG.getUNDEF(VT);
+  if (VT == MVT::i16 && N == 8)
+    return Op; // Matched by a pattern.
+
+  unsigned OneOpc = Opc == ISD::SHL   ? M6809ISD::LSL
+                    : Opc == ISD::SRL ? M6809ISD::LSR
+                                      : M6809ISD::ASR;
+  auto Repeat = [&](SDValue V, uint64_t Times) {
+    for (uint64_t I = 0; I != Times; ++I)
+      V = DAG.getNode(OneOpc, DL, V.getValueType(), V);
+    return V;
+  };
+
+  if (VT == MVT::i16 && N > 8) {
+    SDValue Eight = DAG.getConstant(8, DL, MVT::i8);
+    if (Opc == ISD::SHL) {
+      SDValue Lo = DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, Val);
+      Lo = Repeat(Lo, N - 8);
+      return DAG.getNode(ISD::SHL, DL, VT,
+                         DAG.getNode(ISD::ANY_EXTEND, DL, VT, Lo), Eight);
+    }
+    SDValue Hi = DAG.getNode(ISD::TRUNCATE, DL, MVT::i8,
+                             DAG.getNode(Opc, DL, VT, Val, Eight));
+    Hi = Repeat(Hi, N - 8);
+    return DAG.getNode(Opc == ISD::SRA ? ISD::SIGN_EXTEND : ISD::ZERO_EXTEND,
+                       DL, VT, Hi);
+  }
+  return Repeat(Val, N);
 }
 
 // Maps an integer condition to a 6809 branch condition. A constant LHS is
@@ -218,9 +290,106 @@ SDValue M6809TargetLowering::lowerSELECT_CC(SDValue Op,
 MachineBasicBlock *
 M6809TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                  MachineBasicBlock *MBB) const {
-  if (MI.getOpcode() == M6809::MUL8)
+  switch (MI.getOpcode()) {
+  case M6809::MUL8:
     return emitMul8(MI, MBB);
-  return emitSelect(MI, MBB);
+  case M6809::LSLV_8:
+  case M6809::LSLV_16:
+  case M6809::LSRV_8:
+  case M6809::LSRV_16:
+  case M6809::ASRV_8:
+  case M6809::ASRV_16:
+    return emitShiftLoop(MI, MBB);
+  default:
+    return emitSelect(MI, MBB);
+  }
+}
+
+// Variable shifts become a count-down loop:
+//
+//   ThisMBB: CB16ri cnt, 0, EQ, DoneMBB
+//   LoopMBB: v  = PHI [src, ThisMBB], [v2, LoopMBB]
+//            c  = PHI [cnt, ThisMBB], [c2, LoopMBB]
+//            v2 = one-bit shift of v
+//            c2 = c - 1                         ; leax -1,x
+//            CB16ri c2, 0, NE, LoopMBB
+//   DoneMBB: dst = PHI [src, ThisMBB], [v2, LoopMBB]
+MachineBasicBlock *
+M6809TargetLowering::emitShiftLoop(MachineInstr &MI,
+                                   MachineBasicBlock *MBB) const {
+  unsigned ShiftOpc;
+  const TargetRegisterClass *RC;
+  switch (MI.getOpcode()) {
+  case M6809::LSLV_8:  ShiftOpc = M6809::ASL8;  RC = &M6809::ACC8RegClass;  break;
+  case M6809::LSRV_8:  ShiftOpc = M6809::LSR8;  RC = &M6809::ACC8RegClass;  break;
+  case M6809::ASRV_8:  ShiftOpc = M6809::ASR8;  RC = &M6809::ACC8RegClass;  break;
+  case M6809::LSLV_16: ShiftOpc = M6809::LSL16; RC = &M6809::ACC16RegClass; break;
+  case M6809::LSRV_16: ShiftOpc = M6809::LSR16; RC = &M6809::ACC16RegClass; break;
+  case M6809::ASRV_16: ShiftOpc = M6809::ASR16; RC = &M6809::ACC16RegClass; break;
+  default:
+    llvm_unreachable("M6809: not a shift loop");
+  }
+
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  MachineFunction *MF = MBB->getParent();
+  MachineRegisterInfo &MRI = MF->getRegInfo();
+  const BasicBlock *BB = MBB->getBasicBlock();
+  MachineFunction::iterator It = std::next(MBB->getIterator());
+
+  MachineBasicBlock *LoopMBB = MF->CreateMachineBasicBlock(BB);
+  MachineBasicBlock *DoneMBB = MF->CreateMachineBasicBlock(BB);
+  MF->insert(It, LoopMBB);
+  MF->insert(It, DoneMBB);
+
+  DoneMBB->splice(DoneMBB->begin(), MBB,
+                  std::next(MachineBasicBlock::iterator(MI)), MBB->end());
+  DoneMBB->transferSuccessorsAndUpdatePHIs(MBB);
+  MBB->addSuccessor(LoopMBB);
+  MBB->addSuccessor(DoneMBB);
+  LoopMBB->addSuccessor(LoopMBB);
+  LoopMBB->addSuccessor(DoneMBB);
+
+  Register Dst = MI.getOperand(0).getReg();
+  Register Src = MI.getOperand(1).getReg();
+  Register Cnt = MI.getOperand(2).getReg();
+  Register V = MRI.createVirtualRegister(RC);
+  Register V2 = MRI.createVirtualRegister(RC);
+  Register C = MRI.createVirtualRegister(&M6809::IDX16RegClass);
+  Register C2 = MRI.createVirtualRegister(&M6809::IDX16RegClass);
+
+  BuildMI(MBB, DL, TII.get(M6809::CB16ri))
+      .addReg(Cnt)
+      .addImm(0)
+      .addImm(M6809CC::EQ)
+      .addMBB(DoneMBB);
+
+  BuildMI(LoopMBB, DL, TII.get(TargetOpcode::PHI), V)
+      .addReg(Src)
+      .addMBB(MBB)
+      .addReg(V2)
+      .addMBB(LoopMBB);
+  BuildMI(LoopMBB, DL, TII.get(TargetOpcode::PHI), C)
+      .addReg(Cnt)
+      .addMBB(MBB)
+      .addReg(C2)
+      .addMBB(LoopMBB);
+  BuildMI(LoopMBB, DL, TII.get(ShiftOpc), V2).addReg(V);
+  BuildMI(LoopMBB, DL, TII.get(M6809::ADD16ri), C2).addReg(C).addImm(-1);
+  BuildMI(LoopMBB, DL, TII.get(M6809::CB16ri))
+      .addReg(C2)
+      .addImm(0)
+      .addImm(M6809CC::NE)
+      .addMBB(LoopMBB);
+
+  BuildMI(*DoneMBB, DoneMBB->begin(), DL, TII.get(TargetOpcode::PHI), Dst)
+      .addReg(Src)
+      .addMBB(MBB)
+      .addReg(V2)
+      .addMBB(LoopMBB);
+
+  MI.eraseFromParent();
+  return DoneMBB;
 }
 
 // MUL8: copy the operands into A and B, MUL, and take the low byte (B).

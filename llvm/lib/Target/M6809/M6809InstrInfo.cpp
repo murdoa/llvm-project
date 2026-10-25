@@ -149,6 +149,49 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
+  // One-bit shifts of D: shift one byte, then rotate the carry into the
+  // other. Left shifts start with the low byte (B), right shifts with A.
+  unsigned FirstOpc = 0;
+  switch (Opc) {
+  case M6809::LSL16:
+    FirstOpc = M6809::ASL8;
+    break;
+  case M6809::LSR16:
+    FirstOpc = M6809::LSR8;
+    break;
+  case M6809::ASR16:
+    FirstOpc = M6809::ASR8;
+    break;
+  }
+  if (Opc == M6809::SHL16_8 || Opc == M6809::LSR16_8 ||
+      Opc == M6809::ASR16_8) {
+    bool Left = Opc == M6809::SHL16_8;
+    BuildMI(MBB, MI, DL, get(M6809::TFR8), Left ? M6809::A : M6809::B)
+        .addReg(Left ? M6809::B : M6809::A);
+    MachineInstrBuilder Fill;
+    if (Opc == M6809::SHL16_8)
+      Fill = BuildMI(MBB, MI, DL, get(M6809::CLR8), M6809::B);
+    else if (Opc == M6809::LSR16_8)
+      Fill = BuildMI(MBB, MI, DL, get(M6809::CLR8), M6809::A);
+    else
+      Fill = BuildMI(MBB, MI, DL, get(M6809::SEX), M6809::D).addReg(M6809::D);
+    Fill.addReg(M6809::D, RegState::ImplicitDefine);
+    MI.eraseFromParent();
+    return true;
+  }
+
+  if (FirstOpc) {
+    bool Left = Opc == M6809::LSL16;
+    Register First = Left ? M6809::B : M6809::A;
+    Register Second = Left ? M6809::A : M6809::B;
+    BuildMI(MBB, MI, DL, get(FirstOpc), First).addReg(First);
+    BuildMI(MBB, MI, DL, get(Left ? M6809::ROL8 : M6809::ROR8), Second)
+        .addReg(Second)
+        .addReg(M6809::D, RegState::ImplicitDefine);
+    MI.eraseFromParent();
+    return true;
+  }
+
   Logic16Parts P;
   char Form;
   if (getLogic16Parts(Opc, P, Form)) {

@@ -25,6 +25,8 @@ public:
 
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
 
+  MVT getScalarShiftAmountTy(const DataLayout &, EVT) const override;
+
   EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
                          EVT VT) const override {
     return MVT::i8;
@@ -38,7 +40,10 @@ private:
   MachineBasicBlock *emitSelect(MachineInstr &MI,
                                 MachineBasicBlock *MBB) const;
   MachineBasicBlock *emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const;
+  MachineBasicBlock *emitShiftLoop(MachineInstr &MI,
+                                   MachineBasicBlock *MBB) const;
 
+  SDValue lowerShift(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerVASTART(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;

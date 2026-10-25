@@ -111,7 +111,7 @@ define i8 @setcc_eq(i16 %a) {
 ; CHECK-NEXT:    cmpy ,s++
 ; CHECK-NEXT:    lbeq .LBB5_2
 ; CHECK-NEXT:  ; %bb.1:
-; CHECK-NEXT:    ldb #0
+; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB5_2:
 ; CHECK-NEXT:    rts
   %c = icmp eq i16 %a, 0
