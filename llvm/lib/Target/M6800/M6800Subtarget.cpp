@@ -20,8 +20,8 @@ using namespace llvm;
 
 void M6800Subtarget::anchor() {}
 
-M6800Subtarget &
-M6800Subtarget::initializeSubtargetDependencies(StringRef CPU, StringRef FS) {
+M6800Subtarget &M6800Subtarget::initializeSubtargetDependencies(StringRef CPU,
+                                                                StringRef FS) {
   ParseSubtargetFeatures(CPU, /*TuneCPU=*/CPU, FS);
   return *this;
 }

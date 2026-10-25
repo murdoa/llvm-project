@@ -62,10 +62,14 @@ public:
 
   static unsigned getRelaxedOpcode(unsigned Opcode) {
     switch (Opcode) {
-    case M6800::BRA: return M6800::LBRA;
-    case M6800::Bcc: return M6800::LBcc;
-    case M6800::BSR: return M6800::LBSR;
-    default: return Opcode;
+    case M6800::BRA:
+      return M6800::LBRA;
+    case M6800::Bcc:
+      return M6800::LBcc;
+    case M6800::BSR:
+      return M6800::LBSR;
+    default:
+      return Opcode;
     }
   }
 

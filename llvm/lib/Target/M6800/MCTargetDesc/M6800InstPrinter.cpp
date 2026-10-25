@@ -59,8 +59,7 @@ void M6800InstPrinter::printMemOperand(const MCInst *MI, unsigned OpNo,
   else if (Mode == M6800Mem::Direct)
     O << '<';
   if (Off.isImm())
-    O << (Base.getReg() ? Off.getImm()
-                        : static_cast<uint16_t>(Off.getImm()));
+    O << (Base.getReg() ? Off.getImm() : static_cast<uint16_t>(Off.getImm()));
   else
     MAI.printExpr(O, *Off.getExpr());
   if (Base.getReg()) {

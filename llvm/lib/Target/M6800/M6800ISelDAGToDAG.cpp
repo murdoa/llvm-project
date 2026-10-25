@@ -8,9 +8,9 @@
 
 #include "M6800.h"
 #include "M6800SelectionDAGInfo.h"
+#include "M6800Subtarget.h"
 #include "M6800TargetMachine.h"
 #include "llvm/CodeGen/SelectionDAG.h"
-#include "M6800Subtarget.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 
 using namespace llvm;
@@ -36,8 +36,7 @@ public:
   void Select(SDNode *N) override;
 
   SDValue getTargetSymbol(SDValue Sym, int64_t Off);
-  bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
-                  SDValue &Mode);
+  bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset, SDValue &Mode);
   bool SelectInlineAsmMemoryOperand(const SDValue &Op,
                                     InlineAsm::ConstraintCode ConstraintID,
                                     std::vector<SDValue> &OutOps) override;
@@ -91,16 +90,16 @@ SDValue M6800DAGToDAGISel::getTargetSymbol(SDValue Sym, int64_t Off) {
 //  - anything else               -> indexed "0,x" from the computed address
 //
 // A stack slot has SP as its base and an offset from SP + 1.
-bool M6800DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
-                                   SDValue &Offset, SDValue &Mode) {
+bool M6800DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
+                                   SDValue &Mode) {
   SDLoc DL(Addr);
   int64_t Off = 0;
   Mode = CurDAG->getTargetConstant(M6800Mem::Auto, DL, MVT::i8);
 
   if (auto *C = dyn_cast<ConstantSDNode>(Addr)) {
     Base = CurDAG->getRegister(Register(), MVT::i16);
-    Offset = CurDAG->getTargetConstant(C->getZExtValue() & 0xFFFF, DL,
-                                       MVT::i16);
+    Offset =
+        CurDAG->getTargetConstant(C->getZExtValue() & 0xFFFF, DL, MVT::i16);
     return true;
   }
 

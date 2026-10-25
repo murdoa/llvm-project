@@ -36,8 +36,7 @@ using namespace llvm;
 #define DEBUG_TYPE "m6800-post-ra-cleanup"
 #define PASS_NAME "M6800 post-RA cleanup"
 
-static cl::opt<bool> DisableCleanup("m6800-disable-post-ra-cleanup",
-                                    cl::Hidden,
+static cl::opt<bool> DisableCleanup("m6800-disable-post-ra-cleanup", cl::Hidden,
                                     cl::desc("Keep the moves that register "
                                              "allocation leaves behind"));
 
@@ -65,17 +64,23 @@ INITIALIZE_PASS(M6800PostRACleanup, DEBUG_TYPE, PASS_NAME, false, false)
 // Width of a plain load or store: 1 or 2, or 0 for anything else.
 static unsigned loadWidth(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
-  case M6800::LD8m: return 1;
-  case M6800::LD16m: return 2;
-  default: return 0;
+  case M6800::LD8m:
+    return 1;
+  case M6800::LD16m:
+    return 2;
+  default:
+    return 0;
   }
 }
 
 static unsigned storeWidth(const MachineInstr &MI) {
   switch (MI.getOpcode()) {
-  case M6800::ST8m: return 1;
-  case M6800::ST16m: return 2;
-  default: return 0;
+  case M6800::ST8m:
+    return 1;
+  case M6800::ST16m:
+    return 2;
+  default:
+    return 0;
   }
 }
 
@@ -133,8 +138,8 @@ bool M6800PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
       unsigned W = loadWidth(MI) | storeWidth(MI);
       MachineInstr *Next;
       while (W && (Next = nextInstr(MI))) {
-        bool Pair = loadWidth(MI) ? storeWidth(*Next) == W
-                                  : loadWidth(*Next) == W;
+        bool Pair =
+            loadWidth(MI) ? storeWidth(*Next) == W : loadWidth(*Next) == W;
         if (!Pair || !sameAccess(MI, *Next, TRI))
           break;
         Next->eraseFromParent();

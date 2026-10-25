@@ -41,9 +41,8 @@ static MCRegisterInfo *createM6800MCRegisterInfo(const Triple &TT) {
   return X;
 }
 
-static MCSubtargetInfo *createM6800MCSubtargetInfo(const Triple &TT,
-                                                   StringRef CPU,
-                                                   StringRef FS) {
+static MCSubtargetInfo *
+createM6800MCSubtargetInfo(const Triple &TT, StringRef CPU, StringRef FS) {
   if (CPU.empty())
     CPU = "6301";
   return createM6800MCSubtargetInfoImpl(TT, CPU, /*TuneCPU=*/CPU, FS);

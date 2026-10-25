@@ -84,7 +84,8 @@ bool M6800AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
   MCInst Inst;
   for (unsigned I = 0; I != 3; ++I)
     Inst.addOperand(MCInstLowering.lowerOperand(MI->getOperand(OpNo + I)));
-  M6800InstPrinter Printer(MAI, *TM.getMCInstrInfo(), *MF->getSubtarget().getRegisterInfo());
+  M6800InstPrinter Printer(MAI, *TM.getMCInstrInfo(),
+                           *MF->getSubtarget().getRegisterInfo());
   Printer.printMemOperand(&Inst, 0, OS);
   return false;
 }

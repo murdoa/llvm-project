@@ -75,8 +75,7 @@ class M6800AsmParser : public MCTargetAsmParser {
   AsmLexer &getLexer() { return Parser.getLexer(); }
   const AsmToken &tok() { return Parser.getTok(); }
 
-  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc,
-                     SMLoc &EndLoc) override;
+  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
   ParseStatus tryParseRegister(MCRegister &Reg, SMLoc &StartLoc,
                                SMLoc &EndLoc) override;
   bool parseInstruction(ParseInstructionInfo &Info, StringRef Name,
@@ -92,8 +91,7 @@ class M6800AsmParser : public MCTargetAsmParser {
   bool parseMemory(MemOperand &M, bool AllowExtended);
   bool buildInstruction(const SmallVectorImpl<const M6800::OpcodeEntry *> &Rows,
                         int CondCode, SMLoc NameLoc, MCInst &Inst);
-  bool addFixedRegisters(MCInst &Inst, unsigned Count, unsigned Reg,
-                         SMLoc Loc);
+  bool addFixedRegisters(MCInst &Inst, unsigned Count, unsigned Reg, SMLoc Loc);
   void addMemory(MCInst &Inst, const MemOperand &M);
 
 public:

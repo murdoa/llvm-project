@@ -43,9 +43,8 @@ private:
   void emitValue(const MCInst &MI, const MCOperand &Op, unsigned Size,
                  MCFixupKind Kind, SmallVectorImpl<char> &CB,
                  SmallVectorImpl<MCFixup> &Fixups) const;
-  void encodeMemory(const MCInst &MI, const M6800::OpcodeEntry &E,
-                    unsigned Idx, SmallVectorImpl<char> &CB,
-                    SmallVectorImpl<MCFixup> &Fixups,
+  void encodeMemory(const MCInst &MI, const M6800::OpcodeEntry &E, unsigned Idx,
+                    SmallVectorImpl<char> &CB, SmallVectorImpl<MCFixup> &Fixups,
                     const MCOperand *Imm8 = nullptr) const;
   void error(const MCInst &MI, const Twine &Msg) const {
     Ctx.reportError(MI.getLoc(), Msg);
@@ -95,8 +94,8 @@ void M6800MCCodeEmitter::emitValue(const MCInst &MI, const MCOperand &Op,
 // The memory operand at Idx (base, offset, mode) and the opcode before it.
 // Imm8, for AIM and the like, goes between the opcode and the address.
 void M6800MCCodeEmitter::encodeMemory(const MCInst &MI,
-                                      const M6800::OpcodeEntry &E,
-                                      unsigned Idx, SmallVectorImpl<char> &CB,
+                                      const M6800::OpcodeEntry &E, unsigned Idx,
+                                      SmallVectorImpl<char> &CB,
                                       SmallVectorImpl<MCFixup> &Fixups,
                                       const MCOperand *Imm8) const {
   const MCOperand &Base = MI.getOperand(Idx);
@@ -167,8 +166,8 @@ void M6800MCCodeEmitter::encodeInstruction(const MCInst &MI,
   }
   const M6800::OpcodeEntry *Entry = nullptr;
   if (FirstNonReg > 0)
-    Entry = M6800::findOpcodeEntry(MI.getOpcode(),
-                                   MI.getOperand(0).getReg().id());
+    Entry =
+        M6800::findOpcodeEntry(MI.getOpcode(), MI.getOperand(0).getReg().id());
   if (!Entry)
     Entry = M6800::findOpcodeEntry(MI.getOpcode(), Reg);
   if (!Entry) {
@@ -197,8 +196,8 @@ void M6800MCCodeEmitter::encodeInstruction(const MCInst &MI,
     return;
   case M6800::Rel8:
     emitByte(CB, E.Code);
-    emitValue(MI, MI.getOperand(N - 1), 1,
-              MCFixupKind(M6800::fixup_pcrel8), CB, Fixups);
+    emitValue(MI, MI.getOperand(N - 1), 1, MCFixupKind(M6800::fixup_pcrel8), CB,
+              Fixups);
     return;
   case M6800::Cond8:
     emitByte(CB, E.Code + MI.getOperand(0).getImm());

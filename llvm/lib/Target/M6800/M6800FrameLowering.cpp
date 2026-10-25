@@ -67,9 +67,7 @@ static MachineInstrBuilder buildFPAccess(const TargetInstrInfo &TII,
     MIB.addReg(M6800::X, RegState::Define);
   else if (Opc == M6800::ST16m)
     MIB.addReg(M6800::X);
-  return MIB.addReg(0)
-      .addExternalSymbol(FPSymbol)
-      .addImm(M6800Mem::Extended);
+  return MIB.addReg(0).addExternalSymbol(FPSymbol).addImm(M6800Mem::Extended);
 }
 
 // The prologue keeps D, which may hold the first argument. X is free.
@@ -119,7 +117,9 @@ void M6800FrameLowering::emitPrologueCode(MachineFunction &MF,
   } else {
     Emit(M6800::TSX);
     Emit(M6800::XGDX);
-    Emit(M6800::SUBDi).addReg(M6800::D, RegState::Define).addReg(M6800::D)
+    Emit(M6800::SUBDi)
+        .addReg(M6800::D, RegState::Define)
+        .addReg(M6800::D)
         .addImm(StackSize);
     Emit(M6800::XGDX);
     Emit(M6800::TXS);
@@ -183,8 +183,11 @@ void M6800FrameLowering::emitEpilogueCode(MachineFunction &MF,
   Emit(M6800::PSH8).addReg(M6800::B);
   Emit(M6800::PSH8).addReg(M6800::A);
   Emit(M6800::TSX);
-  Emit(M6800::LD16m).addReg(M6800::X, RegState::Define).addReg(M6800::X)
-      .addImm(4).addImm(M6800Mem::Auto);
+  Emit(M6800::LD16m)
+      .addReg(M6800::X, RegState::Define)
+      .addReg(M6800::X)
+      .addImm(4)
+      .addImm(M6800Mem::Auto);
   buildFPAccess(TII, MBB, MBBI, DL, M6800::ST16m)
       .setMIFlag(MachineInstr::FrameDestroy);
   Emit(M6800::PUL8).addReg(M6800::A, RegState::Define);
@@ -207,7 +210,9 @@ void M6800FrameLowering::emitFree(MachineFunction &MF, MachineBasicBlock &MBB,
   };
   auto AddToX = [&](int64_t N) {
     Emit(M6800::XGDX);
-    Emit(M6800::ADDDi).addReg(M6800::D, RegState::Define).addReg(M6800::D)
+    Emit(M6800::ADDDi)
+        .addReg(M6800::D, RegState::Define)
+        .addReg(M6800::D)
         .addImm(N);
     Emit(M6800::XGDX);
   };
@@ -243,10 +248,16 @@ void M6800FrameLowering::emitFree(MachineFunction &MF, MachineBasicBlock &MBB,
     Left -= Step;
     Emit(M6800::TSX);
     for (int64_t Off : {0, 2}) {
-      Emit(M6800::LD16m).addReg(M6800::D, RegState::Define).addReg(M6800::X)
-          .addImm(Off).addImm(M6800Mem::Auto);
-      Emit(M6800::ST16m).addReg(M6800::D).addReg(M6800::X)
-          .addImm(Step + Off).addImm(M6800Mem::Auto);
+      Emit(M6800::LD16m)
+          .addReg(M6800::D, RegState::Define)
+          .addReg(M6800::X)
+          .addImm(Off)
+          .addImm(M6800Mem::Auto);
+      Emit(M6800::ST16m)
+          .addReg(M6800::D)
+          .addReg(M6800::X)
+          .addImm(Step + Off)
+          .addImm(M6800Mem::Auto);
     }
     AddToX(Step);
     Emit(M6800::TXS);

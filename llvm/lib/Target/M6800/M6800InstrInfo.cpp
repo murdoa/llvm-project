@@ -109,8 +109,8 @@ void M6800InstrInfo::storeRegToStackSlot(
     bool IsKill, int FrameIndex, const TargetRegisterClass *RC, Register VReg,
     MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc = RC->hasSuperClassEq(&M6800::ACC8RegClass) ? M6800::ST8m
-                                                           : M6800::ST16m;
+  unsigned Opc =
+      RC->hasSuperClassEq(&M6800::ACC8RegClass) ? M6800::ST8m : M6800::ST16m;
   BuildMI(MBB, MI, DL, get(Opc))
       .addReg(SrcReg, getKillRegState(IsKill))
       .addFrameIndex(FrameIndex)
@@ -120,13 +120,15 @@ void M6800InstrInfo::storeRegToStackSlot(
       .setMIFlag(Flags);
 }
 
-void M6800InstrInfo::loadRegFromStackSlot(
-    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register DestReg,
-    int FrameIndex, const TargetRegisterClass *RC, Register VReg,
-    unsigned SubReg, MachineInstr::MIFlag Flags) const {
+void M6800InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+                                          MachineBasicBlock::iterator MI,
+                                          Register DestReg, int FrameIndex,
+                                          const TargetRegisterClass *RC,
+                                          Register VReg, unsigned SubReg,
+                                          MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc = RC->hasSuperClassEq(&M6800::ACC8RegClass) ? M6800::LD8m
-                                                           : M6800::LD16m;
+  unsigned Opc =
+      RC->hasSuperClassEq(&M6800::ACC8RegClass) ? M6800::LD8m : M6800::LD16m;
   BuildMI(MBB, MI, DL, get(Opc), DestReg)
       .addFrameIndex(FrameIndex)
       .addImm(0)
@@ -140,24 +142,39 @@ void M6800InstrInfo::loadRegFromStackSlot(
 static unsigned getMemForm(unsigned Opc, unsigned &RhsIdx) {
   RhsIdx = 2;
   switch (Opc) {
-  case M6800::ADD8rr: return M6800::ADD8m;
-  case M6800::SUB8rr: return M6800::SUB8m;
-  case M6800::AND8rr: return M6800::AND8m;
-  case M6800::OR8rr: return M6800::OR8m;
-  case M6800::EOR8rr: return M6800::EOR8m;
-  case M6800::ADDDrr: return M6800::ADDDm;
-  case M6800::SUBDrr: return M6800::SUBDm;
-  case M6800::ADC16rr: return M6800::ADC16m;
-  case M6800::SBC16rr: return M6800::SBC16m;
-  case M6800::AND16rr: return M6800::AND16m;
-  case M6800::OR16rr: return M6800::OR16m;
-  case M6800::EOR16rr: return M6800::EOR16m;
+  case M6800::ADD8rr:
+    return M6800::ADD8m;
+  case M6800::SUB8rr:
+    return M6800::SUB8m;
+  case M6800::AND8rr:
+    return M6800::AND8m;
+  case M6800::OR8rr:
+    return M6800::OR8m;
+  case M6800::EOR8rr:
+    return M6800::EOR8m;
+  case M6800::ADDDrr:
+    return M6800::ADDDm;
+  case M6800::SUBDrr:
+    return M6800::SUBDm;
+  case M6800::ADC16rr:
+    return M6800::ADC16m;
+  case M6800::SBC16rr:
+    return M6800::SBC16m;
+  case M6800::AND16rr:
+    return M6800::AND16m;
+  case M6800::OR16rr:
+    return M6800::OR16m;
+  case M6800::EOR16rr:
+    return M6800::EOR16m;
   }
   RhsIdx = 1;
   switch (Opc) {
-  case M6800::CB8rr: return M6800::CB8rm;
-  case M6800::CB16rr: return M6800::CB16rm;
-  case M6800::SBCBRrr: return M6800::SBCBRm;
+  case M6800::CB8rr:
+    return M6800::CB8rm;
+  case M6800::CB16rr:
+    return M6800::CB16rm;
+  case M6800::SBCBRrr:
+    return M6800::SBCBRm;
   }
   return 0;
 }
@@ -165,10 +182,11 @@ static unsigned getMemForm(unsigned Opc, unsigned &RhsIdx) {
 // A spilled right-hand operand is read from its stack slot: "subd 4,x"
 // instead of reloading it and going through the stack. An 8-bit compare
 // whose left-hand operand is spilled swaps its operands.
-MachineInstr *M6800InstrInfo::foldMemoryOperandImpl(
-    MachineFunction &MF, MachineInstr &MI, ArrayRef<unsigned> Ops,
-    int FrameIndex, MachineInstr *&CopyMI, LiveIntervals *LIS,
-    VirtRegMap *VRM) const {
+MachineInstr *
+M6800InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
+                                      ArrayRef<unsigned> Ops, int FrameIndex,
+                                      MachineInstr *&CopyMI, LiveIntervals *LIS,
+                                      VirtRegMap *VRM) const {
   if (Ops.size() != 1)
     return nullptr;
   unsigned RhsIdx;
@@ -197,8 +215,8 @@ MachineInstr *M6800InstrInfo::foldMemoryOperandImpl(
       continue;
     }
     if (Swap && I == 2) { // the condition
-      MIB.addImm(M6800CC::getSwapped(
-          static_cast<M6800CC::CondCode>(MO.getImm())));
+      MIB.addImm(
+          M6800CC::getSwapped(static_cast<M6800CC::CondCode>(MO.getImm())));
       continue;
     }
     MIB.add(MO);
@@ -217,9 +235,9 @@ void M6800InstrInfo::reMaterialize(MachineBasicBlock &MBB,
     TargetInstrInfo::reMaterialize(MBB, I, DestReg, SubIdx, Orig, UsedLanes);
     return;
   }
-  MachineInstr *MI = BuildMI(*MBB.getParent(), Orig.getDebugLoc(),
-                             get(M6800::LD8i), DestReg)
-                         .addImm(0);
+  MachineInstr *MI =
+      BuildMI(*MBB.getParent(), Orig.getDebugLoc(), get(M6800::LD8i), DestReg)
+          .addImm(0);
   MBB.insert(I, MI);
   if (SubIdx)
     MI->getOperand(0).setSubReg(SubIdx);
@@ -358,12 +376,18 @@ void M6800InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
 // The memory form of an 8-bit register-register pseudo.
 static unsigned getALU8MemOpc(unsigned Opc) {
   switch (Opc) {
-  case M6800::ADD8rr: return M6800::ADD8m;
-  case M6800::SUB8rr: return M6800::SUB8m;
-  case M6800::AND8rr: return M6800::AND8m;
-  case M6800::OR8rr: return M6800::OR8m;
-  case M6800::EOR8rr: return M6800::EOR8m;
-  default: return 0;
+  case M6800::ADD8rr:
+    return M6800::ADD8m;
+  case M6800::SUB8rr:
+    return M6800::SUB8m;
+  case M6800::AND8rr:
+    return M6800::AND8m;
+  case M6800::OR8rr:
+    return M6800::OR8m;
+  case M6800::EOR8rr:
+    return M6800::EOR8m;
+  default:
+    return 0;
   }
 }
 
@@ -378,22 +402,68 @@ struct Logic16Parts {
 
 static bool getLogic16Parts(unsigned Opc, Logic16Parts &P, char &Form) {
   switch (Opc) {
-  case M6800::ADC16i: Form = 'i'; P = {M6800::ADC8i, M6800::ADC8m, true}; return true;
-  case M6800::ADC16m: Form = 'm'; P = {M6800::ADC8i, M6800::ADC8m, true}; return true;
-  case M6800::ADC16rr: Form = 'r'; P = {M6800::ADC8i, M6800::ADC8m, true}; return true;
-  case M6800::SBC16i: Form = 'i'; P = {M6800::SBC8i, M6800::SBC8m, true}; return true;
-  case M6800::SBC16m: Form = 'm'; P = {M6800::SBC8i, M6800::SBC8m, true}; return true;
-  case M6800::SBC16rr: Form = 'r'; P = {M6800::SBC8i, M6800::SBC8m, true}; return true;
-  case M6800::AND16i: Form = 'i'; P = {M6800::AND8i, M6800::AND8m}; return true;
-  case M6800::AND16m: Form = 'm'; P = {M6800::AND8i, M6800::AND8m}; return true;
-  case M6800::AND16rr: Form = 'r'; P = {M6800::AND8i, M6800::AND8m}; return true;
-  case M6800::OR16i: Form = 'i'; P = {M6800::OR8i, M6800::OR8m}; return true;
-  case M6800::OR16m: Form = 'm'; P = {M6800::OR8i, M6800::OR8m}; return true;
-  case M6800::OR16rr: Form = 'r'; P = {M6800::OR8i, M6800::OR8m}; return true;
-  case M6800::EOR16i: Form = 'i'; P = {M6800::EOR8i, M6800::EOR8m}; return true;
-  case M6800::EOR16m: Form = 'm'; P = {M6800::EOR8i, M6800::EOR8m}; return true;
-  case M6800::EOR16rr: Form = 'r'; P = {M6800::EOR8i, M6800::EOR8m}; return true;
-  default: return false;
+  case M6800::ADC16i:
+    Form = 'i';
+    P = {M6800::ADC8i, M6800::ADC8m, true};
+    return true;
+  case M6800::ADC16m:
+    Form = 'm';
+    P = {M6800::ADC8i, M6800::ADC8m, true};
+    return true;
+  case M6800::ADC16rr:
+    Form = 'r';
+    P = {M6800::ADC8i, M6800::ADC8m, true};
+    return true;
+  case M6800::SBC16i:
+    Form = 'i';
+    P = {M6800::SBC8i, M6800::SBC8m, true};
+    return true;
+  case M6800::SBC16m:
+    Form = 'm';
+    P = {M6800::SBC8i, M6800::SBC8m, true};
+    return true;
+  case M6800::SBC16rr:
+    Form = 'r';
+    P = {M6800::SBC8i, M6800::SBC8m, true};
+    return true;
+  case M6800::AND16i:
+    Form = 'i';
+    P = {M6800::AND8i, M6800::AND8m};
+    return true;
+  case M6800::AND16m:
+    Form = 'm';
+    P = {M6800::AND8i, M6800::AND8m};
+    return true;
+  case M6800::AND16rr:
+    Form = 'r';
+    P = {M6800::AND8i, M6800::AND8m};
+    return true;
+  case M6800::OR16i:
+    Form = 'i';
+    P = {M6800::OR8i, M6800::OR8m};
+    return true;
+  case M6800::OR16m:
+    Form = 'm';
+    P = {M6800::OR8i, M6800::OR8m};
+    return true;
+  case M6800::OR16rr:
+    Form = 'r';
+    P = {M6800::OR8i, M6800::OR8m};
+    return true;
+  case M6800::EOR16i:
+    Form = 'i';
+    P = {M6800::EOR8i, M6800::EOR8m};
+    return true;
+  case M6800::EOR16m:
+    Form = 'm';
+    P = {M6800::EOR8i, M6800::EOR8m};
+    return true;
+  case M6800::EOR16rr:
+    Form = 'r';
+    P = {M6800::EOR8i, M6800::EOR8m};
+    return true;
+  default:
+    return false;
   }
 }
 
@@ -409,8 +479,7 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     const MachineOperand &Rhs = MI.getOperand(2);
     if (Dst == M6800::A && Rhs.getReg() == M6800::B &&
         (Opc == M6800::ADD8rr || Opc == M6800::SUB8rr)) {
-      BuildMI(MBB, MI, DL,
-              get(Opc == M6800::ADD8rr ? M6800::ABA : M6800::SBA));
+      BuildMI(MBB, MI, DL, get(Opc == M6800::ADD8rr ? M6800::ABA : M6800::SBA));
     } else {
       BuildMI(MBB, MI, DL, get(M6800::PSH8))
           .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
@@ -710,7 +779,8 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       }
       break;
     case M6800::CB8rm: {
-      MachineInstrBuilder Cmp = BuildMI(MBB, MI, DL, get(M6800::CMP8m)).add(Lhs);
+      MachineInstrBuilder Cmp =
+          BuildMI(MBB, MI, DL, get(M6800::CMP8m)).add(Lhs);
       addMem(Cmp, MI, 1);
       Cmp.cloneMemRefs(MI);
       break;
@@ -819,8 +889,8 @@ static bool isCondBranch(unsigned Opc) {
 }
 
 // Fills Cond from a conditional branch and returns its target.
-static MachineBasicBlock *parseCondBranch(const MachineInstr &MI,
-                                          SmallVectorImpl<MachineOperand> &Cond) {
+static MachineBasicBlock *
+parseCondBranch(const MachineInstr &MI, SmallVectorImpl<MachineOperand> &Cond) {
   Cond.push_back(MachineOperand::CreateImm(MI.getOpcode()));
   unsigned N = MI.getNumExplicitOperands();
   for (unsigned I = 0; I + 1 < N; ++I) {
@@ -900,12 +970,9 @@ unsigned M6800InstrInfo::removeBranch(MachineBasicBlock &MBB,
   return Count;
 }
 
-unsigned M6800InstrInfo::insertBranch(MachineBasicBlock &MBB,
-                                      MachineBasicBlock *TBB,
-                                      MachineBasicBlock *FBB,
-                                      ArrayRef<MachineOperand> Cond,
-                                      const DebugLoc &DL,
-                                      int *BytesAdded) const {
+unsigned M6800InstrInfo::insertBranch(
+    MachineBasicBlock &MBB, MachineBasicBlock *TBB, MachineBasicBlock *FBB,
+    ArrayRef<MachineOperand> Cond, const DebugLoc &DL, int *BytesAdded) const {
   assert(TBB && "insertBranch needs a target");
   int Bytes = 0;
 

@@ -136,8 +136,7 @@ void M6800FrameAccess::computeLiveness(MachineBasicBlock &MBB) {
     Live[&MI] = {!LPR.available(MRI, M6800::X), !LPR.available(MRI, M6800::D),
                  !LPR.available(MRI, M6800::B), CLive};
     LPR.stepBackward(MI);
-    CLive = (CLive && !clobbersC(MI, TRI)) ||
-            MI.readsRegister(M6800::CC, TRI);
+    CLive = (CLive && !clobbersC(MI, TRI)) || MI.readsRegister(M6800::CC, TRI);
   }
 }
 
@@ -171,8 +170,8 @@ void M6800FrameAccess::loadBase(MachineBasicBlock &MBB,
 // X += N. "inx" for small N; "ldab #n; abx" when B is free; else "xgdx;
 // addd #n; xgdx", which leaves D as it was. All but INX change the flags.
 void M6800FrameAccess::addToX(MachineBasicBlock &MBB,
-                              MachineBasicBlock::iterator I,
-                              const DebugLoc &DL, int64_t N, bool BFree) {
+                              MachineBasicBlock::iterator I, const DebugLoc &DL,
+                              int64_t N, bool BFree) {
   if (N >= 0 && N <= 3) {
     for (int64_t K = 0; K != N; ++K)
       BuildMI(MBB, I, DL, TII->get(M6800::INX));
@@ -306,8 +305,8 @@ bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
 
   bool DefsX = MI.modifiesRegister(M6800::X, TRI);
   bool SaveX = LA.X && !DefsX;
-  bool NeedsCC = MI.readsRegister(M6800::CC, TRI) ||
-                 (LA.C && !clobbersC(MI, TRI));
+  bool NeedsCC =
+      MI.readsRegister(M6800::CC, TRI) || (LA.C && !clobbersC(MI, TRI));
   int64_t Pushed = SaveX && Base == M6800::SP ? 2 : 0;
   int64_t XOff = Off + Pushed;
 
