@@ -9,7 +9,7 @@ M6809 backend, which it was forked from.
 - Code generation for C: integer types up to 64 bits, calls, varargs.
 - MC layer: the HD6301 instruction set, encoded by the integrated
   assembler, with branch relaxation (BRA to JMP, Bcc to a reversed Bcc over
-  a JMP). There is no assembly parser or disassembler yet.
+  a JMP), and an assembly parser. There is no disassembler yet.
 
 ## Code generation
 
@@ -25,8 +25,13 @@ backend is built around reaching the stack through X:
   `aba`, `sba` and `cba` cover A against B.
 - Copies between D and X use `xgdx` when the source dies, and the stack
   otherwise.
-- There is no frame pointer, so variable-sized stack objects are not
-  supported.
+- A function with variable-sized stack objects (or a local with more than
+  byte alignment, which becomes one) has a frame pointer. No register is
+  free for it, so it is the word `__m6800_fp` in memory, saved by the
+  prologue and put back by the epilogue. Stack slots are then reached with
+  `ldx __m6800_fp` instead of `tsx`.
+- At -O0 too the greedy register allocator is used: the fast allocator
+  cannot work with one-register classes.
 
 ## ABI
 
