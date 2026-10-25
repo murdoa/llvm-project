@@ -116,3 +116,13 @@ define i32 @load32(ptr %p) {
   %v = load atomic i32, ptr %p seq_cst, align 2
   ret i32 %v
 }
+
+define i16 @load16_unaligned(ptr %p) {
+; CHECK-LABEL: load16_unaligned:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldd ,x
+; CHECK-NEXT:    rts
+  %v = load atomic i16, ptr %p seq_cst, align 1
+  ret i16 %v
+}

@@ -67,8 +67,10 @@ M6800TargetLowering::M6800TargetLowering(const TargetMachine &TM,
 
   // One CPU, and an interrupt never splits an instruction: 8- and 16-bit
   // atomic loads and stores are plain ones and a fence only stops the
-  // compiler.  Read-modify-write operations become __sync_* calls.
+  // compiler, whatever the alignment.  Read-modify-write operations
+  // become __sync_* calls.
   setMaxAtomicSizeInBitsSupported(16);
+  setSupportsUnalignedAtomics(true);
   for (MVT VT : {MVT::i8, MVT::i16}) {
     for (unsigned Op :
          {ISD::ATOMIC_SWAP, ISD::ATOMIC_CMP_SWAP, ISD::ATOMIC_LOAD_ADD,
