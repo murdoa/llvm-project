@@ -10,11 +10,11 @@ define void @vla(i16 %n) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    leau ,s
-; CHECK-NEXT:    leas -4,s
+; CHECK-NEXT:    leas -6,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr s, d
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    subd ,s++
+; CHECK-NEXT:    stx -6,u
+; CHECK-NEXT:    subd -6,u
 ; CHECK-NEXT:    tfr d, s
 ; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    std ,s

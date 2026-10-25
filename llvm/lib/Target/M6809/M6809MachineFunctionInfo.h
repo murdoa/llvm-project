@@ -20,6 +20,9 @@ class M6809FunctionInfo : public MachineFunctionInfo {
   int VarArgsFrameIndex = 0;
   // Fixed object over the return address, made when something asks for it.
   int ReturnAddressFrameIndex = 0;
+  // Two bytes for the right-hand operand of a register-register operation
+  // on the 6809, or -1 (see M6809FrameLowering.cpp).
+  int ScratchFrameIndex = -1;
 
 public:
   M6809FunctionInfo(const Function &F, const TargetSubtargetInfo *STI) {}
@@ -28,6 +31,8 @@ public:
   void setVarArgsFrameIndex(int FI) { VarArgsFrameIndex = FI; }
   int getReturnAddressFrameIndex() const { return ReturnAddressFrameIndex; }
   void setReturnAddressFrameIndex(int FI) { ReturnAddressFrameIndex = FI; }
+  int getScratchFrameIndex() const { return ScratchFrameIndex; }
+  void setScratchFrameIndex(int FI) { ScratchFrameIndex = FI; }
 
   MachineFunctionInfo *
   clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,

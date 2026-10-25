@@ -8,6 +8,8 @@
 
 #include "M6809InstrInfo.h"
 #include "M6809.h"
+#include "M6809FrameLowering.h"
+#include "M6809MachineFunctionInfo.h"
 #include "M6809Subtarget.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -228,6 +230,56 @@ static unsigned getPopOpcode(unsigned Opc) {
   default:
     return 0;
   }
+}
+
+// The memory forms of the pseudos getPopOpcode handles.
+static unsigned getScratchOpcode(unsigned Opc) {
+  switch (Opc) {
+  case M6809::ADD8rr:
+    return M6809::ADD8m;
+  case M6809::SUB8rr:
+    return M6809::SUB8m;
+  case M6809::AND8rr:
+    return M6809::AND8m;
+  case M6809::OR8rr:
+    return M6809::OR8m;
+  case M6809::EOR8rr:
+    return M6809::EOR8m;
+  case M6809::ADDDrr:
+    return M6809::ADDDm;
+  case M6809::SUBDrr:
+    return M6809::SUBDm;
+  default:
+    return 0;
+  }
+}
+
+bool M6809InstrInfo::usesScratchSlot(unsigned Opc) {
+  return getScratchOpcode(Opc) || Opc == M6809::CB8rr || Opc == M6809::CB16rr;
+}
+
+// Stores Rhs in the function's scratch slot, if it has one, and returns the
+// slot's address as base and offset.
+static bool storeToScratch(MachineInstr &MI, const MachineOperand &Rhs,
+                           const TargetInstrInfo &TII, Register &Base,
+                           int64_t &Off) {
+  MachineBasicBlock &MBB = *MI.getParent();
+  MachineFunction &MF = *MBB.getParent();
+  int FI = MF.getInfo<M6809FunctionInfo>()->getScratchFrameIndex();
+  if (FI < 0)
+    return false;
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  Base = MF.getSubtarget().getRegisterInfo()->getFrameRegister(MF);
+  Off = MFI.getObjectOffset(FI) + (Base == M6809::U
+                                       ? M6809FrameLowering::FPSaveSize
+                                       : MFI.getStackSize());
+  bool Is8 = M6809::ACC8RegClass.contains(Rhs.getReg());
+  BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(Is8 ? M6809::ST8m : M6809::ST16m))
+      .addReg(Rhs.getReg()) // may also be the other operand
+      .addReg(Base)
+      .addImm(Off)
+      .addImm(M6809Mem::Auto);
+  return true;
 }
 
 namespace {
@@ -747,6 +799,17 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   if (unsigned PopOpc = getPopOpcode(Opc)) {
     Register Dst = MI.getOperand(0).getReg();
     const MachineOperand &Rhs = MI.getOperand(2);
+    Register Base;
+    int64_t Off;
+    if (storeToScratch(MI, Rhs, *this, Base, Off)) {
+      BuildMI(MBB, MI, DL, get(getScratchOpcode(Opc)), Dst)
+          .addReg(Dst)
+          .addReg(Base)
+          .addImm(Off)
+          .addImm(M6809Mem::Auto);
+      MI.eraseFromParent();
+      return true;
+    }
     bool Is8 = M6809::ACC8RegClass.contains(Dst);
     BuildMI(MBB, MI, DL, get(Is8 ? M6809::PSHS8 : M6809::PSHS16))
         .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
@@ -1052,6 +1115,16 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         BuildMI(MBB, MI, DL, get(M6809::CMPR))
             .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()))
             .add(Lhs);
+        break;
+      }
+      Register Base;
+      int64_t Off;
+      if (storeToScratch(MI, Rhs, *this, Base, Off)) {
+        BuildMI(MBB, MI, DL, get(Is8 ? M6809::CMP8m : M6809::CMP16m))
+            .add(Lhs)
+            .addReg(Base)
+            .addImm(Off)
+            .addImm(M6809Mem::Auto);
         break;
       }
       BuildMI(MBB, MI, DL, get(Is8 ? M6809::PSHS8 : M6809::PSHS16))

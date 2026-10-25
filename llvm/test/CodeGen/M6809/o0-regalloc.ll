@@ -7,18 +7,18 @@
 define i32 @ret_both_in_d(i16 %a, i16 %b) {
 ; CHECK-LABEL: ret_both_in_d:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    sty ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:    sty 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldx 6,s
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    leay d,y
-; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    subd ,s++
+; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    stx ,s
+; CHECK-NEXT:    subd ,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    leas 4,s
 ; CHECK-NEXT:    rts
   %hi = add i16 %a, %b
   %lo = sub i16 %a, %b
@@ -33,27 +33,27 @@ define i32 @ret_both_in_d(i16 %a, i16 %b) {
 define i16 @cmp_both_in_d(i16 %a, i16 %b) {
 ; CHECK-LABEL: cmp_both_in_d:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    stx ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldy 4,s
+; CHECK-NEXT:    stx 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldy 6,s
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    leax d,x
-; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    pshs y
-; CHECK-NEXT:    subd ,s++
+; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    sty ,s
+; CHECK-NEXT:    subd ,s
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    pshs y
-; CHECK-NEXT:    cmpx ,s++
+; CHECK-NEXT:    sty ,s
+; CHECK-NEXT:    cmpx ,s
 ; CHECK-NEXT:    bhs .LBB1_2
 ; CHECK-NEXT:    bra .LBB1_1
 ; CHECK-NEXT:  .LBB1_1: ; %t
 ; CHECK-NEXT:    ldd #1
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    leas 4,s
 ; CHECK-NEXT:    rts
 ; CHECK-NEXT:  .LBB1_2: ; %f
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    leas 4,s
 ; CHECK-NEXT:    rts
   %x = add i16 %a, %b
   %y = sub i16 %a, %b

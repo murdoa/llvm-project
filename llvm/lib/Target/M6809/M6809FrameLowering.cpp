@@ -19,6 +19,7 @@
 #include "M6809FrameLowering.h"
 #include "M6809.h"
 #include "M6809InstrInfo.h"
+#include "M6809MachineFunctionInfo.h"
 #include "M6809Subtarget.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -88,6 +89,37 @@ void M6809FrameLowering::determineCalleeSaves(MachineFunction &MF,
   MF.getFrameInfo().CreateFixedSpillStackObject(FPSaveSize, -FPSaveSize);
 }
 
+// On the 6809 an operation on two registers stores one of them and reads
+// it back as a memory operand. Pushing it costs 12 cycles for a byte
+// ("pshs a; addb ,s+") and 16 for a word ("pshs x; addd ,s++"); a store to
+// a slot in the frame and an indexed read cost 8-10 and 12-14, in the same
+// bytes (one more for STY). Give the function such a slot when it has a
+// frame anyway, so the slot costs nothing to set up, unless optimizing for
+// size: the slot moves other objects further from S. The operations use it
+// when they are expanded, after tail duplication has seen them as one
+// instruction.
+void M6809FrameLowering::processFunctionBeforeFrameFinalized(
+    MachineFunction &MF, RegScavenger *RS) const {
+  // The HD6309 has register-register forms of its own.
+  if (STI.has6309() || MF.getFunction().hasOptSize())
+    return;
+  // A frame means a LEAS in the prologue: some local or spill slot, not
+  // just fixed objects such as the arguments or the saved U.
+  MachineFrameInfo &MFI = MF.getFrameInfo();
+  bool HasFrame = MFI.adjustsStack() && MFI.getMaxCallFrameSize();
+  for (int I = 0, E = MFI.getObjectIndexEnd(); I != E && !HasFrame; ++I)
+    HasFrame = !MFI.isDeadObjectIndex(I) && MFI.getObjectSize(I);
+  if (!HasFrame)
+    return;
+  for (const MachineBasicBlock &MBB : MF)
+    for (const MachineInstr &MI : MBB)
+      if (M6809InstrInfo::usesScratchSlot(MI.getOpcode())) {
+        MF.getInfo<M6809FunctionInfo>()->setScratchFrameIndex(
+            MFI.CreateStackObject(2, Align(1), /*isSpillSlot=*/false));
+        return;
+      }
+}
+
 // An S-relative access takes no extra byte with an offset in -16..15, one
 // more up to 127 and two beyond. Objects are placed in order away from the
 // outgoing argument area at S, so put those with the most uses per byte
@@ -97,11 +129,15 @@ void M6809FrameLowering::orderFrameObjects(
     const MachineFunction &MF, SmallVectorImpl<int> &Objects) const {
   const MachineFrameInfo &MFI = MF.getFrameInfo();
   SmallVector<unsigned, 16> Uses(MFI.getObjectIndexEnd());
+  int Scratch = MF.getInfo<M6809FunctionInfo>()->getScratchFrameIndex();
   for (const MachineBasicBlock &MBB : MF)
-    for (const MachineInstr &MI : MBB)
+    for (const MachineInstr &MI : MBB) {
+      if (Scratch >= 0 && M6809InstrInfo::usesScratchSlot(MI.getOpcode()))
+        Uses[Scratch] += 2; // a store and a read
       for (const MachineOperand &MO : MI.operands())
         if (MO.isFI() && MO.getIndex() >= 0)
           ++Uses[MO.getIndex()];
+    }
   // Uses[A] / Size(A) < Uses[B] / Size(B), without division.
   llvm::stable_sort(Objects, [&](int A, int B) {
     return uint64_t(Uses[A]) * MFI.getObjectSize(B) <

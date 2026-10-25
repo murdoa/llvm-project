@@ -57,6 +57,10 @@ protected:
                                       VirtRegMap *VRM = nullptr) const override;
 
 public:
+  // Whether a register-register pseudo of this opcode would push its
+  // right-hand operand, so a scratch slot in the frame can replace the push.
+  static bool usesScratchSlot(unsigned Opc);
+
   void emitCompareWithZero(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MI, const DebugLoc &DL,
                            const MachineOperand &Lhs, int64_t CC) const;

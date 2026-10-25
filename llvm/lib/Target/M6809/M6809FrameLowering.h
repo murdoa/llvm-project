@@ -35,6 +35,9 @@ public:
   void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
                             RegScavenger *RS) const override;
 
+  void processFunctionBeforeFrameFinalized(MachineFunction &MF,
+                                           RegScavenger *RS) const override;
+
   void orderFrameObjects(const MachineFunction &MF,
                          SmallVectorImpl<int> &Objects) const override;
 

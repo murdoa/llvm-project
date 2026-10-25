@@ -9,24 +9,24 @@ declare i16 @g()
 define i16 @sub_spilled() {
 ; CHECK-LABEL: sub_spilled:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -8,s
-; CHECK-NEXT:    stu 6,s ; 2-byte Folded Spill
+; CHECK-NEXT:    leas -10,s
+; CHECK-NEXT:    stu 8,s ; 2-byte Folded Spill
+; CHECK-NEXT:    jsr g
+; CHECK-NEXT:    std 6,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    jsr g
 ; CHECK-NEXT:    std 4,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    jsr g
 ; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    jsr g
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    jsr g
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    jsr g
+; CHECK-NEXT:    subd 6,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    subd 4,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    subd 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    subd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    pshs u
-; CHECK-NEXT:    subd ,s++
-; CHECK-NEXT:    ldu 6,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 8,s
+; CHECK-NEXT:    stu ,s
+; CHECK-NEXT:    subd ,s
+; CHECK-NEXT:    ldu 8,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 10,s
 ; CHECK-NEXT:    rts
   %a = call i16 @g()
   %b = call i16 @g()

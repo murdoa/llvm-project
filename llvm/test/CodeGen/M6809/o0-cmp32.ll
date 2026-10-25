@@ -13,14 +13,14 @@ declare void @f()
 define void @br_slt(i32 %a, i32 %b) {
 ; M6809-LABEL: br_slt:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -2,s
-; M6809-NEXT:    std ,s ; 2-byte Folded Spill
-; M6809-NEXT:    ldy 8,s
-; M6809-NEXT:    ldd 4,s
-; M6809-NEXT:    ldx 6,s
-; M6809-NEXT:    pshs y
-; M6809-NEXT:    subd ,s++
-; M6809-NEXT:    ldd ,s ; 2-byte Folded Reload
+; M6809-NEXT:    leas -4,s
+; M6809-NEXT:    std 2,s ; 2-byte Folded Spill
+; M6809-NEXT:    ldy 10,s
+; M6809-NEXT:    ldd 6,s
+; M6809-NEXT:    ldx 8,s
+; M6809-NEXT:    sty ,s
+; M6809-NEXT:    subd ,s
+; M6809-NEXT:    ldd 2,s ; 2-byte Folded Reload
 ; M6809-NEXT:    pshs x
 ; M6809-NEXT:    sbcb 1,s
 ; M6809-NEXT:    sbca ,s++
@@ -30,7 +30,7 @@ define void @br_slt(i32 %a, i32 %b) {
 ; M6809-NEXT:    jsr f
 ; M6809-NEXT:    bra .LBB0_2
 ; M6809-NEXT:  .LBB0_2: ; %e
-; M6809-NEXT:    leas 2,s
+; M6809-NEXT:    leas 4,s
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: br_slt:
@@ -59,35 +59,35 @@ e:
 define i32 @smax(i32 %a, i32 %b) {
 ; M6809-LABEL: smax:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -10,s
-; M6809-NEXT:    stu 8,s ; 2-byte Folded Spill
+; M6809-NEXT:    leas -12,s
+; M6809-NEXT:    stu 10,s ; 2-byte Folded Spill
 ; M6809-NEXT:    tfr d, u
-; M6809-NEXT:    ldd 14,s
-; M6809-NEXT:    std 2,s ; 2-byte Folded Spill
 ; M6809-NEXT:    ldd 16,s
-; M6809-NEXT:    std ,s ; 2-byte Folded Spill
-; M6809-NEXT:    ldy 12,s
+; M6809-NEXT:    std 4,s ; 2-byte Folded Spill
+; M6809-NEXT:    ldd 18,s
+; M6809-NEXT:    std 2,s ; 2-byte Folded Spill
+; M6809-NEXT:    ldy 14,s
 ; M6809-NEXT:    tfr y, x
-; M6809-NEXT:    pshs x
-; M6809-NEXT:    subd ,s++
-; M6809-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; M6809-NEXT:    stx ,s
+; M6809-NEXT:    subd ,s
+; M6809-NEXT:    ldd 4,s ; 2-byte Folded Reload
 ; M6809-NEXT:    tfr u, x
-; M6809-NEXT:    stu 4,s ; 2-byte Folded Spill
-; M6809-NEXT:    sty 6,s ; 2-byte Folded Spill
+; M6809-NEXT:    stu 6,s ; 2-byte Folded Spill
+; M6809-NEXT:    sty 8,s ; 2-byte Folded Spill
 ; M6809-NEXT:    pshs x
 ; M6809-NEXT:    sbcb 1,s
 ; M6809-NEXT:    sbca ,s++
 ; M6809-NEXT:    blt .LBB1_2
 ; M6809-NEXT:  ; %bb.1:
-; M6809-NEXT:    ldd ,s ; 2-byte Folded Reload
-; M6809-NEXT:    ldx 2,s ; 2-byte Folded Reload
-; M6809-NEXT:    stx 4,s ; 2-byte Folded Spill
-; M6809-NEXT:    std 6,s ; 2-byte Folded Spill
+; M6809-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; M6809-NEXT:    ldx 4,s ; 2-byte Folded Reload
+; M6809-NEXT:    stx 6,s ; 2-byte Folded Spill
+; M6809-NEXT:    std 8,s ; 2-byte Folded Spill
 ; M6809-NEXT:  .LBB1_2:
-; M6809-NEXT:    ldd 4,s ; 2-byte Folded Reload
-; M6809-NEXT:    ldx 6,s ; 2-byte Folded Reload
-; M6809-NEXT:    ldu 8,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 10,s
+; M6809-NEXT:    ldd 6,s ; 2-byte Folded Reload
+; M6809-NEXT:    ldx 8,s ; 2-byte Folded Reload
+; M6809-NEXT:    ldu 10,s ; 2-byte Folded Reload
+; M6809-NEXT:    leas 12,s
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: smax:

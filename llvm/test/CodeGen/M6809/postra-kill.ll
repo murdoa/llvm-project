@@ -8,17 +8,17 @@
 define i8 @f(i8 %a, i8 %b, i8 %c) {
 ; M6809-LABEL: f:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -2,s
-; M6809-NEXT:    lda 5,s
+; M6809-NEXT:    leas -4,s
+; M6809-NEXT:    lda 7,s
 ; M6809-NEXT:    sta 1,s ; 1-byte Folded Spill
-; M6809-NEXT:    lda 4,s
+; M6809-NEXT:    lda 6,s
 ; M6809-NEXT:    sta ,s ; 1-byte Folded Spill
 ; M6809-NEXT:    suba 1,s ; 1-byte Folded Reload
 ; M6809-NEXT:    addb ,s ; 1-byte Folded Reload
-; M6809-NEXT:    pshs a
-; M6809-NEXT:    orb ,s+
+; M6809-NEXT:    sta 2,s
+; M6809-NEXT:    orb 2,s
 ; M6809-NEXT:    eorb 1,s ; 1-byte Folded Reload
-; M6809-NEXT:    leas 2,s
+; M6809-NEXT:    leas 4,s
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: f:

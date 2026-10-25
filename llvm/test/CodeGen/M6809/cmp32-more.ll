@@ -231,35 +231,35 @@ define i32 @sel_zero_low(i32 %a, i32 %x, i32 %y) {
 define i1 @setcc_sle(i32 %a, i32 %b) {
 ; M6809-LABEL: setcc_sle:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -5,s
-; M6809-NEXT:    stu 3,s ; 2-byte Folded Spill
+; M6809-NEXT:    leas -7,s
+; M6809-NEXT:    stu 5,s ; 2-byte Folded Spill
 ; M6809-NEXT:    tfr d, u
-; M6809-NEXT:    ldx 9,s
+; M6809-NEXT:    ldx 11,s
 ; M6809-NEXT:    clra
 ; M6809-NEXT:    ldb #1
 ; M6809-NEXT:    stb ,s ; 1-byte Folded Spill
-; M6809-NEXT:    stu 1,s ; 2-byte Folded Spill
-; M6809-NEXT:    pshs x
-; M6809-NEXT:    cmpu ,s++
+; M6809-NEXT:    stu 3,s ; 2-byte Folded Spill
+; M6809-NEXT:    stx 1,s
+; M6809-NEXT:    cmpu 1,s
 ; M6809-NEXT:    ble .LBB7_2
 ; M6809-NEXT:  ; %bb.1:
 ; M6809-NEXT:    sta ,s ; 1-byte Folded Spill
 ; M6809-NEXT:  .LBB7_2:
-; M6809-NEXT:    ldu 11,s
-; M6809-NEXT:    ldy 7,s
-; M6809-NEXT:    pshs u
-; M6809-NEXT:    cmpy ,s++
+; M6809-NEXT:    ldu 13,s
+; M6809-NEXT:    ldy 9,s
+; M6809-NEXT:    stu 1,s
+; M6809-NEXT:    cmpy 1,s
 ; M6809-NEXT:    bls .LBB7_4
 ; M6809-NEXT:  ; %bb.3:
 ; M6809-NEXT:    tfr a, b
 ; M6809-NEXT:  .LBB7_4:
-; M6809-NEXT:    cmpx 1,s
+; M6809-NEXT:    cmpx 3,s
 ; M6809-NEXT:    beq .LBB7_6
 ; M6809-NEXT:  ; %bb.5:
 ; M6809-NEXT:    ldb ,s ; 1-byte Folded Reload
 ; M6809-NEXT:  .LBB7_6:
-; M6809-NEXT:    ldu 3,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 5,s
+; M6809-NEXT:    ldu 5,s ; 2-byte Folded Reload
+; M6809-NEXT:    leas 7,s
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: setcc_sle:

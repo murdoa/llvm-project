@@ -22,11 +22,11 @@ define i16 @stack_arg(i16 %n, i16 %b) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    leau ,s
-; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr s, d
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    subd ,s++
+; CHECK-NEXT:    stx -4,u
+; CHECK-NEXT:    subd -4,u
 ; CHECK-NEXT:    tfr d, s
 ; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    stx 2,s
@@ -50,11 +50,11 @@ define i16 @local(i16 %n) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    leau ,s
-; CHECK-NEXT:    leas -4,s
+; CHECK-NEXT:    leas -6,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr s, d
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    subd ,s++
+; CHECK-NEXT:    stx -6,u
+; CHECK-NEXT:    subd -6,u
 ; CHECK-NEXT:    std -4,u ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, s
 ; CHECK-NEXT:    leax -2,u
@@ -148,13 +148,13 @@ define void @save_restore(i16 %n) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    leau ,s
-; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr s, d
 ; CHECK-NEXT:    std -2,u ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr s, d
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    subd ,s++
+; CHECK-NEXT:    stx -4,u
+; CHECK-NEXT:    subd -4,u
 ; CHECK-NEXT:    tfr d, s
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    ldd -2,u ; 2-byte Folded Reload

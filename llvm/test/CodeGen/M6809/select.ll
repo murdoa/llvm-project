@@ -171,31 +171,31 @@ define i16 @v16_mem(i16 %a, i16 %x, i16 %y) {
 define i32 @v32_c16(i16 %a, i16 %b, i32 %x, i32 %y) {
 ; M6809-LABEL: v32_c16:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -4,s
-; M6809-NEXT:    stu 2,s ; 2-byte Folded Spill
-; M6809-NEXT:    ldu 6,s
-; M6809-NEXT:    leax 12,s
-; M6809-NEXT:    stx ,s ; 2-byte Folded Spill
-; M6809-NEXT:    leax 8,s
+; M6809-NEXT:    leas -6,s
+; M6809-NEXT:    stu 4,s ; 2-byte Folded Spill
+; M6809-NEXT:    ldu 8,s
+; M6809-NEXT:    leax 14,s
+; M6809-NEXT:    stx 2,s ; 2-byte Folded Spill
+; M6809-NEXT:    leax 10,s
 ; M6809-NEXT:    tfr x, y
-; M6809-NEXT:    pshs u
-; M6809-NEXT:    cmpd ,s++
+; M6809-NEXT:    stu ,s
+; M6809-NEXT:    cmpd ,s
 ; M6809-NEXT:    bhi .LBB7_2
 ; M6809-NEXT:  ; %bb.1:
-; M6809-NEXT:    ldy ,s ; 2-byte Folded Reload
+; M6809-NEXT:    ldy 2,s ; 2-byte Folded Reload
 ; M6809-NEXT:  .LBB7_2:
 ; M6809-NEXT:    ldy ,y
-; M6809-NEXT:    pshs u
-; M6809-NEXT:    cmpd ,s++
+; M6809-NEXT:    stu ,s
+; M6809-NEXT:    cmpd ,s
 ; M6809-NEXT:    bhi .LBB7_4
 ; M6809-NEXT:  ; %bb.3:
-; M6809-NEXT:    ldx ,s ; 2-byte Folded Reload
+; M6809-NEXT:    ldx 2,s ; 2-byte Folded Reload
 ; M6809-NEXT:  .LBB7_4:
 ; M6809-NEXT:    leax 2,x
 ; M6809-NEXT:    ldx ,x
 ; M6809-NEXT:    tfr y, d
-; M6809-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 4,s
+; M6809-NEXT:    ldu 4,s ; 2-byte Folded Reload
+; M6809-NEXT:    leas 6,s
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: v32_c16:

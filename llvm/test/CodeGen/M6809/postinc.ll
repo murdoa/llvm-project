@@ -104,8 +104,8 @@ done:
 define i16 @strlen(ptr %s) {
 ; CHECK-LABEL: strlen:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -3,s
-; CHECK-NEXT:    stu 1,s ; 2-byte Folded Spill
+; CHECK-NEXT:    leas -5,s
+; CHECK-NEXT:    stu 3,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    tfr y, x
 ; CHECK-NEXT:    leax -1,x
@@ -119,10 +119,10 @@ define i16 @strlen(ptr %s) {
 ; CHECK-NEXT:    bne .LBB3_1
 ; CHECK-NEXT:  ; %bb.2: ; %done
 ; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    pshs y
-; CHECK-NEXT:    subd ,s++
-; CHECK-NEXT:    ldu 1,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 3,s
+; CHECK-NEXT:    sty 1,s
+; CHECK-NEXT:    subd 1,s
+; CHECK-NEXT:    ldu 3,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 5,s
 ; CHECK-NEXT:    rts
 entry:
   br label %loop
@@ -158,7 +158,7 @@ define void @self(ptr %p) {
 define i8 @nibbles() {
 ; CHECK-LABEL: nibbles:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -1,s
+; CHECK-NEXT:    leas -3,s
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:    ldx #255
 ; CHECK-NEXT:    ldy #3968
@@ -170,16 +170,16 @@ define i8 @nibbles() {
 ; CHECK-NEXT:    lsra
 ; CHECK-NEXT:    lsra
 ; CHECK-NEXT:    lsra
-; CHECK-NEXT:    pshs a
-; CHECK-NEXT:    addb ,s+
+; CHECK-NEXT:    sta 1,s
+; CHECK-NEXT:    addb 1,s
 ; CHECK-NEXT:    lda ,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    anda #15
-; CHECK-NEXT:    pshs a
-; CHECK-NEXT:    addb ,s+
+; CHECK-NEXT:    sta 1,s
+; CHECK-NEXT:    addb 1,s
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    bne .LBB5_1
 ; CHECK-NEXT:  ; %bb.2: ; %done
-; CHECK-NEXT:    leas 1,s
+; CHECK-NEXT:    leas 3,s
 ; CHECK-NEXT:    rts
 entry:
   br label %loop
