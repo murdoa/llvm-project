@@ -19,6 +19,8 @@ M6809MCAsmInfo::M6809MCAsmInfo(const Triple &TT,
   CodePointerSize = 2;
   CalleeSaveStackSlotSize = 2;
   CommentString = ";";
+  // $ff, %1010 and @17 as in Motorola assemblers.
+  UseMotorolaIntegers = true;
   Data16bitsDirective = "\t.short\t";
   Data32bitsDirective = "\t.long\t";
   Data64bitsDirective = nullptr;
