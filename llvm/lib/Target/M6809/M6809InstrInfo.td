@@ -659,6 +659,10 @@ def M6809Lsl : SDNode<"M6809ISD::LSL", SDT_M6809Shift1>;
 def M6809Lsr : SDNode<"M6809ISD::LSR", SDT_M6809Shift1>;
 def M6809Asr : SDNode<"M6809ISD::ASR", SDT_M6809Shift1>;
 
+// Every bit set to the sign bit: an arithmetic shift right by the width
+// less one.
+def M6809Sign : SDNode<"M6809ISD::SIGN", SDT_M6809Shift1>;
+
 // Shift by a variable amount. The amount is an i16 count, held in an index
 // register so "leax -1,x" can count it down.
 def SDT_M6809ShiftLoop : SDTypeProfile<1, 2, [SDTCisSameAs<0, 1>,
@@ -748,6 +752,19 @@ let Constraints = "$src = $dst", Defs = [CC] in {
                             [(set ACC16:$dst, (srl ACC16:$src, (i8 8)))]>;
   def ASR16_8 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
                             [(set ACC16:$dst, (sra ACC16:$src, (i8 8)))]>;
+}
+
+// The sign of a byte or of a word, in every bit. A byte becomes "asl;
+// ld #0; sbc #0" (LD leaves C alone), 5 bytes against 7 for seven ASRs; a
+// word becomes "tfr a,b; sex; tfr a,b" in D, 5 bytes against 10. The word
+// may come from any register, so a value that stays live (the low half of
+// an int to long conversion) can move out of D rather than be spilled.
+let Defs = [CC] in {
+  let Constraints = "$src = $dst" in
+  def SIGN8 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src), "",
+                          [(set ACC8:$dst, (M6809Sign ACC8:$src))]>;
+  def SIGN16 : M6809Pseudo<(outs ACC16:$dst), (ins GR16:$src), "",
+                           [(set ACC16:$dst, (M6809Sign GR16:$src))]>;
 }
 def : Pat<(i8 (trunc (srl ACC16:$x, (i8 8)))),
           (EXTRACT_SUBREG ACC16:$x, sub_hi)>;

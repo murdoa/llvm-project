@@ -788,6 +788,41 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.eraseFromParent();
     return true;
   }
+  if (Opc == M6809::SIGN8) {
+    // asl r; ld r,#0; sbc r,#0: r = 0 - C. The load keeps C, which the
+    // implicit use of CC says.
+    Register R = MI.getOperand(0).getReg();
+    BuildMI(MBB, MI, DL, get(M6809::ASL8), R).addReg(R);
+    BuildMI(MBB, MI, DL, get(M6809::LD8i), R)
+        .addImm(0)
+        .addReg(M6809::CC, RegState::Implicit);
+    BuildMI(MBB, MI, DL, get(M6809::SBC8i), R).addReg(R).addImm(0);
+    MI.eraseFromParent();
+    return true;
+  }
+  if (Opc == M6809::SIGN16) {
+    // [tfr src,d;] tfr a,b; sex; tfr a,b. After "tfr d,src", D still holds
+    // the value.
+    Register Src = MI.getOperand(1).getReg();
+    if (Src != M6809::D) {
+      MachineInstr *Prev = MI.getPrevNode();
+      bool InD = Prev && Prev->getOpcode() == M6809::TFR16 &&
+                 Prev->getOperand(0).getReg() == Src &&
+                 Prev->getOperand(1).getReg() == M6809::D;
+      if (InD)
+        Prev->getOperand(1).setIsKill(false);
+      else
+        BuildMI(MBB, MI, DL, get(M6809::TFR16), M6809::D)
+            .addReg(Src, getKillRegState(MI.getOperand(1).isKill()));
+    }
+    BuildMI(MBB, MI, DL, get(M6809::TFR8), M6809::B).addReg(M6809::A);
+    BuildMI(MBB, MI, DL, get(M6809::SEX), M6809::D).addReg(M6809::D);
+    MachineInstrBuilder Tfr =
+        BuildMI(MBB, MI, DL, get(M6809::TFR8), M6809::B).addReg(M6809::A);
+    addWholeD(Tfr);
+    MI.eraseFromParent();
+    return true;
+  }
   if (Opc == M6809::SWAPB) {
     MachineInstrBuilder Exg = BuildMI(MBB, MI, DL, get(M6809::EXGrr))
                                   .addReg(M6809::A)

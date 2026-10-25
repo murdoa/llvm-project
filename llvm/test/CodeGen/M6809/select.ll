@@ -287,42 +287,28 @@ define i8 @smax8(i8 %a, i8 %b) {
 define i16 @abs(i16 %a) {
 ; M6809-LABEL: abs:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    tfr d, y
-; M6809-NEXT:    tfr a, b
-; M6809-NEXT:    asrb
-; M6809-NEXT:    asrb
-; M6809-NEXT:    asrb
-; M6809-NEXT:    asrb
-; M6809-NEXT:    asrb
-; M6809-NEXT:    asrb
-; M6809-NEXT:    asrb
-; M6809-NEXT:    ; kill: def $b killed $b def $d
-; M6809-NEXT:    sex
 ; M6809-NEXT:    tfr d, x
-; M6809-NEXT:    tfr y, d
-; M6809-NEXT:    pshs x
+; M6809-NEXT:    tfr a, b
+; M6809-NEXT:    sex
+; M6809-NEXT:    tfr a, b
+; M6809-NEXT:    tfr d, y
+; M6809-NEXT:    tfr x, d
+; M6809-NEXT:    pshs y
 ; M6809-NEXT:    eora ,s+
 ; M6809-NEXT:    eorb ,s+
-; M6809-NEXT:    pshs x
+; M6809-NEXT:    pshs y
 ; M6809-NEXT:    subd ,s++
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: abs:
 ; H6309:       ; %bb.0:
-; H6309-NEXT:    tfr d, w
-; H6309-NEXT:    tfr e, b
-; H6309-NEXT:    asrb
-; H6309-NEXT:    asrb
-; H6309-NEXT:    asrb
-; H6309-NEXT:    asrb
-; H6309-NEXT:    asrb
-; H6309-NEXT:    asrb
-; H6309-NEXT:    asrb
-; H6309-NEXT:    ; kill: def $b killed $b def $d
+; H6309-NEXT:    tfr d, x
+; H6309-NEXT:    tfr a, b
 ; H6309-NEXT:    sex
-; H6309-NEXT:    eorr d, w
-; H6309-NEXT:    subr d, w
-; H6309-NEXT:    tfr w, d
+; H6309-NEXT:    tfr a, b
+; H6309-NEXT:    eorr d, x
+; H6309-NEXT:    subr d, x
+; H6309-NEXT:    tfr x, d
 ; H6309-NEXT:    rts
   %r = call i16 @llvm.abs.i16(i16 %a, i1 false)
   ret i16 %r

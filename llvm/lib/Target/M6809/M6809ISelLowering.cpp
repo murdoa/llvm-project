@@ -394,6 +394,8 @@ SDValue M6809TargetLowering::lowerShift(SDValue Op, SelectionDAG &DAG) const {
     return DAG.getUNDEF(VT);
   if (VT == MVT::i16 && N == 8)
     return Op; // Matched by a pattern.
+  if (Opc == ISD::SRA && N == VT.getSizeInBits() - 1)
+    return DAG.getNode(M6809ISD::SIGN, DL, VT, Val);
 
   unsigned OneOpc = Opc == ISD::SHL   ? M6809ISD::LSL
                     : Opc == ISD::SRL ? M6809ISD::LSR

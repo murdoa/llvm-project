@@ -126,15 +126,8 @@ define i16 @ashr16_15(i16 %a) {
 ; CHECK-LABEL: ashr16_15:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    sex
+; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    rts
   %r = ashr i16 %a, 15
   ret i16 %r

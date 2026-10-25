@@ -180,15 +180,8 @@ define i32 @ashr32_24(i32 %a) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    asrb
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    sex
+; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    tfr a, b
