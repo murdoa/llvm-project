@@ -46,6 +46,11 @@ public:
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
+  void reMaterialize(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
+                     Register DestReg, unsigned SubIdx,
+                     const MachineInstr &Orig,
+                     LaneBitmask UsedLanes) const override;
+
   /// True for the CB* compare-and-branch pseudos.
   static bool isCompareAndBranch(unsigned Opc);
 

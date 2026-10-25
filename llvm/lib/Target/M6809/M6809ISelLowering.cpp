@@ -92,6 +92,11 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
 
+  // Multi-word add and subtract use glued carry chains: ADDD/SUBD for the
+  // low word, then adcb/adca or sbcb/sbca for each higher one.
+  for (unsigned Op : {ISD::ADDC, ISD::ADDE, ISD::SUBC, ISD::SUBE})
+    setOperationAction(Op, MVT::i16, Legal);
+
   // Shifts are one bit at a time; see lowerShift. Everything built from
   // shifts falls back to the generic expansion.
   for (MVT VT : {MVT::i8, MVT::i16}) {

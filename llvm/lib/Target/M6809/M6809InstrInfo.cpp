@@ -81,6 +81,25 @@ void M6809InstrInfo::loadRegFromStackSlot(
       .setMIFlag(Flags);
 }
 
+// CLR clears C, so a rematerialized zero could break a carry chain that the
+// allocator placed it inside. LD #0 leaves C alone and is always safe.
+void M6809InstrInfo::reMaterialize(MachineBasicBlock &MBB,
+                                   MachineBasicBlock::iterator I,
+                                   Register DestReg, unsigned SubIdx,
+                                   const MachineInstr &Orig,
+                                   LaneBitmask UsedLanes) const {
+  if (Orig.getOpcode() != M6809::CLR8) {
+    TargetInstrInfo::reMaterialize(MBB, I, DestReg, SubIdx, Orig, UsedLanes);
+    return;
+  }
+  MachineInstr *MI = BuildMI(*MBB.getParent(), Orig.getDebugLoc(),
+                             get(M6809::LD8i), DestReg)
+                         .addImm(0);
+  MBB.insert(I, MI);
+  if (SubIdx)
+    MI->getOperand(0).setSubReg(SubIdx);
+}
+
 //===----------------------------------------------------------------------===//
 // Post-RA pseudo expansion
 //===----------------------------------------------------------------------===//
@@ -100,14 +119,23 @@ static unsigned getPopOpcode(unsigned Opc) {
 }
 
 namespace {
-// The 8-bit forms used to build a 16-bit logic operation on D.
+// The 8-bit forms used to build a 16-bit operation on D. Carry operations
+// (Carry set) must do the low byte first; their register-register form
+// reads the pushed value's low byte from 1,s, then the high byte with ,s++.
 struct Logic16Parts {
   unsigned Imm, Mem, Pop;
+  bool Carry = false;
 };
 } // namespace
 
 static bool getLogic16Parts(unsigned Opc, Logic16Parts &P, char &Form) {
   switch (Opc) {
+  case M6809::ADC16i: Form = 'i'; P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true}; return true;
+  case M6809::ADC16m: Form = 'm'; P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true}; return true;
+  case M6809::ADC16rr: Form = 'r'; P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true}; return true;
+  case M6809::SBC16i: Form = 'i'; P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true}; return true;
+  case M6809::SBC16m: Form = 'm'; P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true}; return true;
+  case M6809::SBC16rr: Form = 'r'; P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true}; return true;
   case M6809::AND16i: Form = 'i'; P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop}; return true;
   case M6809::AND16m: Form = 'm'; P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop}; return true;
   case M6809::AND16rr: Form = 'r'; P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop}; return true;
@@ -196,44 +224,49 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   char Form;
   if (getLogic16Parts(Opc, P, Form)) {
     // D = A:B, so the high byte is done on A and the low byte on B. Big-endian
-    // memory puts the high byte first.
-    MachineInstrBuilder Hi, Lo;
-    switch (Form) {
-    case 'i': {
-      int64_t Imm = MI.getOperand(2).getImm();
-      Hi = BuildMI(MBB, MI, DL, get(P.Imm), M6809::A)
-               .addReg(M6809::A)
-               .addImm((Imm >> 8) & 0xFF);
-      Lo = BuildMI(MBB, MI, DL, get(P.Imm), M6809::B)
-               .addReg(M6809::B)
-               .addImm(Imm & 0xFF);
-      break;
-    }
-    case 'm': {
-      const MachineOperand &Base = MI.getOperand(2);
-      const MachineOperand &Off = MI.getOperand(3);
-      Hi = BuildMI(MBB, MI, DL, get(P.Mem), M6809::A)
-               .addReg(M6809::A)
-               .addReg(Base.getReg());
-      addOffset(Hi, Off, 0);
-      Lo = BuildMI(MBB, MI, DL, get(P.Mem), M6809::B)
-               .addReg(M6809::B)
-               .addReg(Base.getReg());
-      addOffset(Lo, Off, 1);
-      Hi.cloneMemRefs(MI);
-      Lo.cloneMemRefs(MI);
-      break;
-    }
-    default: {
+    // memory puts the high byte first. Carry operations go low byte first.
+    auto EmitHalf = [&](bool High) {
+      Register R = High ? M6809::A : M6809::B;
+      MachineInstrBuilder MIB;
+      switch (Form) {
+      case 'i': {
+        int64_t Imm = MI.getOperand(2).getImm();
+        MIB = BuildMI(MBB, MI, DL, get(P.Imm), R)
+                  .addReg(R)
+                  .addImm(High ? (Imm >> 8) & 0xFF : Imm & 0xFF);
+        break;
+      }
+      case 'm': {
+        MIB = BuildMI(MBB, MI, DL, get(P.Mem), R)
+                  .addReg(R)
+                  .addReg(MI.getOperand(2).getReg());
+        addOffset(MIB, MI.getOperand(3), High ? 0 : 1);
+        MIB.cloneMemRefs(MI);
+        break;
+      }
+      default:
+        if (P.Carry && !High) {
+          // Low byte of the pushed value, still on the stack.
+          MIB = BuildMI(MBB, MI, DL, get(P.Mem), R)
+                    .addReg(R)
+                    .addReg(M6809::S)
+                    .addImm(1);
+        } else {
+          MIB = BuildMI(MBB, MI, DL, get(P.Pop), R).addReg(R);
+        }
+        break;
+      }
+      return MIB;
+    };
+
+    if (Form == 'r') {
       const MachineOperand &Rhs = MI.getOperand(2);
       BuildMI(MBB, MI, DL, get(M6809::PSHS16))
           .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
-      Hi = BuildMI(MBB, MI, DL, get(P.Pop), M6809::A).addReg(M6809::A);
-      Lo = BuildMI(MBB, MI, DL, get(P.Pop), M6809::B).addReg(M6809::B);
-      break;
     }
-    }
-    Lo.addReg(M6809::D, RegState::ImplicitDefine);
+    EmitHalf(!P.Carry);
+    MachineInstrBuilder Last = EmitHalf(P.Carry);
+    Last.addReg(M6809::D, RegState::ImplicitDefine);
     MI.eraseFromParent();
     return true;
   }

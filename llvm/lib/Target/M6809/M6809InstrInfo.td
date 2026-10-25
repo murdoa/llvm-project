@@ -221,6 +221,25 @@ defm AND8 : ALU8<"and", and>;
 defm OR8 : ALU8<"or", or>;
 defm EOR8 : ALU8<"eor", xor>;
 
+// Add and subtract with carry: adca/adcb, sbca/sbcb. Only used to build the
+// 16-bit forms below. The "pop2" form reads ,s++ and is the high-byte half
+// of a register-register operation, whose low byte was read from 1,s.
+multiclass ALU8C<string mnem> {
+  let Constraints = "$src = $dst", Defs = [CC], Uses = [CC] in {
+    def i : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src, i8imm_op:$imm),
+                      mnem # "${dst}\t#$imm", [], 2>;
+    let mayLoad = 1 in
+    def m : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src, memidx:$addr),
+                      mnem # "${dst}\t$addr", [], 2>;
+    let Uses = [S, CC], Defs = [S, CC], mayLoad = 1 in
+    def pop2 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src),
+                         mnem # "${dst}\t,s++", [], 2>;
+  }
+}
+
+defm ADC8 : ALU8C<"adc">;
+defm SBC8 : ALU8C<"sbc">;
+
 // 16-bit add and subtract exist only on D (ADDD/SUBD).
 multiclass ALU16D<string mnem, SDNode node> {
   let Constraints = "$src = $dst", Defs = [CC] in {
@@ -245,6 +264,34 @@ multiclass ALU16D<string mnem, SDNode node> {
 
 defm ADDD : ALU16D<"addd", add>;
 defm SUBD : ALU16D<"subd", sub>;
+
+// The low half of a multi-word add or subtract: plain ADDD/SUBD, which set C.
+def : Pat<(addc ACC16:$s, imm:$i), (ADDDi ACC16:$s, imm:$i)>;
+def : Pat<(addc ACC16:$s, (load addr:$a)), (ADDDm ACC16:$s, addr:$a)>;
+def : Pat<(addc ACC16:$s, GR16:$r), (ADDDrr ACC16:$s, GR16:$r)>;
+def : Pat<(subc ACC16:$s, imm:$i), (SUBDi ACC16:$s, imm:$i)>;
+def : Pat<(subc ACC16:$s, (load addr:$a)), (SUBDm ACC16:$s, addr:$a)>;
+def : Pat<(subc ACC16:$s, GR16:$r), (SUBDrr ACC16:$s, GR16:$r)>;
+
+// The higher halves: the 6809 has no 16-bit add or subtract with carry, so
+// these pseudos become adcb/adca (sbcb/sbca), low byte first. Nothing the
+// register allocator inserts in between (LD, ST, TFR, LEA, PSHS) changes C.
+multiclass CARRY16<SDNode node> {
+  let Constraints = "$src = $dst", Defs = [CC], Uses = [CC] in {
+    def i : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, i16imm_op:$imm),
+                        "", [(set ACC16:$dst, (node ACC16:$src, imm:$imm))]>;
+    let mayLoad = 1 in
+    def m : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, memidx:$addr), "",
+                        [(set ACC16:$dst,
+                              (node ACC16:$src, (load addr:$addr)))]>;
+    let Uses = [S, CC], Defs = [S, CC] in
+    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, GR16:$rhs), "",
+                         [(set ACC16:$dst, (node ACC16:$src, GR16:$rhs))]>;
+  }
+}
+
+defm ADC16 : CARRY16<adde>;
+defm SBC16 : CARRY16<sube>;
 
 // Load effective address into X, Y or U: "leax 2,s", "leau -1,u". Sets Z.
 let Defs = [CC] in
