@@ -103,13 +103,12 @@ public:
 
   bool validateAsmConstraint(const char *&Name,
                              TargetInfo::ConstraintInfo &Info) const override {
+    // As in the backend.  One register of any other kind is a register
+    // variable: register char c __asm__("a").
     switch (*Name) {
-    case 'a': // A
-    case 'b': // B
-    case 'd': // D
-    case 'x': // X
-    case 'y': // Y
-    case 'u': // U
+    case 'a': // an index register: X, U or Y
+    case 'q': // an 8-bit accumulator: A or B
+    case 'd': // D, or B for an 8-bit value
       Info.setAllowsRegister();
       return true;
     }
