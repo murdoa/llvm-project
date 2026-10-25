@@ -2271,16 +2271,16 @@ bool AtomicExpandImpl::expandAtomicOpToLibcall(
 
   const Align AllocaAlignment = DL.getPrefTypeAlign(SizedIntTy);
 
-  // TODO: the "order" argument type is "int", not int32. So
-  // getInt32Ty may be wrong if the arch uses e.g. 16-bit ints.
+  // The "order" argument is a C int: 16 bits on 16-bit targets, as in
+  // TargetLibraryInfo.
+  Type *OrderTy = M->getTargetTriple().isArch16Bit() ? Type::getInt16Ty(Ctx)
+                                                     : Type::getInt32Ty(Ctx);
   assert(Ordering != AtomicOrdering::NotAtomic && "expect atomic MO");
-  Constant *OrderingVal =
-      ConstantInt::get(Type::getInt32Ty(Ctx), (int)toCABI(Ordering));
+  Constant *OrderingVal = ConstantInt::get(OrderTy, (int)toCABI(Ordering));
   Constant *Ordering2Val = nullptr;
   if (CASExpected) {
     assert(Ordering2 != AtomicOrdering::NotAtomic && "expect atomic MO");
-    Ordering2Val =
-        ConstantInt::get(Type::getInt32Ty(Ctx), (int)toCABI(Ordering2));
+    Ordering2Val = ConstantInt::get(OrderTy, (int)toCABI(Ordering2));
   }
   bool HasResult = I->getType() != Type::getVoidTy(Ctx);
 
