@@ -397,7 +397,9 @@ def : Pat<(i16 (zext ACC8:$s)),
           (CLRA (INSERT_SUBREG (i16 (IMPLICIT_DEF)), ACC8:$s, sub_lo))>;
 def : Pat<(i16 (sext ACC8:$s)),
           (SEX (INSERT_SUBREG (i16 (IMPLICIT_DEF)), ACC8:$s, sub_lo))>;
-def : Pat<(i8 (trunc GR16:$s)), (EXTRACT_SUBREG GR16:$s, sub_lo)>;
+// Through D: the low byte of W is F, which 8-bit code cannot use.
+def : Pat<(i8 (trunc GR16:$s)),
+          (EXTRACT_SUBREG (i16 (COPY_TO_REGCLASS GR16:$s, ACC16)), sub_lo)>;
 
 //===----------------------------------------------------------------------===//
 // Addresses

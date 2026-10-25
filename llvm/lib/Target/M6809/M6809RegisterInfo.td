@@ -44,11 +44,12 @@ def DP : M6809Reg<0xB, "dp">, DwarfRegNum<[9]>;
 
 // HD6309 registers: E and F, W = E:F, and V, which only TFR/EXG and the
 // register-register ops reach. Q = D:W is only ever an implicit operand
-// (LDQ, STQ, MULD, DIVQ), so it is not modelled. They are reserved unless
-// the 6309 feature is on.
+// (LDQ, STQ, MULD, DIVQ), so it is not modelled. W is a fifth allocatable
+// 16-bit register on the HD6309; like Y it needs a prefix byte. On the 6809
+// all of them are reserved.
 def E : M6809Reg<0xE, "e">, DwarfRegNum<[10]>;
 def F : M6809Reg<0xF, "f">, DwarfRegNum<[11]>;
-let SubRegIndices = [sub_hi, sub_lo], CoveredBySubRegs = 1 in
+let SubRegIndices = [sub_hi, sub_lo], CoveredBySubRegs = 1, CostPerUse = [1] in
 def W : M6809Reg<0x6, "w", [E, F]>, DwarfRegNum<[12]>;
 def V : M6809Reg<0x7, "v">, DwarfRegNum<[13]>;
 
@@ -62,8 +63,8 @@ def ACC8 : RegisterClass<"M6809", [i8], 8, (add B, A)>;
 
 def ACC16 : RegisterClass<"M6809", [i16], 8, (add D)>;
 
-// Every allocatable 16-bit register.
-def GR16 : RegisterClass<"M6809", [i16], 8, (add D, X, U, Y)>;
+// Every allocatable 16-bit register. W exists only on the HD6309.
+def GR16 : RegisterClass<"M6809", [i16], 8, (add D, X, U, Y, W)>;
 
 // Index registers that LEA can write.
 def IDX16 : RegisterClass<"M6809", [i16], 8, (add X, U, Y)>;
@@ -72,7 +73,7 @@ def IDX16 : RegisterClass<"M6809", [i16], 8, (add X, U, Y)>;
 def PTR16 : RegisterClass<"M6809", [i16], 8, (add X, U, Y, S)>;
 
 // Anything TFR/EXG can move as a 16-bit value.
-def XFER16 : RegisterClass<"M6809", [i16], 8, (add D, X, Y, U, S)>;
+def XFER16 : RegisterClass<"M6809", [i16], 8, (add D, X, Y, U, S, W)>;
 
 def CCR : RegisterClass<"M6809", [i8], 8, (add CC)> {
   let CopyCost = -1;
@@ -80,13 +81,12 @@ def CCR : RegisterClass<"M6809", [i8], 8, (add CC)> {
 }
 
 // W alone, and D or W: the 16-bit registers with inherent operations on
-// the HD6309.
+// the HD6309. DW16 is also the GR16 subclass with byte halves, which
+// INSERT_SUBREG and EXTRACT_SUBREG of a GR16 use.
 def WREG : RegisterClass<"M6809", [i16], 8, (add W)> {
   let isAllocatable = 0;
 }
-def DW16 : RegisterClass<"M6809", [i16], 8, (add D, W)> {
-  let isAllocatable = 0;
-}
+def DW16 : RegisterClass<"M6809", [i16], 8, (add D, W)>;
 
 // Every register TFR and EXG can name. Only the assembler uses it.
 def TFRREG : RegisterClass<"M6809", [i16], 8,

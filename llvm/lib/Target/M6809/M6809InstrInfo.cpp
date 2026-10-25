@@ -33,12 +33,23 @@ void M6809InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                  Register SrcReg, bool KillSrc,
                                  bool RenamableDest, bool RenamableSrc) const {
   unsigned Opc;
-  if (M6809::ACC8RegClass.contains(DestReg, SrcReg))
+  auto Is8 = [](Register R) {
+    return R == M6809::A || R == M6809::B || R == M6809::E || R == M6809::F;
+  };
+  if (M6809::ACC8RegClass.contains(DestReg, SrcReg)) {
     Opc = M6809::TFR8;
-  else if (M6809::XFER16RegClass.contains(DestReg, SrcReg))
+  } else if (M6809::XFER16RegClass.contains(DestReg, SrcReg)) {
     Opc = M6809::TFR16;
-  else
+  } else if (STI.has6309() && Is8(DestReg) && Is8(SrcReg)) {
+    // The halves of W: "tfr f,b".
+    BuildMI(MBB, I, DL, get(M6809::TFRrr))
+        .addReg(SrcReg, getKillRegState(KillSrc))
+        .addReg(DestReg, RegState::Undef)
+        .addReg(DestReg, RegState::ImplicitDefine);
+    return;
+  } else {
     llvm_unreachable("M6809: cannot copy between these registers");
+  }
 
   BuildMI(MBB, I, DL, get(Opc), DestReg)
       .addReg(SrcReg, getKillRegState(KillSrc));
@@ -648,6 +659,8 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     const MachineOperand &Imm = MI.getOperand(2);
     if (Dst == M6809::D)
       BuildMI(MBB, MI, DL, get(M6809::ADDDi), Dst).addReg(Dst).add(Imm);
+    else if (Dst == M6809::W)
+      BuildMI(MBB, MI, DL, get(M6809::ADDWi), Dst).addReg(Dst).add(Imm);
     else
       BuildMI(MBB, MI, DL, get(M6809::LEA16), Dst)
           .addReg(Dst)

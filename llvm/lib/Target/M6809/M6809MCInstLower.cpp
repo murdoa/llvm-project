@@ -150,6 +150,10 @@ static void toRealInstruction(MCInst &MI) {
   case M6809::PULS8:
   case M6809::PULS16: {
     bool Push = Opc == M6809::PSHS8 || Opc == M6809::PSHS16;
+    if (MI.getOperand(0).getReg() == M6809::W) { // not in a register list
+      Out.setOpcode(Push ? M6809::PSHSW : M6809::PULSW);
+      break;
+    }
     Out.setOpcode(Push ? M6809::PSHSr : M6809::PULSr);
     Out.addOperand(MCOperand::createImm(
         M6809::getPushPullMask(MI.getOperand(0).getReg(), false)));
