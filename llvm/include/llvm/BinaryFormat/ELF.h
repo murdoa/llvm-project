@@ -325,6 +325,8 @@ enum {
   EM_VE = 251,            // NEC SX-Aurora VE
   EM_CSKY = 252,          // C-SKY 32-bit processor
   EM_LOONGARCH = 258,     // LoongArch
+  // Provisional: no number has been assigned for the 6809 yet.
+  EM_M6809 = 0x6809, // Motorola 6809 / Hitachi HD6309
 };
 
 // Object file classes.
@@ -1037,6 +1039,11 @@ enum : unsigned {
 // ELF Relocation types for MSP430
 enum {
 #include "ELFRelocs/MSP430.def"
+};
+
+// ELF Relocation types for the Motorola 6809
+enum {
+#include "ELFRelocs/M6809.def"
 };
 
 // ELF Relocation type for VE.

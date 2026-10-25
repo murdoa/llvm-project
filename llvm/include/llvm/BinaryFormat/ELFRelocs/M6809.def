@@ -1,0 +1,15 @@
+
+#ifndef ELF_RELOC
+#error "ELF_RELOC must be defined"
+#endif
+
+// Motorola 6809. The ,pcr and branch offsets count from the end of the
+// instruction, and the offset is always the last part of it, so the place
+// is adjusted by the size of the offset.
+ELF_RELOC(R_M6809_NONE,    0)
+ELF_RELOC(R_M6809_8,       1) // S + A, one byte
+ELF_RELOC(R_M6809_16,      2) // S + A, big-endian
+ELF_RELOC(R_M6809_32,      3) // S + A, big-endian (debug info, data)
+ELF_RELOC(R_M6809_PCREL8,  4) // S + A - (P + 1)
+ELF_RELOC(R_M6809_PCREL16, 5) // S + A - (P + 2)
+ELF_RELOC(R_M6809_DP8,     6) // low byte of S + A (direct page address)
