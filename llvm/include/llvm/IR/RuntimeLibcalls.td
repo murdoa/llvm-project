@@ -111,6 +111,7 @@ def IsBPF : LibcallPredicate<[{TT.isBPF()}]>;
 def IsArchCSKY : LibcallPredicate<[{TT.getArch() == Triple::csky}]>;
 def IsArchArc : LibcallPredicate<[{TT.getArch() == Triple::arc}]>;
 def IsArchM68k : LibcallPredicate<[{TT.getArch() == Triple::m68k}]>;
+def IsArchM6809 : LibcallPredicate<[{TT.getArch() == Triple::m6809}]>;
 def IsArchXtensa : LibcallPredicate<[{TT.getArch() == Triple::xtensa}]>;
 
 /// Libcall Predicates
@@ -3883,7 +3884,7 @@ def : LibraryExclusion<"libm", isWasm, [sincos, sincosf, sincosl_f128]>;
 // TODO: Should make every target explicit.
 def isDefaultLibcallArch : RuntimeLibcallAvailability<
   (any_of IsMIPS, IsLoongArch, IsVE, IsBPF, IsArchCSKY, IsArchArc, IsArchM68k,
-          IsArchXtensa, (all_of IsSystemZ, (not IsOSzOS)))>;
+          IsArchM6809, IsArchXtensa, (all_of IsSystemZ, (not IsOSzOS)))>;
 
 
 def LegacyDefaultSystemLibrary
