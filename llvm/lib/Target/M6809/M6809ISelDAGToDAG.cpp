@@ -193,5 +193,26 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
     return;
   }
 
+  // HD6309 block copy and fill: the pseudos return the advanced pointers,
+  // which nothing uses.
+  if (N->getOpcode() == M6809ISD::TFMCPY || N->getOpcode() == M6809ISD::TFMSET) {
+    SDLoc DL(N);
+    bool Cpy = N->getOpcode() == M6809ISD::TFMCPY;
+    SDValue Len = N->getOperand(3);
+    auto *C = dyn_cast<ConstantSDNode>(Len);
+    if (C)
+      Len = CurDAG->getTargetConstant(C->getZExtValue(), DL, MVT::i16);
+    SDValue Ops[] = {N->getOperand(1), N->getOperand(2), Len,
+                     N->getOperand(0)};
+    MachineSDNode *MN =
+        Cpy ? CurDAG->getMachineNode(C ? M6809::MEMCPY16i : M6809::MEMCPY16,
+                                     DL, MVT::i16, MVT::i16, MVT::Other, Ops)
+            : CurDAG->getMachineNode(C ? M6809::MEMSET16i : M6809::MEMSET16,
+                                     DL, MVT::i16, MVT::Other, Ops);
+    ReplaceUses(SDValue(N, 0), SDValue(MN, Cpy ? 2 : 1));
+    CurDAG->RemoveDeadNode(N);
+    return;
+  }
+
   SelectCode(N);
 }

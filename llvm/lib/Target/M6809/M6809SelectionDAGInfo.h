@@ -20,6 +20,18 @@ class M6809SelectionDAGInfo : public SelectionDAGGenTargetInfo {
 public:
   M6809SelectionDAGInfo();
   ~M6809SelectionDAGInfo() override;
+
+  SDValue EmitTargetCodeForMemcpy(SelectionDAG &DAG, const SDLoc &DL,
+                                  SDValue Chain, SDValue Dst, SDValue Src,
+                                  SDValue Size, Align DstAlign, Align SrcAlign,
+                                  bool IsVolatile, bool AlwaysInline,
+                                  MachinePointerInfo DstPtrInfo,
+                                  MachinePointerInfo SrcPtrInfo) const override;
+  SDValue EmitTargetCodeForMemset(SelectionDAG &DAG, const SDLoc &DL,
+                                  SDValue Chain, SDValue Dst, SDValue Val,
+                                  SDValue Size, Align Alignment,
+                                  bool IsVolatile, bool AlwaysInline,
+                                  MachinePointerInfo DstPtrInfo) const override;
 };
 
 } // namespace llvm

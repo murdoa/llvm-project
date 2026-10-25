@@ -197,6 +197,38 @@ defm SREM16 : DIV16<srem>;
 defm UDIV16 : DIV16<M6809UDivQ>;
 defm UREM16 : DIV16<M6809URemQ>;
 
+// Block copy and fill with TFM. The node takes (dst, src, length) for a
+// copy and (dst, value, length) for a fill; ISelDAGToDAG selects it by hand
+// because the pseudos also return the advanced pointers. The length goes
+// in W; TFM moves nothing when W is zero.
+def SDT_M6809Tfm : SDTypeProfile<0, 3, [SDTCisVT<0, i16>, SDTCisVT<1, i16>,
+                                        SDTCisVT<2, i16>]>;
+def SDT_M6809TfmSet : SDTypeProfile<0, 3, [SDTCisVT<0, i16>, SDTCisVT<1, i8>,
+                                           SDTCisVT<2, i16>]>;
+def M6809TfmCpy : SDNode<"M6809ISD::TFMCPY", SDT_M6809Tfm,
+                         [SDNPHasChain, SDNPMayLoad, SDNPMayStore]>;
+def M6809TfmSet : SDNode<"M6809ISD::TFMSET", SDT_M6809TfmSet,
+                         [SDNPHasChain, SDNPMayStore]>;
+let Predicates = [Has6309], Defs = [W], mayLoad = 1, mayStore = 1 in {
+  // tfr len,w (or ldw #len); tfm src+,dst+
+  let Constraints = "$dst = $dstout, $src = $srcout" in {
+    def MEMCPY16 : M6809Pseudo<(outs IDX16:$dstout, IDX16:$srcout),
+                               (ins IDX16:$dst, IDX16:$src, GR16:$len), "", []>;
+    def MEMCPY16i : M6809Pseudo<(outs IDX16:$dstout, IDX16:$srcout),
+                                (ins IDX16:$dst, IDX16:$src, i16imm_op:$len),
+                                "", []>;
+  }
+  // pshs val; tfr len,w (or ldw #len); tfm s,dst+; leas 1,s. The length
+  // is not in D, which would overlap the value in A or B.
+  let Constraints = "$dst = $dstout", Uses = [S], Defs = [S, W] in {
+    def MEMSET16 : M6809Pseudo<(outs IDX16:$dstout),
+                               (ins IDX16:$dst, ACC8:$val, IDX16:$len), "", []>;
+    def MEMSET16i : M6809Pseudo<(outs IDX16:$dstout),
+                                (ins IDX16:$dst, ACC8:$val, i16imm_op:$len),
+                                "", []>;
+  }
+}
+
 // Register-register arithmetic and logic on any 16-bit registers: "andr x,y"
 // is y = y & x. The 6809 forms above want the left operand in D; these leave
 // both to the allocator. Plain add keeps LEA16dr, which is shorter.

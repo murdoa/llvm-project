@@ -429,6 +429,39 @@ bool M6809InstrInfo::expand6309(MachineInstr &MI) const {
     return true;
   }
 
+  // Block copy and fill: the length goes in W, then TFM.
+  if (Opc == M6809::MEMCPY16 || Opc == M6809::MEMCPY16i ||
+      Opc == M6809::MEMSET16 || Opc == M6809::MEMSET16i) {
+    bool Cpy = Opc == M6809::MEMCPY16 || Opc == M6809::MEMCPY16i;
+    Register Dst = MI.getOperand(0).getReg();
+    if (!Cpy)
+      BuildMI(MBB, MI, DL, get(M6809::PSHS8)).add(MI.getOperand(2));
+    const MachineOperand &Len = MI.getOperand(Cpy ? 4 : 3);
+    if (Len.isImm())
+      BuildMI(MBB, MI, DL, get(M6809::LD16i), M6809::W).add(Len);
+    else if (Len.getReg() != M6809::W)
+      BuildMI(MBB, MI, DL, get(M6809::TFRrr))
+          .addReg(Len.getReg(), getKillRegState(Len.isKill()))
+          .addReg(M6809::W, RegState::Undef)
+          .addReg(M6809::W, RegState::ImplicitDefine);
+    if (Cpy) {
+      Register Src = MI.getOperand(1).getReg();
+      BuildMI(MBB, MI, DL, get(M6809::TFMpp))
+          .addReg(Src)
+          .addReg(Dst)
+          .addReg(Src, RegState::ImplicitDefine)
+          .addReg(Dst, RegState::ImplicitDefine);
+    } else {
+      BuildMI(MBB, MI, DL, get(M6809::TFMnp))
+          .addReg(M6809::S)
+          .addReg(Dst)
+          .addReg(Dst, RegState::ImplicitDefine);
+      BuildMI(MBB, MI, DL, get(M6809::LEASi)).addImm(1);
+    }
+    MI.eraseFromParent();
+    return true;
+  }
+
   if (Opc == M6809::MUL16i || Opc == M6809::MUL16m || Opc == M6809::MUL16rr) {
     MachineInstrBuilder Mul;
     if (Opc == M6809::MUL16i) {
