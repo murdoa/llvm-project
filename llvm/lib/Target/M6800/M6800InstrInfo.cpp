@@ -104,6 +104,12 @@ static MachineMemOperand *getFrameMMO(MachineBasicBlock &MBB, int FI,
                                  MFI.getObjectAlign(FI));
 }
 
+static void markFlagsDead(MachineInstr &MI) {
+  for (MachineOperand &MO : MI.implicit_operands())
+    if (MO.isDef() && MO.getReg() == M6800::CC)
+      MO.setIsDead();
+}
+
 void M6800InstrInfo::storeRegToStackSlot(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
     bool IsKill, int FrameIndex, const TargetRegisterClass *RC, Register VReg,
@@ -118,6 +124,7 @@ void M6800InstrInfo::storeRegToStackSlot(
       .addImm(M6800Mem::Auto)
       .addMemOperand(getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOStore))
       .setMIFlag(Flags);
+  markFlagsDead(*std::prev(MI)); // nothing reads a spill's flags
 }
 
 void M6800InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
@@ -135,6 +142,7 @@ void M6800InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
       .addImm(M6800Mem::Auto)
       .addMemOperand(getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOLoad))
       .setMIFlag(Flags);
+  markFlagsDead(*std::prev(MI));
 }
 
 // The memory form of a pseudo whose right-hand register operand (RhsIdx) can
@@ -221,6 +229,19 @@ M6800InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
     }
     MIB.add(MO);
   }
+  // The flags the pseudo set are as dead in the memory form.
+  for (MachineOperand &MO : MIB->implicit_operands())
+    if (MO.isDef())
+      MO.setIsDead(!MI.definesRegister(MO.getReg(), &RI) ||
+                   MI.registerDefIsDead(MO.getReg(), &RI));
+  // The memory form still clobbers what the pseudo clobbered (X, which the
+  // pseudo went through). Dropping that dead def would make the spiller cut
+  // the segment out of X's live range while the greedy allocator's
+  // interference cache still points into it.
+  for (const MachineOperand &MO : MI.implicit_operands())
+    if (MO.isDef() && !MF.getRegInfo().isReserved(MO.getReg()) &&
+        !MIB->definesRegister(MO.getReg(), &RI))
+      MIB.addReg(MO.getReg(), RegState::ImplicitDefine | RegState::Dead);
   return MIB;
 }
 
