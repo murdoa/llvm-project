@@ -138,3 +138,40 @@ define i16 @mul_mem(i16 %a) {
   %r = mul i16 %a, %x
   ret i16 %r
 }
+
+; Zero in D or W is clrd/clrw, a byte shorter than ldd #0.
+define i16 @zero() {
+; CHECK-LABEL: zero:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    clrd
+; CHECK-NEXT:    rts
+  ret i16 0
+}
+
+; Register-register ops work on any two 16-bit registers, so values that
+; live in X, Y or W need not pass through D.
+define void @or_xy(ptr %p, ptr %q) {
+; CHECK-LABEL: or_xy:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldu 4,s
+; CHECK-NEXT:    ldw ,u
+; CHECK-NEXT:    tfr w, d
+; CHECK-NEXT:    ord ,y
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    eorr w, d
+; CHECK-NEXT:    std ,y
+; CHECK-NEXT:    stx ,u
+; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    rts
+  %a = load i16, ptr %p
+  %b = load i16, ptr %q
+  %c = or i16 %a, %b
+  %d = xor i16 %c, %b
+  store i16 %d, ptr %p
+  store i16 %c, ptr %q
+  ret void
+}

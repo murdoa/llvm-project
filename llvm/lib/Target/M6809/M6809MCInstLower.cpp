@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "M6809MCInstLower.h"
+#include "M6809Subtarget.h"
 #include "MCTargetDesc/M6809MCTargetDesc.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
@@ -193,4 +194,18 @@ void M6809MCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
     OutMI.addOperand(lowerOperand(MO));
   }
   toRealInstruction(OutMI);
+
+  // "ldd #0" is "clrd" on the HD6309, a byte shorter ("ldw #0": two). CLR
+  // also clears C, which LD leaves alone, but LD16i is modelled as
+  // clobbering the flags, so nothing reads C across it.
+  if (OutMI.getOpcode() == M6809::LD16i &&
+      MI->getMF()->getSubtarget<M6809Subtarget>().has6309() &&
+      OutMI.getOperand(1).isImm() && OutMI.getOperand(1).getImm() == 0) {
+    MCRegister R = OutMI.getOperand(0).getReg();
+    if (R == M6809::D || R == M6809::W) {
+      OutMI = MCInst();
+      OutMI.setOpcode(M6809::CLR16r);
+      OutMI.addOperand(MCOperand::createReg(R));
+    }
+  }
 }
