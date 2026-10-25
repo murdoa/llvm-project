@@ -11604,6 +11604,11 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
     MachineFunction &MF = CLI.DAG.getMachineFunction();
     DemoteStackIdx =
         MF.getFrameInfo().CreateStackObject(TySize, Alignment, false);
+    // The slot lives only until the result is loaded, so stack coloring can
+    // share it with those of other calls. It does not run at O0.
+    if (getTargetMachine().getOptLevel() != CodeGenOptLevel::None)
+      CLI.Chain = CLI.DAG.getLifetimeNode(/*IsStart=*/true, CLI.DL, CLI.Chain,
+                                          DemoteStackIdx);
     Type *StackSlotPtrType = PointerType::get(Context, DL.getAllocaAddrSpace());
 
     DemoteStackSlot = CLI.DAG.getFrameIndex(DemoteStackIdx, getFrameIndexTy(DL));
@@ -11898,6 +11903,9 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
     }
 
     CLI.Chain = CLI.DAG.getNode(ISD::TokenFactor, CLI.DL, MVT::Other, Chains);
+    if (getTargetMachine().getOptLevel() != CodeGenOptLevel::None)
+      CLI.Chain = CLI.DAG.getLifetimeNode(/*IsStart=*/false, CLI.DL,
+                                          CLI.Chain, DemoteStackIdx);
   } else {
     // Collect the legal value parts into potentially illegal values
     // that correspond to the original function's return values.

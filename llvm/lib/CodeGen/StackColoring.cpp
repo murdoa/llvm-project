@@ -928,9 +928,25 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
   SmallPtrSet<const AllocaInst*, 32> MergedAllocas;
 
   for (const auto &SI : SlotRemap) {
+    // Transfer the stack protector layout tag, but make sure that SSPLK_AddrOf
+    // does not overwrite SSPLK_SmallArray or SSPLK_LargeArray, and make sure
+    // that SSPLK_SmallArray does not overwrite SSPLK_LargeArray.
+    MachineFrameInfo::SSPLayoutKind FromKind
+        = MFI->getObjectSSPLayout(SI.first);
+    MachineFrameInfo::SSPLayoutKind ToKind = MFI->getObjectSSPLayout(SI.second);
+    if (FromKind != MachineFrameInfo::SSPLK_None &&
+        (ToKind == MachineFrameInfo::SSPLK_None ||
+         (ToKind != MachineFrameInfo::SSPLK_LargeArray &&
+          FromKind != MachineFrameInfo::SSPLK_AddrOf)))
+      MFI->setObjectSSPLayout(SI.second, FromKind);
+
+    // Slots that codegen made, such as one for a call result returned
+    // through memory, have no alloca to update. Their memory operands use
+    // FixedStack pseudo values, which are rewritten below.
     const AllocaInst *From = MFI->getObjectAllocation(SI.first);
     const AllocaInst *To = MFI->getObjectAllocation(SI.second);
-    assert(To && From && "Invalid allocation object");
+    if (!From || !To)
+      continue;
     Allocas[From] = To;
 
     // If From is before wo, its possible that there is a use of From between
@@ -955,18 +971,6 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
     // We keep both slots to maintain AliasAnalysis metadata later.
     MergedAllocas.insert(From);
     MergedAllocas.insert(To);
-
-    // Transfer the stack protector layout tag, but make sure that SSPLK_AddrOf
-    // does not overwrite SSPLK_SmallArray or SSPLK_LargeArray, and make sure
-    // that SSPLK_SmallArray does not overwrite SSPLK_LargeArray.
-    MachineFrameInfo::SSPLayoutKind FromKind
-        = MFI->getObjectSSPLayout(SI.first);
-    MachineFrameInfo::SSPLayoutKind ToKind = MFI->getObjectSSPLayout(SI.second);
-    if (FromKind != MachineFrameInfo::SSPLK_None &&
-        (ToKind == MachineFrameInfo::SSPLK_None ||
-         (ToKind != MachineFrameInfo::SSPLK_LargeArray &&
-          FromKind != MachineFrameInfo::SSPLK_AddrOf)))
-      MFI->setObjectSSPLayout(SI.second, FromKind);
 
     // The new alloca might not be valid in a llvm.dbg.declare for this
     // variable, so poison out the use to make the verifier happy.
