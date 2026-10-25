@@ -12,13 +12,13 @@ define void @memset_var(ptr %d, i8 %v, i16 %n) {
 ; CHECK-LABEL: memset_var:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx 7,s
-; CHECK-NEXT:    stx 2,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldd 7,s
+; CHECK-NEXT:    std 2,s
 ; CHECK-NEXT:    ldb 6,s
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    std ,s
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    jsr memset
 ; CHECK-NEXT:    leas 4,s
 ; CHECK-NEXT:    rts

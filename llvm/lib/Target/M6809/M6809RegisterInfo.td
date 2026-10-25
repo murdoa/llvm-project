@@ -59,7 +59,11 @@ def V : M6809Reg<0x7, "v">, DwarfRegNum<[13]>;
 
 // B first: it is the low byte of D, so i8 results land where i16 code wants
 // them.
-def ACC8 : RegisterClass<"M6809", [i8], 8, (add B, A)>;
+def ACC8 : RegisterClass<"M6809", [i8], 8, (add B, A)> {
+  // Only two, and both inside D: place bytes before the 16-bit values,
+  // which then take X or Y rather than D when a byte is live.
+  let AllocationPriority = 1;
+}
 
 def ACC16 : RegisterClass<"M6809", [i16], 8, (add D)>;
 

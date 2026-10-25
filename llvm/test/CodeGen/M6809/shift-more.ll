@@ -156,14 +156,15 @@ define i32 @lshr32_4(i32 %a) {
 ; H6309-NEXT:    ; kill: def $b killed $b def $d
 ; H6309-NEXT:    tfr b, a
 ; H6309-NEXT:    clrb
-; H6309-NEXT:    tfr d, x
+; H6309-NEXT:    tfr d, y
 ; H6309-NEXT:    ldd 2,s
 ; H6309-NEXT:    lsrd
 ; H6309-NEXT:    lsrd
 ; H6309-NEXT:    lsrd
 ; H6309-NEXT:    lsrd
-; H6309-NEXT:    orr x, d
 ; H6309-NEXT:    tfr d, x
+; H6309-NEXT:    tfr y, d
+; H6309-NEXT:    orr d, x
 ; H6309-NEXT:    tfr w, d
 ; H6309-NEXT:    lsrd
 ; H6309-NEXT:    lsrd
