@@ -242,7 +242,10 @@ multiclass ALU8C<string mnem> {
 defm ADC8 : ALU8C<"adc">;
 defm SBC8 : ALU8C<"sbc">;
 
-// 16-bit add and subtract exist only on D (ADDD/SUBD).
+// 16-bit add and subtract exist only on D (ADDD/SUBD). In the register
+// forms here and below, the other operand is in X, Y or U: D holds the first,
+// and allowing D for the second would let both come from instructions that
+// write D, with no room left for a copy between them.
 multiclass ALU16D<string mnem, SDNode node> {
   let Constraints = "$src = $dst", Defs = [CC] in {
     // No pattern: immediate adds select ADD16ri below, and the DAG turns
@@ -259,8 +262,8 @@ multiclass ALU16D<string mnem, SDNode node> {
     def pop : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src),
                         mnem # "\t,s++", [], 2>;
     let Uses = [S], Defs = [S, CC] in
-    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, GR16:$rhs), "",
-                         [(set ACC16:$dst, (node ACC16:$src, GR16:$rhs))]>;
+    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, IDX16:$rhs), "",
+                         [(set ACC16:$dst, (node ACC16:$src, IDX16:$rhs))]>;
   }
 }
 
@@ -270,10 +273,10 @@ defm SUBD : ALU16D<"subd", sub>;
 // The low half of a multi-word add or subtract: plain ADDD/SUBD, which set C.
 def : Pat<(addc ACC16:$s, imm:$i), (ADDDi ACC16:$s, imm:$i)>;
 def : Pat<(addc ACC16:$s, (load addr:$a)), (ADDDm ACC16:$s, addr:$a)>;
-def : Pat<(addc ACC16:$s, GR16:$r), (ADDDrr ACC16:$s, GR16:$r)>;
+def : Pat<(addc ACC16:$s, IDX16:$r), (ADDDrr ACC16:$s, IDX16:$r)>;
 def : Pat<(subc ACC16:$s, imm:$i), (SUBDi ACC16:$s, imm:$i)>;
 def : Pat<(subc ACC16:$s, (load addr:$a)), (SUBDm ACC16:$s, addr:$a)>;
-def : Pat<(subc ACC16:$s, GR16:$r), (SUBDrr ACC16:$s, GR16:$r)>;
+def : Pat<(subc ACC16:$s, IDX16:$r), (SUBDrr ACC16:$s, IDX16:$r)>;
 
 // The higher halves: the 6809 has no 16-bit add or subtract with carry, so
 // these pseudos become adcb/adca (sbcb/sbca), low byte first. Nothing the
@@ -287,8 +290,8 @@ multiclass CARRY16<SDNode node> {
                         [(set ACC16:$dst,
                               (node ACC16:$src, (load addr:$addr)))]>;
     let Uses = [S, CC], Defs = [S, CC] in
-    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, GR16:$rhs), "",
-                         [(set ACC16:$dst, (node ACC16:$src, GR16:$rhs))]>;
+    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, IDX16:$rhs), "",
+                         [(set ACC16:$dst, (node ACC16:$src, IDX16:$rhs))]>;
   }
 }
 
@@ -318,8 +321,8 @@ multiclass LOGIC16<SDNode node> {
                         [(set ACC16:$dst,
                               (node ACC16:$src, (load addr:$addr)))]>;
     let Uses = [S], Defs = [S, CC] in
-    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, GR16:$rhs), "",
-                         [(set ACC16:$dst, (node ACC16:$src, GR16:$rhs))]>;
+    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, IDX16:$rhs), "",
+                         [(set ACC16:$dst, (node ACC16:$src, IDX16:$rhs))]>;
   }
 }
 

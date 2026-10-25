@@ -207,21 +207,21 @@ define i32 @lshr32_8(i32 %a) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, u
+; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldb 4,s
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    tfr d, u
+; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    ora ,s+
 ; CHECK-NEXT:    orb ,s+
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
