@@ -814,7 +814,13 @@ MachineInstr *TargetInstrInfo::foldMemoryOperand(MachineInstr &MI,
   } else
     loadRegFromStackSlot(*MBB, Pos, MO.getReg(), FI, RC, Register());
 
-  return &*--Pos;
+  MachineInstr &Folded = *--Pos;
+  // A dead copy becomes a dead reload.
+  if (Flags != MachineMemOperand::MOStore && MO.isDead())
+    if (MachineOperand *Def = Folded.findRegisterDefOperand(MO.getReg(),
+                                                            /*TRI=*/nullptr))
+      Def->setIsDead();
+  return &Folded;
 }
 
 MachineInstr *
