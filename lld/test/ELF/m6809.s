@@ -1,0 +1,35 @@
+; REQUIRES: m6809
+; RUN: llvm-mc -filetype=obj -triple=m6809 -o %t1.o %s
+; RUN: printf '.global far\nfar: nop\n' | llvm-mc -filetype=obj -triple=m6809 -o %t2.o -
+; RUN: ld.lld -o %t.exe --Ttext=0x1000 --Tdata=0x2000 --defsym=_byte=0x21 \
+; RUN:   --defsym=_dp=0xff40 --defsym=near=0x1080 %t1.o %t2.o
+; RUN: llvm-objdump -s %t.exe | FileCheck %s
+; RUN: llvm-readelf -h %t.exe | FileCheck --check-prefix=HDR %s
+
+;; The 6809 relocations. Branch and ,pcr offsets count from the end of the
+;; instruction.
+
+; HDR: Machine: Motorola 6809
+; HDR: Entry point address: 0x1000
+
+  .text
+  .global _start
+_start:
+  bra near          ; R_M6809_PCREL8:  0x1080 - 0x1002 = 0x7e
+  lbra far          ; R_M6809_PCREL16: 0x1010 - 0x1005 = 0x000b
+  lda <_dp          ; R_M6809_DP8:     0x40
+  ldx #_start       ; R_M6809_16:      0x1000
+  leax _start,pcr   ; R_M6809_PCREL16: 0x1000 - 0x100e = 0xfff2
+  ldb #_byte        ; R_M6809_8:       0x21
+
+; CHECK:      Contents of section .text:
+; CHECK-NEXT: 1000 207e1600 0b96408e 1000308d fff2c621
+; CHECK-NEXT: 1010 12
+
+  .data
+  .byte _byte       ; R_M6809_8
+  .short _start     ; R_M6809_16
+  .long far         ; R_M6809_32
+
+; CHECK:      Contents of section .data:
+; CHECK-NEXT: 2000 21100000 001010
