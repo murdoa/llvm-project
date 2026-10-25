@@ -20,10 +20,10 @@ class M6800FrameLowering : public TargetFrameLowering {
 
 public:
   explicit M6800FrameLowering(const M6800Subtarget &STI)
-      // The stack is never realigned, so stack objects get at most byte
-      // alignment whatever the IR asks for.
+      // Stack objects keep their alignment within the frame, but SP is
+      // never realigned (see M6800RegisterInfo::canRealignStack).
       : TargetFrameLowering(StackGrowsDown, Align(1), /*LocalAreaOffset=*/0,
-                            Align(1), /*StackRealignable=*/false),
+                            Align(1), /*StackRealignable=*/true),
         STI(STI) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
