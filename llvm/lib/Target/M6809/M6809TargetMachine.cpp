@@ -61,6 +61,7 @@ public:
   void addIRPasses() override;
   bool addInstSelector() override;
   void addPreRegAlloc() override;
+  void addFastRegAlloc() override;
 };
 
 } // namespace
@@ -77,6 +78,15 @@ void M6809PassConfig::addIRPasses() {
 bool M6809PassConfig::addInstSelector() {
   addPass(createM6809ISelDag(getM6809TargetMachine(), getOptLevel()));
   return false;
+}
+
+// Zero and sign extension insert B into an IMPLICIT_DEF of D. The fast
+// allocator can only give B to the inserted value if the rest of D is known
+// to be undefined, which ProcessImplicitDefs records, as the optimizing
+// pipeline does.
+void M6809PassConfig::addFastRegAlloc() {
+  addPass(&ProcessImplicitDefsID);
+  TargetPassConfig::addFastRegAlloc();
 }
 
 void M6809PassConfig::addPreRegAlloc() {
