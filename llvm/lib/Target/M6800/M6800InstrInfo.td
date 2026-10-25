@@ -439,6 +439,12 @@ def : Pat<(M6800Wrapper tglobaladdr:$a), (LD16i tglobaladdr:$a)>;
 def : Pat<(M6800Wrapper texternalsym:$a), (LD16i texternalsym:$a)>;
 def : Pat<(M6800Wrapper tblockaddress:$a), (LD16i tblockaddress:$a)>;
 def : Pat<(M6800Wrapper tjumptable:$a), (LD16i tjumptable:$a)>;
+// An index into a table: "addd #table" rather than the address in X and
+// D added to it through the stack.
+def : Pat<(add GR16:$s, (M6800Wrapper tglobaladdr:$a)),
+          (ADD16ri GR16:$s, tglobaladdr:$a)>;
+def : Pat<(add GR16:$s, (M6800Wrapper texternalsym:$a)),
+          (ADD16ri GR16:$s, texternalsym:$a)>;
 
 //===----------------------------------------------------------------------===//
 // Compares and branches

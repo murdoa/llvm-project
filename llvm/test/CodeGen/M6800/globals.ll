@@ -93,8 +93,8 @@ define ptr @addr_w() {
 define ptr @addr_arr_elt() {
 ; CHECK-LABEL: addr_arr_elt:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    ldd #arr
-; CHECK-NEXT:    addd #6
+; CHECK-NEXT:    ldd #6
+; CHECK-NEXT:    addd #arr
 ; CHECK-NEXT:    rts
   ret ptr getelementptr ([10 x i16], ptr @arr, i16 0, i16 3)
 }
@@ -114,28 +114,10 @@ define i16 @load_arr_const() {
 define i16 @load_arr_var(i16 %i) {
 ; CHECK-LABEL: load_arr_var:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    asld
-; CHECK-NEXT:    ldx #arr
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    addd 0,x
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    addd #arr
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    ldd 0,x
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    rts
   %p = getelementptr [10 x i16], ptr @arr, i16 0, i16 %i
   %v = load i16, ptr %p
@@ -145,24 +127,13 @@ define i16 @load_arr_var(i16 %i) {
 define void @store_bytes_var(i16 %i, i8 %v) {
 ; CHECK-LABEL: store_bytes_var:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    des
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    ldd #bytes
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    addd 0,x
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    addd #bytes
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 5,x
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldab 4,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    stab 0,x
-; CHECK-NEXT:    ins
 ; CHECK-NEXT:    rts
   %p = getelementptr [300 x i8], ptr @bytes, i16 0, i16 %i
   store i8 %v, ptr %p
@@ -173,29 +144,11 @@ define void @store_bytes_var(i16 %i, i8 %v) {
 define i8 @load_bytes_idx8(i8 %i) {
 ; CHECK-LABEL: load_bytes_idx8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
-; CHECK-NEXT:    ldx #bytes
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    addd 0,x
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    addd #bytes
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    ldab 0,x
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    rts
   %z = zext i8 %i to i16
   %p = getelementptr [300 x i8], ptr @bytes, i16 0, i16 %z
