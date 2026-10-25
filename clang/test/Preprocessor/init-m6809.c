@@ -39,3 +39,9 @@
 // COMMON-DAG: #define __SIZEOF_SHORT__ 2
 // COMMON-DAG: #define __SIZEOF_SIZE_T__ 2
 // COMMON-DAG: #define __SIZE_TYPE__ unsigned int
+
+// 8- and 16-bit atomics are lock-free; 32-bit ones are not.
+// COMMON-DAG: #define __CLANG_ATOMIC_CHAR_LOCK_FREE 2
+// COMMON-DAG: #define __CLANG_ATOMIC_INT_LOCK_FREE 2
+// COMMON-DAG: #define __CLANG_ATOMIC_POINTER_LOCK_FREE 2
+// COMMON-DAG: #define __CLANG_ATOMIC_LONG_LOCK_FREE 1

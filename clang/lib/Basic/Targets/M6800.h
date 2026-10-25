@@ -61,9 +61,10 @@ public:
     WCharType = SignedInt;
     WIntType = SignedInt;
     SigAtomicType = SignedInt;
-    // No compare-and-swap. Atomic operations go to the __atomic library.
+    // One CPU: 8- and 16-bit atomics are lock-free.  The backend makes
+    // loads and stores plain ones and calls __sync_* for the rest.
     MaxAtomicPromoteWidth = 16;
-    MaxAtomicInlineWidth = 0;
+    MaxAtomicInlineWidth = 16;
     resetDataLayout();
   }
 
