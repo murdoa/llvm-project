@@ -71,6 +71,7 @@ private:
 
   void loadBase(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                 const DebugLoc &DL, Register Base);
+  void reuseX(MachineInstr &MI);
 
   void computeLiveness(MachineBasicBlock &MBB);
   bool rewrite(MachineInstr &MI, unsigned MemIdx);
@@ -167,6 +168,18 @@ void M6800FrameAccess::loadBase(MachineBasicBlock &MBB,
       .addImm(M6800Mem::Extended);
 }
 
+// MI uses the value an earlier TSX left in X. Instructions since then that
+// read X may have been the last use of it, so they no longer kill it.
+void M6800FrameAccess::reuseX(MachineInstr &MI) {
+  MachineBasicBlock &MBB = *MI.getParent();
+  for (auto I = std::next(MachineBasicBlock::reverse_iterator(MI));
+       I != MBB.rend(); ++I) {
+    if (I->modifiesRegister(M6800::X, TRI))
+      return;
+    I->clearRegisterKills(M6800::X, TRI);
+  }
+}
+
 // X += N. "inx" for small N; "ldab #n; abx" when B is free; else "xgdx;
 // addd #n; xgdx", which leaves D as it was. All but INX change the flags.
 void M6800FrameAccess::addToX(MachineBasicBlock &MBB,
@@ -224,6 +237,8 @@ void M6800FrameAccess::rewriteLEAFI(MachineInstr &MI) {
   if (Dst == M6800::X) {
     if (XBase != Base)
       loadBase(MBB, MI, DL, Base);
+    else
+      reuseX(MI);
     addToX(MBB, MI, DL, Off, !LA.B && !LA.D);
     XBase = Off == 0 ? Base : Register();
   } else {
@@ -233,6 +248,8 @@ void M6800FrameAccess::rewriteLEAFI(MachineInstr &MI) {
       BuildMI(MBB, MI, DL, TII->get(M6800::PSHX)).addReg(M6800::X);
     if (XBase != Base || (SaveX && Base == M6800::SP))
       loadBase(MBB, MI, DL, Base);
+    else
+      reuseX(MI);
     BuildMI(MBB, MI, DL, TII->get(M6800::XGDX));
     Off += SaveX && Base == M6800::SP ? 2 : 0;
     if (Off)
@@ -320,6 +337,8 @@ bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
   } else {
     if (SaveX || XBase != Base)
       loadBase(MBB, MI, DL, Base);
+    else
+      reuseX(MI);
     if (XOff > 255) {
       addToX(MBB, MI, DL, XOff, false);
       XOff = 0;
@@ -371,6 +390,8 @@ void M6800FrameAccess::rewriteInlineAsm(MachineInstr &MI) {
     BuildMI(MBB, MI, DL, TII->get(M6800::PSHX)).addReg(M6800::X);
   if (LA.X || XBase != Base)
     loadBase(MBB, MI, DL, Base);
+  else
+    reuseX(MI);
   if (LA.X)
     BuildMI(MBB, std::next(MI.getIterator()), DL, TII->get(M6800::PULX),
             M6800::X);
