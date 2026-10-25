@@ -56,3 +56,25 @@ define i8 @extract(<8 x i8> %v, i16 %i) {
   %e = extractelement <8 x i8> %v, i16 %i
   ret i8 %e
 }
+
+; A byval argument with a large alignment is still packed at byte alignment.
+%s = type { i8, i8 }
+declare void @take(i8, ptr byval(%s) align 16)
+
+define void @byval(ptr %p) {
+; CHECK-LABEL: byval:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr x, y
+; CHECK-NEXT:    ldb 1,y
+; CHECK-NEXT:    stb 1,s
+; CHECK-NEXT:    ldb ,x
+; CHECK-NEXT:    stb ,s
+; CHECK-NEXT:    ldb #1
+; CHECK-NEXT:    jsr take
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    rts
+  call void @take(i8 1, ptr byval(%s) align 16 %p)
+  ret void
+}

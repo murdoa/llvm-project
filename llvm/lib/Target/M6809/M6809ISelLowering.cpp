@@ -22,6 +22,18 @@ using namespace llvm;
 
 #define DEBUG_TYPE "m6809-lower"
 
+// A struct passed by value is copied into the packed argument area. Unlike
+// CCPassByVal this ignores the byval alignment: the stack is never realigned,
+// so the copy has byte alignment wherever it goes.
+static bool CC_M6809_ByVal(unsigned ValNo, MVT ValVT, MVT LocVT,
+                           CCValAssign::LocInfo LocInfo,
+                           ISD::ArgFlagsTy ArgFlags, CCState &State) {
+  unsigned Size = std::max(1u, ArgFlags.getByValSize());
+  int64_t Offset = State.AllocateStack(Size, Align(1));
+  State.addLoc(CCValAssign::getMem(ValNo, ValVT, Offset, LocVT, LocInfo));
+  return true;
+}
+
 #define GET_CALLING_CONV_IMPL
 #include "M6809GenCallingConv.inc"
 
