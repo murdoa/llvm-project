@@ -57,6 +57,10 @@ def M6809Call : SDNode<"M6809ISD::CALL",
                        SDTypeProfile<0, -1, [SDTCisVT<0, i16>]>,
                        [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
                         SDNPVariadic]>;
+// A sibling call: the callee returns straight to this function's caller.
+def M6809TailCall : SDNode<"M6809ISD::TAIL_CALL",
+                           SDTypeProfile<0, -1, [SDTCisVT<0, i16>]>,
+                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 def SDT_M6809CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i16>,
                                             SDTCisVT<1, i16>]>;
@@ -127,6 +131,17 @@ let isCall = 1, Uses = [S], Defs = [CC], isCodeGenOnly = 1 in {
 }
 def : Pat<(M6809Call tglobaladdr:$dst), (JSRe tglobaladdr:$dst)>;
 def : Pat<(M6809Call texternalsym:$dst), (JSRe texternalsym:$dst)>;
+
+// Sibling calls, "jmp sym" and "jmp ,x": a call and a return in one. The
+// epilogue goes before them.
+let isCall = 1, isTerminator = 1, isReturn = 1, isBarrier = 1, Uses = [S],
+    isCodeGenOnly = 1 in {
+  def TAILJMPe : M6809Inst<(outs), (ins i16imm_op:$dst), "jmp\t$dst", [], 3>;
+  def TAILJMPr : M6809Inst<(outs), (ins TAILIDX16:$r), "jmp\t,$r",
+                           [(M6809TailCall TAILIDX16:$r)], 2>;
+}
+def : Pat<(M6809TailCall tglobaladdr:$dst), (TAILJMPe tglobaladdr:$dst)>;
+def : Pat<(M6809TailCall texternalsym:$dst), (TAILJMPe texternalsym:$dst)>;
 
 //===----------------------------------------------------------------------===//
 // Moves

@@ -85,6 +85,9 @@ private:
                                const SDLoc &DL, SelectionDAG &DAG,
                                SmallVectorImpl<SDValue> &InVals) const override;
 
+  bool mayBeEmittedAsTailCall(const CallInst *CI) const override;
+  bool isEligibleForSiblingCall(const TargetLowering::CallLoweringInfo &CLI,
+                                unsigned StackBytes) const;
   SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const override;
 

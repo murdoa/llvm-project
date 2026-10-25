@@ -73,6 +73,10 @@ def GR16 : RegisterClass<"M6809", [i16], 8, (add D, X, U, Y, W)>;
 // Index registers that LEA can write.
 def IDX16 : RegisterClass<"M6809", [i16], 8, (add X, U, Y)>;
 
+// Index registers that hold their value through the epilogue (U is
+// callee-saved): the target of a sibling call through a register.
+def TAILIDX16 : RegisterClass<"M6809", [i16], 8, (add X, Y)>;
+
 // X and B alone: the operands of ABX.
 def XREG : RegisterClass<"M6809", [i16], 8, (add X)>;
 def BREG : RegisterClass<"M6809", [i8], 8, (add B)>;

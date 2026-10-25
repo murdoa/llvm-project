@@ -122,6 +122,14 @@ static void toRealInstruction(MCInst &MI) {
     Out.setOpcode(M6809::JSRm);
     addMem(Out, MI.getOperand(0).getReg(), MCOperand::createImm(0));
     break;
+  case M6809::TAILJMPe: // jmp sym
+    Out.setOpcode(M6809::JMPm);
+    addMem(Out, MCRegister(), MI.getOperand(0));
+    break;
+  case M6809::TAILJMPr: // jmp ,r
+    Out.setOpcode(M6809::JMPm);
+    addMem(Out, MI.getOperand(0).getReg(), MCOperand::createImm(0));
+    break;
   case M6809::LD8dr: // ld dst, d,base
   case M6809::LD16dr:
     Out.setOpcode(Opc == M6809::LD8dr ? M6809::LD8m : M6809::LD16m);
