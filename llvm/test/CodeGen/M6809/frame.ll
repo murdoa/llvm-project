@@ -33,3 +33,22 @@ define i8 @local_and_stack_arg(i16 %a, i8 %b) {
   %r = add i8 %v, %b
   ret i8 %r
 }
+
+; Lifetime markers refer to the stack object by TargetFrameIndex, which must
+; not be selected as an address.
+declare void @use(ptr)
+define void @lifetime() {
+; CHECK-LABEL: lifetime:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -6,s
+; CHECK-NEXT:    leax ,s
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    jsr use
+; CHECK-NEXT:    leas 6,s
+; CHECK-NEXT:    rts
+  %buf = alloca [6 x i8], align 1
+  call void @llvm.lifetime.start.p0(ptr %buf)
+  call void @use(ptr %buf)
+  call void @llvm.lifetime.end.p0(ptr %buf)
+  ret void
+}

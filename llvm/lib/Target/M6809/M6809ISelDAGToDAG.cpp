@@ -111,7 +111,10 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
   }
 
   // The address of a stack object: LEAX off,S once the frame is laid out.
-  if (auto *FIN = dyn_cast<FrameIndexSDNode>(N)) {
+  // TargetFrameIndex operands (of lifetime markers, for example) stay as
+  // they are.
+  if (auto *FIN = dyn_cast<FrameIndexSDNode>(N);
+      FIN && N->getOpcode() == ISD::FrameIndex) {
     SDLoc DL(N);
     SDValue TFI = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i16);
     SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i16);
