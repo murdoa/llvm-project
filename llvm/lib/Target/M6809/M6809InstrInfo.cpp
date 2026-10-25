@@ -823,6 +823,11 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.eraseFromParent();
     return true;
   }
+  if (Opc == M6809::ABXp) {
+    BuildMI(MBB, MI, DL, get(M6809::ABX));
+    MI.eraseFromParent();
+    return true;
+  }
   if (Opc == M6809::SWAPB) {
     MachineInstrBuilder Exg = BuildMI(MBB, MI, DL, get(M6809::EXGrr))
                                   .addReg(M6809::A)

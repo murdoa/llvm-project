@@ -109,6 +109,12 @@ let Defs = [S], Uses = [S] in {
 // Control flow
 //===----------------------------------------------------------------------===//
 
+// x + (zero-extended b) is "abx": 1 byte and 3 cycles, and the flags are
+// left alone. Expanded to ABX after register allocation.
+let Constraints = "$src = $dst", AddedComplexity = 10 in
+def ABXp : M6809Pseudo<(outs XREG:$dst), (ins XREG:$src, BREG:$b), "",
+                       [(set XREG:$dst, (add XREG:$src, (zext BREG:$b)))]>;
+
 let isReturn = 1, isTerminator = 1, isBarrier = 1 in
 def RTS : M6809Inst<(outs), (ins), "rts", [(M6809RetGlue)], 1>;
 
