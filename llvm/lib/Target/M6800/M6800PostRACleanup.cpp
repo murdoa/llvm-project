@@ -25,6 +25,7 @@
 #include "M6800.h"
 #include "M6800InstrInfo.h"
 #include "M6800Subtarget.h"
+#include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
@@ -127,6 +128,7 @@ bool M6800PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
   bool Changed = false;
 
   for (MachineBasicBlock &MBB : MF) {
+    bool BlockChanged = false;
     for (MachineInstr &MI : MBB) {
       unsigned W = loadWidth(MI) | storeWidth(MI);
       MachineInstr *Next;
@@ -136,7 +138,7 @@ bool M6800PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
         if (!Pair || !sameAccess(MI, *Next, TRI))
           break;
         Next->eraseFromParent();
-        Changed = true;
+        BlockChanged = true;
       }
     }
 
@@ -152,7 +154,7 @@ bool M6800PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
         Register Dst = MI.getOperand(0).getReg();
         if (!MRI.isReserved(Dst) && Live.available(Dst)) {
           MI.eraseFromParent();
-          Changed = true;
+          BlockChanged = true;
           continue;
         }
       }
@@ -162,6 +164,10 @@ bool M6800PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
         FlagsLive = true;
       Live.stepBackward(MI);
     }
+    // A removed reload leaves a kill on the store before it.
+    if (BlockChanged)
+      recomputeLivenessFlags(MBB);
+    Changed |= BlockChanged;
   }
   return Changed;
 }

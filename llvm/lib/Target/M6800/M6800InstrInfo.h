@@ -32,6 +32,11 @@ class M6800InstrInfo : public M6800GenInstrInfo {
 public:
   explicit M6800InstrInfo(const M6800Subtarget &STI);
 
+  /// Marks undef the reads by XGDX, PSHX and PSH8 of registers with no live
+  /// part, from the block's live-ins forward.
+  static void markUndefSaves(MachineBasicBlock &MBB,
+                             const TargetRegisterInfo *TRI);
+
   const M6800RegisterInfo &getRegisterInfo() const { return RI; }
 
   /// True if Reg (or a part of it) is live just after MI. Needs the block's

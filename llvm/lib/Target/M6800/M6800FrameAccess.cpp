@@ -366,6 +366,7 @@ bool M6800FrameAccess::runOnMachineFunction(MachineFunction &MF) {
           (XBase == M6800::SP && MI.modifiesRegister(M6800::SP, TRI)))
         XBase = Register();
     }
+    M6800InstrInfo::markUndefSaves(MBB, TRI);
   }
   return Changed;
 }

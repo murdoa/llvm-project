@@ -246,9 +246,12 @@ static void addOffset(MachineInstrBuilder &MIB, const MachineOperand &MO,
 // slot moves on by that much too.
 static void addMem(MachineInstrBuilder &MIB, const MachineInstr &MI,
                    unsigned Idx, int64_t Delta = 0, unsigned Pushed = 0) {
-  const MachineOperand &Base = MI.getOperand(Idx);
+  MachineOperand Base = MI.getOperand(Idx);
   if (Base.isReg() && Base.getReg() == M6800::SP)
     Delta += Pushed;
+  // The caller may add the same operand to several instructions.
+  if (Base.isReg())
+    Base.setIsKill(false);
   MIB.add(Base);
   addOffset(MIB, MI.getOperand(Idx + 1), Delta);
   MIB.add(MI.getOperand(Idx + 2));
@@ -937,4 +940,33 @@ bool M6800InstrInfo::reverseBranchCondition(
   MachineOperand &CC = Cond.back();
   CC.setImm(M6800CC::getOpposite(static_cast<M6800CC::CondCode>(CC.getImm())));
   return false;
+}
+
+// XGDX, PSHX and PSH8 move or save a register whether or not it holds a
+// value. This pass and the expansions before it use them to keep D or X
+// around code that needs the other, so they can read a register with no
+// live part. Their reads of such a register are marked undef.
+void M6800InstrInfo::markUndefSaves(MachineBasicBlock &MBB,
+                                    const TargetRegisterInfo *TRI) {
+  LivePhysRegs Live(*TRI);
+  Live.addLiveIns(MBB);
+  auto IsLive = [&](MCRegister Reg) {
+    return any_of(TRI->subregs_inclusive(Reg),
+                  [&](MCPhysReg R) { return Live.contains(R); });
+  };
+  SmallVector<std::pair<MCPhysReg, const MachineOperand *>, 4> Clobbers;
+  for (MachineInstr &MI : MBB) {
+    unsigned Opc = MI.getOpcode();
+    if (Opc == M6800::XGDX || Opc == M6800::PSHX || Opc == M6800::PSH8)
+      for (MachineOperand &MO : MI.operands())
+        if (MO.isReg() && MO.isUse() && MO.getReg() != M6800::SP &&
+            !IsLive(MO.getReg().asMCReg()))
+          MO.setIsUndef();
+    Clobbers.clear();
+    Live.stepForward(MI, Clobbers);
+    // As for the verifier, a dead def ends the register's value.
+    for (const MachineOperand &MO : MI.all_defs())
+      if (MO.isDead())
+        Live.removeReg(MO.getReg());
+  }
 }

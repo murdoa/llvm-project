@@ -82,6 +82,18 @@ static MachineInstrBuilder buildFPAccess(const TargetInstrInfo &TII,
 // last.
 void M6800FrameLowering::emitPrologue(MachineFunction &MF,
                                       MachineBasicBlock &MBB) const {
+  emitPrologueCode(MF, MBB);
+  M6800InstrInfo::markUndefSaves(MBB, STI.getRegisterInfo());
+}
+
+void M6800FrameLowering::emitEpilogue(MachineFunction &MF,
+                                      MachineBasicBlock &MBB) const {
+  emitEpilogueCode(MF, MBB);
+  M6800InstrInfo::markUndefSaves(MBB, STI.getRegisterInfo());
+}
+
+void M6800FrameLowering::emitPrologueCode(MachineFunction &MF,
+                                          MachineBasicBlock &MBB) const {
   MachineFrameInfo &MFI = MF.getFrameInfo();
   int64_t StackSize = MFI.getStackSize();
   const TargetInstrInfo &TII = *STI.getInstrInfo();
@@ -136,8 +148,8 @@ void M6800FrameLowering::emitPrologue(MachineFunction &MF,
 // back with "pulx; stx __m6800_fp", or with X live:
 //
 //   pshx; pshb; psha; tsx; ldx 4,x; stx __m6800_fp; pula; pulb; pulx; ins; ins
-void M6800FrameLowering::emitEpilogue(MachineFunction &MF,
-                                      MachineBasicBlock &MBB) const {
+void M6800FrameLowering::emitEpilogueCode(MachineFunction &MF,
+                                          MachineBasicBlock &MBB) const {
   int64_t StackSize = MF.getFrameInfo().getStackSize();
   if (!StackSize)
     return;

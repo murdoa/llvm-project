@@ -40,6 +40,8 @@ protected:
   bool hasFPImpl(const MachineFunction &MF) const override;
 
 private:
+  void emitPrologueCode(MachineFunction &MF, MachineBasicBlock &MBB) const;
+  void emitEpilogueCode(MachineFunction &MF, MachineBasicBlock &MBB) const;
   void emitFree(MachineFunction &MF, MachineBasicBlock &MBB,
                 MachineBasicBlock::iterator MBBI, const DebugLoc &DL,
                 int64_t StackSize, bool XLive) const;
