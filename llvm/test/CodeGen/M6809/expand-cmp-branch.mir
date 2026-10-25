@@ -475,3 +475,33 @@ body: |
   bb.2:
     RTS
 ...
+---
+# TST leaves C alone: an unsigned compare of a byte with zero must not
+# read the carry of the add before it.
+name: zero_b_unsigned
+tracksRegLiveness: true
+body: |
+  ; CHECK-LABEL: name: zero_b_unsigned
+  ; CHECK: bb.0:
+  ; CHECK-NEXT:   successors: %bb.1(0x40000000), %bb.2(0x40000000)
+  ; CHECK-NEXT:   liveins: $b
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT:   $b = ADD8i killed $b, 200, implicit-def $cc
+  ; CHECK-NEXT:   CMP8i killed $b, 0, implicit-def $cc
+  ; CHECK-NEXT:   LBcc 3, %bb.2, implicit $cc
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT: bb.1:
+  ; CHECK-NEXT:   RTS
+  ; CHECK-NEXT: {{  $}}
+  ; CHECK-NEXT: bb.2:
+  ; CHECK-NEXT:   RTS
+  bb.0:
+    successors: %bb.1, %bb.2
+    liveins: $b
+    $b = ADD8i killed $b, 200, implicit-def $cc
+    CB8ri killed $b, 0, 3, %bb.2, implicit-def $cc
+  bb.1:
+    RTS
+  bb.2:
+    RTS
+...

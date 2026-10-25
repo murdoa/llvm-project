@@ -394,12 +394,15 @@ void M6809InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
   if (flagsAlreadySet(MBB, MI, R, CC))
     return;
   bool EqNe = CC == M6809CC::EQ || CC == M6809CC::NE;
+  // TST leaves C alone, so it serves every condition but the unsigned ones.
+  bool Unsigned = CC == M6809CC::HI || CC == M6809CC::LS ||
+                  CC == M6809CC::HS || CC == M6809CC::LO;
   if (M6809::ACC8RegClass.contains(R)) {
-    BuildMI(MBB, MI, DL, get(M6809::TST8)).add(Lhs);
-  } else if (R == M6809::D && STI.has6309() && CC != M6809CC::HI &&
-             CC != M6809CC::LS && CC != M6809CC::HS && CC != M6809CC::LO) {
-    // TSTD leaves C alone, so it serves every condition but the unsigned
-    // ones.
+    if (Unsigned)
+      BuildMI(MBB, MI, DL, get(M6809::CMP8i)).add(Lhs).addImm(0);
+    else
+      BuildMI(MBB, MI, DL, get(M6809::TST8)).add(Lhs);
+  } else if (R == M6809::D && STI.has6309() && !Unsigned) {
     BuildMI(MBB, MI, DL, get(M6809::TST16r)).add(Lhs);
   } else if (R == M6809::D) {
     BuildMI(MBB, MI, DL, get(M6809::SUBDi), R).addReg(R).addImm(0);
