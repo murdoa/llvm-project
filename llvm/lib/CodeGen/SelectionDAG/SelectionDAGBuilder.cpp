@@ -11909,8 +11909,8 @@ TargetLowering::LowerCallTo(TargetLowering::CallLoweringInfo &CLI) const {
 
     CLI.Chain = CLI.DAG.getNode(ISD::TokenFactor, CLI.DL, MVT::Other, Chains);
     if (getTargetMachine().getOptLevel() != CodeGenOptLevel::None)
-      CLI.Chain = CLI.DAG.getLifetimeNode(/*IsStart=*/false, CLI.DL,
-                                          CLI.Chain, DemoteStackIdx);
+      CLI.Chain = CLI.DAG.getLifetimeNode(/*IsStart=*/false, CLI.DL, CLI.Chain,
+                                          DemoteStackIdx);
   } else {
     // Collect the legal value parts into potentially illegal values
     // that correspond to the original function's return values.

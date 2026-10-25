@@ -931,8 +931,8 @@ void StackColoring::remapInstructions(DenseMap<int, int> &SlotRemap) {
     // Transfer the stack protector layout tag, but make sure that SSPLK_AddrOf
     // does not overwrite SSPLK_SmallArray or SSPLK_LargeArray, and make sure
     // that SSPLK_SmallArray does not overwrite SSPLK_LargeArray.
-    MachineFrameInfo::SSPLayoutKind FromKind
-        = MFI->getObjectSSPLayout(SI.first);
+    MachineFrameInfo::SSPLayoutKind FromKind =
+        MFI->getObjectSSPLayout(SI.first);
     MachineFrameInfo::SSPLayoutKind ToKind = MFI->getObjectSSPLayout(SI.second);
     if (FromKind != MachineFrameInfo::SSPLK_None &&
         (ToKind == MachineFrameInfo::SSPLK_None ||

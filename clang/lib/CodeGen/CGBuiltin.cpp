@@ -5312,8 +5312,8 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     // may be wider than int.
     Function *F = CGM.getIntrinsic(Intrinsic::eh_sjlj_setjmp);
     Value *Result = Builder.CreateCall(F, Buf.emitRawPointer(*this));
-    return RValue::get(Builder.CreateIntCast(
-        Result, ConvertType(E->getType()), /*isSigned=*/true));
+    return RValue::get(Builder.CreateIntCast(Result, ConvertType(E->getType()),
+                                             /*isSigned=*/true));
   }
   case Builtin::BI__builtin_longjmp: {
     Value *Buf = EmitScalarExpr(E->getArg(0));
