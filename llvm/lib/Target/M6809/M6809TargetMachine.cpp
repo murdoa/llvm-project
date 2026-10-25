@@ -25,6 +25,7 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeM6809Target() {
   initializeM6809AsmPrinterPass(PR);
   initializeM6809DAGToDAGISelLegacyPass(PR);
   initializeM6809SplitDOperandsPass(PR);
+  initializeM6809PostRACleanupPass(PR);
 }
 
 static StringRef defaultCPU(StringRef CPU) {
@@ -66,6 +67,7 @@ public:
   bool addInstSelector() override;
   void addPreRegAlloc() override;
   void addFastRegAlloc() override;
+  void addPreSched2() override;
 };
 
 } // namespace
@@ -95,6 +97,11 @@ void M6809PassConfig::addFastRegAlloc() {
 
 void M6809PassConfig::addPreRegAlloc() {
   addPass(createM6809SplitDOperandsPass());
+}
+
+void M6809PassConfig::addPreSched2() {
+  if (getOptLevel() != CodeGenOptLevel::None)
+    addPass(createM6809PostRACleanupPass());
 }
 
 MachineFunctionInfo *M6809TargetMachine::createMachineFunctionInfo(
