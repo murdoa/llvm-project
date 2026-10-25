@@ -325,6 +325,15 @@ void M6809InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
   }
 }
 
+// The last of the byte instructions that make up a 16-bit operation on D
+// says that all of D is now defined. It reads D too: the other byte was
+// written by the instruction before, or passes through unchanged, and must
+// stay live up to here.
+static void addWholeD(MachineInstrBuilder &MIB) {
+  MIB.addReg(M6809::D, RegState::Implicit)
+      .addReg(M6809::D, RegState::ImplicitDefine);
+}
+
 bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   MachineBasicBlock &MBB = *MI.getParent();
   DebugLoc DL = MI.getDebugLoc();
@@ -373,7 +382,7 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       Fill = BuildMI(MBB, MI, DL, get(M6809::CLR8), M6809::A);
     else
       Fill = BuildMI(MBB, MI, DL, get(M6809::SEX), M6809::D).addReg(M6809::D);
-    Fill.addReg(M6809::D, RegState::ImplicitDefine);
+    addWholeD(Fill);
     MI.eraseFromParent();
     return true;
   }
@@ -383,9 +392,10 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     Register First = Left ? M6809::B : M6809::A;
     Register Second = Left ? M6809::A : M6809::B;
     BuildMI(MBB, MI, DL, get(FirstOpc), First).addReg(First);
-    BuildMI(MBB, MI, DL, get(Left ? M6809::ROL8 : M6809::ROR8), Second)
-        .addReg(Second)
-        .addReg(M6809::D, RegState::ImplicitDefine);
+    MachineInstrBuilder MIB2 =
+        BuildMI(MBB, MI, DL, get(Left ? M6809::ROL8 : M6809::ROR8), Second)
+            .addReg(Second);
+    addWholeD(MIB2);
     MI.eraseFromParent();
     return true;
   }
@@ -452,7 +462,7 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     if (!Last)
       Last = First;
     if (Last)
-      Last.addReg(M6809::D, RegState::ImplicitDefine);
+      addWholeD(Last);
     MI.eraseFromParent();
     return true;
   }
@@ -462,10 +472,10 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     // from the high byte.
     BuildMI(MBB, MI, DL, get(M6809::NEG8), M6809::A).addReg(M6809::A);
     BuildMI(MBB, MI, DL, get(M6809::NEG8), M6809::B).addReg(M6809::B);
-    BuildMI(MBB, MI, DL, get(M6809::SBC8i), M6809::A)
-        .addReg(M6809::A)
-        .addImm(0)
-        .addReg(M6809::D, RegState::ImplicitDefine);
+    MachineInstrBuilder Sbca = BuildMI(MBB, MI, DL, get(M6809::SBC8i), M6809::A)
+                                   .addReg(M6809::A)
+                                   .addImm(0);
+    addWholeD(Sbca);
     MI.eraseFromParent();
     return true;
   }
