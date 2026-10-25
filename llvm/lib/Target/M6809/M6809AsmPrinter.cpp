@@ -8,6 +8,7 @@
 
 #include "M6809.h"
 #include "M6809MCInstLower.h"
+#include "MCTargetDesc/M6809InstPrinter.h"
 #include "TargetInfo/M6809TargetInfo.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -41,9 +42,50 @@ public:
     MCInstLowering.lower(MI, Inst);
     EmitToStreamer(*OutStreamer, Inst);
   }
+
+  bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                       const char *ExtraCode, raw_ostream &OS) override;
+  bool PrintAsmMemoryOperand(const MachineInstr *MI, unsigned OpNo,
+                             const char *ExtraCode, raw_ostream &OS) override;
 };
 
 } // namespace
+
+bool M6809AsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
+                                      const char *ExtraCode, raw_ostream &OS) {
+  if (ExtraCode && ExtraCode[0])
+    return AsmPrinter::PrintAsmOperand(MI, OpNo, ExtraCode, OS);
+  const MachineOperand &MO = MI->getOperand(OpNo);
+  switch (MO.getType()) {
+  case MachineOperand::MO_Register:
+    OS << M6809InstPrinter::getRegisterName(MO.getReg());
+    return false;
+  case MachineOperand::MO_Immediate:
+    OS << MO.getImm();
+    return false;
+  case MachineOperand::MO_GlobalAddress:
+    PrintSymbolOperand(MO, OS);
+    return false;
+  default:
+    return true;
+  }
+}
+
+// A memory operand is the base, offset and mode of an indexed operand, as
+// SelectInlineAsmMemoryOperand made them.
+bool M6809AsmPrinter::PrintAsmMemoryOperand(const MachineInstr *MI,
+                                            unsigned OpNo,
+                                            const char *ExtraCode,
+                                            raw_ostream &OS) {
+  if (ExtraCode && ExtraCode[0])
+    return true;
+  MCInst Inst;
+  for (unsigned I = 0; I != 3; ++I)
+    Inst.addOperand(MCInstLowering.lowerOperand(MI->getOperand(OpNo + I)));
+  M6809InstPrinter Printer(MAI, *TM.getMCInstrInfo(), *MF->getSubtarget().getRegisterInfo());
+  Printer.printMemIndexedOperand(&Inst, 0, OS);
+  return false;
+}
 
 char M6809AsmPrinter::ID = 0;
 

@@ -30,6 +30,9 @@ public:
   SDValue getTargetSymbol(SDValue Sym, int64_t Off);
   bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
                   SDValue &Mode);
+  bool SelectInlineAsmMemoryOperand(const SDValue &Op,
+                                    InlineAsm::ConstraintCode ConstraintID,
+                                    std::vector<SDValue> &OutOps) override;
 
 #include "M6809GenDAGISel.inc"
 };
@@ -130,6 +133,37 @@ bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
 
   Offset = CurDAG->getSignedTargetConstant(Off, DL, MVT::i16);
   return true;
+}
+
+// An inline asm memory operand is the base, offset and mode of an indexed
+// operand, like an instruction's.
+bool M6809DAGToDAGISel::SelectInlineAsmMemoryOperand(
+    const SDValue &Op, InlineAsm::ConstraintCode ConstraintID,
+    std::vector<SDValue> &OutOps) {
+  switch (ConstraintID) {
+  case InlineAsm::ConstraintCode::m:
+  case InlineAsm::ConstraintCode::o:
+  case InlineAsm::ConstraintCode::Q:
+    break;
+  default:
+    return true;
+  }
+  SDValue Base, Offset, Mode;
+  if (!SelectAddr(Op, Base, Offset, Mode))
+    return true;
+  // A computed base must be in a register indexed mode can use.
+  if (!isa<RegisterSDNode>(Base) && !isa<FrameIndexSDNode>(Base)) {
+    SDLoc DL(Op);
+    SDValue RC =
+        CurDAG->getTargetConstant(M6809::PTR16RegClassID, DL, MVT::i32);
+    Base = SDValue(CurDAG->getMachineNode(TargetOpcode::COPY_TO_REGCLASS, DL,
+                                          MVT::i16, Base, RC),
+                   0);
+  }
+  OutOps.push_back(Base);
+  OutOps.push_back(Offset);
+  OutOps.push_back(Mode);
+  return false;
 }
 
 void M6809DAGToDAGISel::Select(SDNode *N) {

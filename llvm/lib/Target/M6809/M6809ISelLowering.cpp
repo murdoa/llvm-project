@@ -703,3 +703,50 @@ M6809TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
     RetOps.push_back(Glue);
   return DAG.getNode(M6809ISD::RET_GLUE, DL, MVT::Other, RetOps);
 }
+
+//===----------------------------------------------------------------------===//
+// Inline assembly
+//===----------------------------------------------------------------------===//
+
+// Constraint letters, besides the generic ones:
+//   a  an index register (X, Y or U)
+//   q  an 8-bit accumulator (A or B)
+//   d  the D accumulator (B for 8-bit values)
+TargetLowering::ConstraintType
+M6809TargetLowering::getConstraintType(StringRef Constraint) const {
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+    case 'a':
+    case 'q':
+    case 'd':
+      return C_RegisterClass;
+    default:
+      break;
+    }
+  }
+  return TargetLowering::getConstraintType(Constraint);
+}
+
+std::pair<unsigned, const TargetRegisterClass *>
+M6809TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
+                                                  StringRef Constraint,
+                                                  MVT VT) const {
+  bool Byte = VT == MVT::i8;
+  if (Constraint.size() == 1) {
+    switch (Constraint[0]) {
+    case 'r':
+      // Wider values take several 16-bit registers.
+      return {0, Byte ? &M6809::ACC8RegClass : &M6809::GR16RegClass};
+    case 'a':
+      return {0, &M6809::IDX16RegClass};
+    case 'q':
+      return {0, &M6809::ACC8RegClass};
+    case 'd':
+      return Byte ? std::make_pair(unsigned(M6809::B), &M6809::ACC8RegClass)
+                  : std::make_pair(unsigned(M6809::D), &M6809::ACC16RegClass);
+    default:
+      break;
+    }
+  }
+  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+}

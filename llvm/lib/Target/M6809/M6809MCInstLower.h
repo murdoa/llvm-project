@@ -29,6 +29,7 @@ public:
       : Ctx(Ctx), Printer(Printer) {}
 
   void lower(const MachineInstr *MI, MCInst &OutMI) const;
+  MCOperand lowerOperand(const MachineOperand &MO) const;
 
 private:
   MCOperand lowerSymbolOperand(const MachineOperand &MO) const;

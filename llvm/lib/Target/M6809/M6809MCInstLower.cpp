@@ -142,25 +142,24 @@ static void toRealInstruction(MCInst &MI) {
   MI = Out;
 }
 
+MCOperand M6809MCInstLower::lowerOperand(const MachineOperand &MO) const {
+  switch (MO.getType()) {
+  case MachineOperand::MO_Register:
+    return MCOperand::createReg(MO.getReg());
+  case MachineOperand::MO_Immediate:
+    return MCOperand::createImm(MO.getImm());
+  default:
+    return lowerSymbolOperand(MO);
+  }
+}
+
 void M6809MCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
   OutMI.setOpcode(MI->getOpcode());
 
   for (const MachineOperand &MO : MI->operands()) {
-    switch (MO.getType()) {
-    case MachineOperand::MO_Register:
-      if (MO.isImplicit())
-        continue;
-      OutMI.addOperand(MCOperand::createReg(MO.getReg()));
-      break;
-    case MachineOperand::MO_Immediate:
-      OutMI.addOperand(MCOperand::createImm(MO.getImm()));
-      break;
-    case MachineOperand::MO_RegisterMask:
+    if ((MO.isReg() && MO.isImplicit()) || MO.isRegMask())
       continue;
-    default:
-      OutMI.addOperand(lowerSymbolOperand(MO));
-      break;
-    }
+    OutMI.addOperand(lowerOperand(MO));
   }
   toRealInstruction(OutMI);
 }
