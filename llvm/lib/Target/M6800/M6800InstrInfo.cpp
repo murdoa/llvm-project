@@ -110,14 +110,26 @@ static void markFlagsDead(MachineInstr &MI) {
       MO.setIsDead();
 }
 
+// ST16m and LD16m take GR16, which leaves out SP and FP. A virtual register
+// of a class with them in it, such as PTR16, is narrowed to the registers
+// both classes have.
+static void constrainForSpill(MachineBasicBlock &MBB, Register Reg, bool Is8) {
+  if (Is8 || !Reg.isVirtual())
+    return;
+  MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+  [[maybe_unused]] const TargetRegisterClass *RC =
+      MRI.constrainRegClass(Reg, &M6800::GR16RegClass);
+  assert(RC && "M6800: no 16-bit spill class for this register");
+}
+
 void M6800InstrInfo::storeRegToStackSlot(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
     bool IsKill, int FrameIndex, const TargetRegisterClass *RC, Register VReg,
     MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc =
-      RC->hasSuperClassEq(&M6800::ACC8RegClass) ? M6800::ST8m : M6800::ST16m;
-  BuildMI(MBB, MI, DL, get(Opc))
+  bool Is8 = RC->hasSuperClassEq(&M6800::ACC8RegClass);
+  constrainForSpill(MBB, SrcReg, Is8);
+  BuildMI(MBB, MI, DL, get(Is8 ? M6800::ST8m : M6800::ST16m))
       .addReg(SrcReg, getKillRegState(IsKill))
       .addFrameIndex(FrameIndex)
       .addImm(0)
@@ -134,9 +146,9 @@ void M6800InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                           Register VReg, unsigned SubReg,
                                           MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc =
-      RC->hasSuperClassEq(&M6800::ACC8RegClass) ? M6800::LD8m : M6800::LD16m;
-  BuildMI(MBB, MI, DL, get(Opc), DestReg)
+  bool Is8 = RC->hasSuperClassEq(&M6800::ACC8RegClass);
+  constrainForSpill(MBB, DestReg, Is8);
+  BuildMI(MBB, MI, DL, get(Is8 ? M6800::LD8m : M6800::LD16m), DestReg)
       .addFrameIndex(FrameIndex)
       .addImm(0)
       .addImm(M6800Mem::Auto)
