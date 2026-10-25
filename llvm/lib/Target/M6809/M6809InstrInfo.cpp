@@ -856,7 +856,8 @@ bool M6809InstrInfo::expand6309(MachineInstr &MI) const {
     break;
   }
   if (InhOpc) {
-    BuildMI(MBB, MI, DL, get(InhOpc), M6809::D).addReg(M6809::D);
+    BuildMI(MBB, MI, DL, get(InhOpc), M6809::D)
+        .addReg(M6809::D, getUndefRegState(MI.getOperand(1).isUndef()));
     MI.eraseFromParent();
     return true;
   }
@@ -1015,10 +1016,12 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     bool Left = Opc == M6809::LSL16 || Opc == M6809::ROL16;
     Register First = Left ? M6809::B : M6809::A;
     Register Second = Left ? M6809::A : M6809::B;
-    BuildMI(MBB, MI, DL, get(FirstOpc), First).addReg(First);
+    // The source can be undef when only some of the result's bits are used.
+    RegState Undef = getUndefRegState(MI.getOperand(1).isUndef());
+    BuildMI(MBB, MI, DL, get(FirstOpc), First).addReg(First, Undef);
     MachineInstrBuilder MIB2 =
         BuildMI(MBB, MI, DL, get(Left ? M6809::ROL8 : M6809::ROR8), Second)
-            .addReg(Second);
+            .addReg(Second, Undef);
     addWholeD(MIB2);
     MI.eraseFromParent();
     return true;
