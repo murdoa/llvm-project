@@ -77,6 +77,11 @@ public:
 
   bool allowsLargerPreferedTypeAlignment() const override { return false; }
 
+  // _BitInt up to 64 bits: wider ones would need 128-bit division routines,
+  // which the runtime does not have.
+  bool hasBitIntType() const override { return true; }
+  size_t getMaxBitIntWidth() const override { return 64; }
+
   bool hasFeature(StringRef Feature) const override {
     return Feature == "m6809" || (Feature == "6309" && CPU == "6309");
   }
