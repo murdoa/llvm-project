@@ -81,6 +81,7 @@ llvm_config.feature_config(
                 "Hexagon": "hexagon",
                 "LoongArch": "loongarch",
                 "Mips": "mips",
+                "M6800": "m6800",
                 "M6809": "m6809",
                 "MSP430": "msp430",
                 "PowerPC": "ppc",
