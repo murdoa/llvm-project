@@ -135,6 +135,20 @@ static void toRealInstruction(MCInst &MI) {
     addMem(Out, MI.getOperand(1).getReg(), MCOperand::createImm(0),
            M6809Mem::AccD);
     break;
+  case M6809::LD8pi: // ld dst, ,ptr+
+  case M6809::LD16pi:
+    Out.setOpcode(Opc == M6809::LD8pi ? M6809::LD8m : M6809::LD16m);
+    Out.addOperand(MI.getOperand(0));
+    addMem(Out, MI.getOperand(2).getReg(), MCOperand::createImm(0),
+           Opc == M6809::LD8pi ? M6809Mem::PostInc1 : M6809Mem::PostInc2);
+    break;
+  case M6809::ST8pi: // st src, ,ptr+
+  case M6809::ST16pi:
+    Out.setOpcode(Opc == M6809::ST8pi ? M6809::ST8m : M6809::ST16m);
+    Out.addOperand(MI.getOperand(1));
+    addMem(Out, MI.getOperand(2).getReg(), MCOperand::createImm(0),
+           Opc == M6809::ST8pi ? M6809Mem::PostInc1 : M6809Mem::PostInc2);
+    break;
   case M6809::LEA16dr: // lea dst, d,base
     Out.setOpcode(M6809::LEA16);
     Out.addOperand(MI.getOperand(0));

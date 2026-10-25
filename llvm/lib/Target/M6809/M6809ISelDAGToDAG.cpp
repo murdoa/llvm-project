@@ -192,6 +192,28 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
     return;
   }
 
+  // Post-incremented loads and stores (see getPostIndexedAddressParts).
+  if (auto *LD = dyn_cast<LoadSDNode>(N);
+      LD && LD->getAddressingMode() == ISD::POST_INC) {
+    bool Byte = LD->getMemoryVT() == MVT::i8;
+    MachineSDNode *MN = CurDAG->getMachineNode(
+        Byte ? M6809::LD8pi : M6809::LD16pi, SDLoc(N), LD->getValueType(0),
+        MVT::i16, MVT::Other, {LD->getBasePtr(), LD->getChain()});
+    CurDAG->setNodeMemRefs(MN, {LD->getMemOperand()});
+    ReplaceNode(N, MN);
+    return;
+  }
+  if (auto *ST = dyn_cast<StoreSDNode>(N);
+      ST && ST->getAddressingMode() == ISD::POST_INC) {
+    bool Byte = ST->getMemoryVT() == MVT::i8;
+    MachineSDNode *MN = CurDAG->getMachineNode(
+        Byte ? M6809::ST8pi : M6809::ST16pi, SDLoc(N), MVT::i16, MVT::Other,
+        {ST->getValue(), ST->getBasePtr(), ST->getChain()});
+    CurDAG->setNodeMemRefs(MN, {ST->getMemOperand()});
+    ReplaceNode(N, MN);
+    return;
+  }
+
   // HD6309 block copy and fill: the pseudos return the advanced pointers,
   // which nothing uses.
   if (N->getOpcode() == M6809ISD::TFMCPY ||

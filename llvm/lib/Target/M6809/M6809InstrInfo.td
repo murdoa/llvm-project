@@ -200,6 +200,25 @@ let Defs = [CC], AddedComplexity = 20 in {
                                    (addrr PTR16:$base, ACC16:$idx))]>;
 }
 
+// Post-increment: ",x+" for a byte, ",x++" for a word, the pointer coming
+// back advanced (see getPostIndexedAddressParts).  Selected by hand and
+// lowered to the memidx forms with the PostInc modes.  "ldx ,x++" would
+// lose the advanced pointer, so a loaded word goes to another register.
+let Defs = [CC], hasSideEffects = 0 in {
+  let mayLoad = 1, Constraints = "$ptr = $wb" in
+  def LD8pi : M6809Pseudo<(outs ACC8:$dst, IDX16:$wb), (ins IDX16:$ptr), "",
+                          []>;
+  let mayLoad = 1, Constraints = "$ptr = $wb,@earlyclobber $dst" in
+  def LD16pi : M6809Pseudo<(outs GR16:$dst, IDX16:$wb), (ins IDX16:$ptr), "",
+                           []>;
+  let mayStore = 1, Constraints = "$ptr = $wb" in {
+    def ST8pi : M6809Pseudo<(outs IDX16:$wb), (ins ACC8:$src, IDX16:$ptr),
+                            "", []>;
+    def ST16pi : M6809Pseudo<(outs IDX16:$wb), (ins GR16:$src, IDX16:$ptr),
+                             "", []>;
+  }
+}
+
 // Stack pointer adjustment for the prologue and epilogue. LEAS leaves the
 // flags alone.
 let Defs = [S], Uses = [S], isCodeGenOnly = 1 in

@@ -15,9 +15,9 @@ define i16 @two_args(i16 %n, ...) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    leax 4,s
-; CHECK-NEXT:    leax 3,x
+; CHECK-NEXT:    leax 2,x
+; CHECK-NEXT:    ldb ,x+
 ; CHECK-NEXT:    stx ,s
-; CHECK-NEXT:    ldb 6,s
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    sex
 ; CHECK-NEXT:    addd 4,s

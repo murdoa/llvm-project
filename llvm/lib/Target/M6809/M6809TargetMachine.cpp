@@ -9,6 +9,7 @@
 #include "M6809TargetMachine.h"
 #include "M6809.h"
 #include "M6809MachineFunctionInfo.h"
+#include "M6809TargetTransformInfo.h"
 #include "TargetInfo/M6809TargetInfo.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
@@ -71,6 +72,11 @@ public:
 };
 
 } // namespace
+
+TargetTransformInfo
+M6809TargetMachine::getTargetTransformInfo(const Function &F) const {
+  return TargetTransformInfo(std::make_unique<M6809TTIImpl>(this, F));
+}
 
 TargetPassConfig *M6809TargetMachine::createPassConfig(PassManagerBase &PM) {
   return new M6809PassConfig(*this, PM);

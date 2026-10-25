@@ -223,10 +223,8 @@ define void @clear_bytes(ptr %p, i16 %n) {
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB10_2: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    stb ,y
+; CHECK-NEXT:    stb ,y+
 ; CHECK-NEXT:    leax -1,x
-; CHECK-NEXT:    leay 1,y
-; CHECK-NEXT:    leax ,x
 ; CHECK-NEXT:    bne .LBB10_2
 ; CHECK-NEXT:  .LBB10_3: ; %done
 ; CHECK-NEXT:    rts
