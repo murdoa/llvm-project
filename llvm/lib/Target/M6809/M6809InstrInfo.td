@@ -118,8 +118,30 @@ let Defs = [S], Uses = [S] in
 def LEASi : M6809Inst<(outs), (ins i16imm_op:$off), "leas\t$off,s", [], 2>;
 
 //===----------------------------------------------------------------------===//
+// Stack push and pull of a single register
+//===----------------------------------------------------------------------===//
+
+// PSHS/PULS leave the flags alone. They are what makes register-register
+// arithmetic possible: "pshs x" then "addd ,s++".
+let Defs = [S], Uses = [S] in {
+  let mayStore = 1 in {
+    def PSHS8 : M6809Inst<(outs), (ins ACC8:$r), "pshs\t$r", [], 2>;
+    def PSHS16 : M6809Inst<(outs), (ins GR16:$r), "pshs\t$r", [], 2>;
+  }
+  let mayLoad = 1 in {
+    def PULS8 : M6809Inst<(outs ACC8:$r), (ins), "puls\t$r", [], 2>;
+    def PULS16 : M6809Inst<(outs GR16:$r), (ins), "puls\t$r", [], 2>;
+  }
+}
+
+//===----------------------------------------------------------------------===//
 // Arithmetic and logic
 //===----------------------------------------------------------------------===//
+
+// Each operation comes in three forms the selector can use (immediate,
+// indexed memory, register-register) plus a "pop" form that reads its
+// operand from ,s+ / ,s++. The register-register form is a pseudo that is
+// expanded after register allocation into a push followed by the pop form.
 
 multiclass ALU8<string mnem, SDNode node> {
   let Constraints = "$src = $dst", Defs = [CC] in {
@@ -132,6 +154,12 @@ multiclass ALU8<string mnem, SDNode node> {
                       2> {
       let mayLoad = 1;
     }
+    let Uses = [S], Defs = [S, CC], mayLoad = 1 in
+    def pop : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src),
+                        mnem # "${dst}\t,s+", [], 2>;
+    let Uses = [S], Defs = [S, CC] in
+    def rr : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src, ACC8:$rhs), "",
+                         [(set ACC8:$dst, (node ACC8:$src, ACC8:$rhs))]>;
   }
 }
 
@@ -141,7 +169,7 @@ defm AND8 : ALU8<"and", and>;
 defm OR8 : ALU8<"or", or>;
 defm EOR8 : ALU8<"eor", xor>;
 
-// 16-bit arithmetic only exists on D (ADDD/SUBD).
+// 16-bit add and subtract exist only on D (ADDD/SUBD).
 multiclass ALU16D<string mnem, SDNode node> {
   let Constraints = "$src = $dst", Defs = [CC] in {
     def i : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src, i16imm_op:$imm),
@@ -153,8 +181,55 @@ multiclass ALU16D<string mnem, SDNode node> {
                       2> {
       let mayLoad = 1;
     }
+    let Uses = [S], Defs = [S, CC], mayLoad = 1 in
+    def pop : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src),
+                        mnem # "\t,s++", [], 2>;
+    let Uses = [S], Defs = [S, CC] in
+    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, GR16:$rhs), "",
+                         [(set ACC16:$dst, (node ACC16:$src, GR16:$rhs))]>;
   }
 }
 
 defm ADDD : ALU16D<"addd", add>;
 defm SUBD : ALU16D<"subd", sub>;
+
+// The 6809 has no 16-bit AND/OR/EOR. These pseudos become the 8-bit
+// instruction on A (high byte) then B (low byte).
+multiclass LOGIC16<SDNode node> {
+  let Constraints = "$src = $dst", Defs = [CC] in {
+    def i : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, i16imm_op:$imm),
+                        "", [(set ACC16:$dst, (node ACC16:$src, imm:$imm))]>;
+    let mayLoad = 1 in
+    def m : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, memidx:$addr), "",
+                        [(set ACC16:$dst,
+                              (node ACC16:$src, (load addr:$addr)))]>;
+    let Uses = [S], Defs = [S, CC] in
+    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, GR16:$rhs), "",
+                         [(set ACC16:$dst, (node ACC16:$src, GR16:$rhs))]>;
+  }
+}
+
+defm AND16 : LOGIC16<and>;
+defm OR16 : LOGIC16<or>;
+defm EOR16 : LOGIC16<xor>;
+
+//===----------------------------------------------------------------------===//
+// Extension and truncation
+//===----------------------------------------------------------------------===//
+
+let Constraints = "$src = $dst", Defs = [CC] in {
+  // SEX: sign-extend B into A.
+  def SEX : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src), "sex",
+                      [(set ACC16:$dst, (sext_inreg ACC16:$src, i8))], 1>;
+  // CLRA: zero the high byte of D.
+  def CLRA : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src), "clra",
+                       [(set ACC16:$dst, (and ACC16:$src, 255))], 1>;
+}
+
+def : Pat<(i16 (anyext ACC8:$s)),
+          (INSERT_SUBREG (i16 (IMPLICIT_DEF)), ACC8:$s, sub_lo)>;
+def : Pat<(i16 (zext ACC8:$s)),
+          (CLRA (INSERT_SUBREG (i16 (IMPLICIT_DEF)), ACC8:$s, sub_lo))>;
+def : Pat<(i16 (sext ACC8:$s)),
+          (SEX (INSERT_SUBREG (i16 (IMPLICIT_DEF)), ACC8:$s, sub_lo))>;
+def : Pat<(i8 (trunc GR16:$s)), (EXTRACT_SUBREG GR16:$s, sub_lo)>;

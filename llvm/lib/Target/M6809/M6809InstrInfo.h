@@ -43,6 +43,8 @@ public:
       int FrameIndex, const TargetRegisterClass *RC, Register VReg,
       unsigned SubReg = 0,
       MachineInstr::MIFlag Flags = MachineInstr::NoFlags) const override;
+
+  bool expandPostRAPseudo(MachineInstr &MI) const override;
 };
 
 } // namespace llvm

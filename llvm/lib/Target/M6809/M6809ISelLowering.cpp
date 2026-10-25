@@ -40,6 +40,20 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setMinFunctionAlignment(Align(1));
   setPrefFunctionAlignment(Align(1));
 
+  // Loads only produce whole registers. Extending loads become a load plus
+  // SEX/CLRA, and truncating stores a STB of the low byte.
+  for (MVT VT : {MVT::i8, MVT::i16}) {
+    for (auto Ext : {ISD::EXTLOAD, ISD::ZEXTLOAD, ISD::SEXTLOAD}) {
+      setLoadExtAction(Ext, VT, MVT::i1, Promote);
+      if (VT == MVT::i16)
+        setLoadExtAction(Ext, VT, MVT::i8, Expand);
+    }
+  }
+  setTruncStoreAction(MVT::i16, MVT::i8, Expand);
+
+  // SEX covers i8-in-i16; smaller widths become shifts.
+  setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
+
   // TODO: everything not listed here is left Legal and fails instruction
   // selection until it is added. Next up: shifts, compares and branches,
   // multiply, divide, globals and calls.
