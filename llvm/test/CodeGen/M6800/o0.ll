@@ -196,29 +196,32 @@ define i16 @sum(ptr %p, i16 %n) {
 ; CHECK-NEXT:    txs
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx #0
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 14,x
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
+; CHECK-NEXT:    ldd #0
+; CHECK-NEXT:    ldx 12,x
+; CHECK-NEXT:    pshb
+; CHECK-NEXT:    psha
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
+; CHECK-NEXT:    pula
+; CHECK-NEXT:    pulb
+; CHECK-NEXT:    pshb
+; CHECK-NEXT:    psha
 ; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshb
+; CHECK-NEXT:    psha
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    pula
+; CHECK-NEXT:    pulb
 ; CHECK-NEXT:    bra .LBB6_1
 ; CHECK-NEXT:  .LBB6_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    asld
-; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pshb
 ; CHECK-NEXT:    psha
@@ -237,35 +240,33 @@ define i16 @sum(ptr %p, i16 %n) {
 ; CHECK-NEXT:    addd 0,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    ldd 0,x
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 0,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    addd 6,x ; 2-byte Folded Reload
+; CHECK-NEXT:    addd 0,x
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldx 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    inx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pula
 ; CHECK-NEXT:    pulb
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    subd 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    bcs .LBB6_1
 ; CHECK-NEXT:    bra .LBB6_2
 ; CHECK-NEXT:  .LBB6_2: ; %done
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 6,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    addd #10

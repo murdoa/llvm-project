@@ -322,8 +322,6 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    subd 6,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill

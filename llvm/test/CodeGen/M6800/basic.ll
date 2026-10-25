@@ -212,8 +212,6 @@ define i8 @load_ptr_off255(ptr %p) {
 define i8 @load_ptr_off256(ptr %p) {
 ; CHECK-LABEL: load_ptr_off256:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    addd #256
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    ldab 0,x

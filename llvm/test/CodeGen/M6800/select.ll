@@ -111,36 +111,27 @@ define i16 @setcc16_eq(i16 %a, i16 %b) {
 ; CHECK-LABEL: setcc16_eq:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    des
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 7,x
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    ldd 6,x
+; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldab #1
+; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 4,x ; 1-byte Folded Spill
+; CHECK-NEXT:    subd 2,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    subd 0,x
 ; CHECK-NEXT:    beq .LBB4_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    clrb
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB4_2:
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 2,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    ins
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    rts
   %c = icmp eq i16 %a, %b
   %r = zext i1 %c to i16
@@ -182,36 +173,20 @@ define i8 @smax8(i8 %a, i8 %b) {
 define i16 @umin16(i16 %a, i16 %b) {
 ; CHECK-LABEL: umin16:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 6,x
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    ldx 2,x
 ; CHECK-NEXT:    pshb
 ; CHECK-NEXT:    psha
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    subd 0,x
 ; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pula
+; CHECK-NEXT:    pulb
 ; CHECK-NEXT:    bcs .LBB7_2
 ; CHECK-NEXT:  ; %bb.1:
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 0,x ; 2-byte Folded Reload
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:  .LBB7_2:
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    rts
   %r = call i16 @llvm.umin.i16(i16 %a, i16 %b)
   ret i16 %r

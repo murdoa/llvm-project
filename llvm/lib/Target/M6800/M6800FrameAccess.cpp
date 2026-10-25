@@ -377,6 +377,27 @@ void M6800FrameAccess::rewriteInlineAsm(MachineInstr &MI) {
   XBase = LA.X ? Register() : Base;
 }
 
+// A store of X goes through D ("xgdx; tsx; std n,x; xgdx"), and a compare
+// of X through D starts with an XGDX too: two swaps in a row undo each
+// other.
+static bool removeXGDXPairs(MachineBasicBlock &MBB) {
+  bool Changed = false;
+  for (auto I = MBB.begin(), E = MBB.end(); I != E;) {
+    auto Next = std::next(I);
+    if (Next != E && I->getOpcode() == M6800::XGDX &&
+        Next->getOpcode() == M6800::XGDX) {
+      auto After = std::next(Next);
+      I->eraseFromParent();
+      Next->eraseFromParent();
+      I = After;
+      Changed = true;
+      continue;
+    }
+    I = Next;
+  }
+  return Changed;
+}
+
 bool M6800FrameAccess::runOnMachineFunction(MachineFunction &MF) {
   TII = MF.getSubtarget<M6800Subtarget>().getInstrInfo();
   TRI = MF.getSubtarget().getRegisterInfo();
@@ -415,6 +436,7 @@ bool M6800FrameAccess::runOnMachineFunction(MachineFunction &MF) {
           (XBase == M6800::SP && MI.modifiesRegister(M6800::SP, TRI)))
         XBase = Register();
     }
+    Changed |= removeXGDXPairs(MBB);
     M6800InstrInfo::markUndefSaves(MBB, TRI);
   }
   return Changed;

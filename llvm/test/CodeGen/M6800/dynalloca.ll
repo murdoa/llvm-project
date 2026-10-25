@@ -72,8 +72,6 @@ define void @aligned(i16 %n) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 0,x
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    ins
 ; CHECK-NEXT:    ins
@@ -151,8 +149,6 @@ define void @overaligned() {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 0,x
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    ins
 ; CHECK-NEXT:    ins
@@ -223,8 +219,6 @@ define void @save(i16 %n) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 0,x
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    ins
 ; CHECK-NEXT:    ins

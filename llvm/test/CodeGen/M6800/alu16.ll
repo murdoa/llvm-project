@@ -235,8 +235,6 @@ define void @walk(ptr %p) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    xgdx

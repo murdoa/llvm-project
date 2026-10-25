@@ -499,10 +499,11 @@ let isBranch = 1, isTerminator = 1 in {
                                    brtarget:$dst), "",
                               [(M6800CmpBr ACC8:$lhs, (i8 (load addr:$rhs)),
                                            timm:$cc, bb:$dst)]>;
+      // D or X against memory.
       def CB16rm : M6800Pseudo<(outs),
-                               (ins ACC16:$lhs, memidx:$rhs, ccode:$cc,
+                               (ins GR16:$lhs, memidx:$rhs, ccode:$cc,
                                     brtarget:$dst), "",
-                               [(M6800CmpBr ACC16:$lhs, (i16 (load addr:$rhs)),
+                               [(M6800CmpBr GR16:$lhs, (i16 (load addr:$rhs)),
                                             timm:$cc, bb:$dst)]>;
     }
     let Uses = [SP], Defs = [SP, CC] in {
@@ -513,11 +514,14 @@ let isBranch = 1, isTerminator = 1 in {
                               [(M6800CmpBr ACC8:$lhs, ACC8:$rhs, timm:$cc,
                                            bb:$dst)]>;
       // D against X: "pshx; tsx; subd 0,x; pulx", with D pushed and pulled
-      // around it when still live.
+      // around it when still live. The left side may be in X too, so that
+      // no copy into D comes just before the terminator: there the register
+      // allocator may need an accumulator to move a byte, and finds none.
+      // A spilled right side then folds into CB16rm, CPX for an X.
       def CB16rr : M6800Pseudo<(outs),
-                               (ins ACC16:$lhs, IDX16:$rhs, ccode:$cc,
+                               (ins GR16:$lhs, IDX16:$rhs, ccode:$cc,
                                     brtarget:$dst), "",
-                               [(M6800CmpBr ACC16:$lhs, IDX16:$rhs, timm:$cc,
+                               [(M6800CmpBr GR16:$lhs, IDX16:$rhs, timm:$cc,
                                             bb:$dst)]>;
     }
   }
@@ -555,11 +559,11 @@ multiclass SELECT<RegisterClass ValRC> {
                                 (M6800SelectCC ValRC:$t, ValRC:$f, (i8 ACC8:$l),
                                                ACC8:$r, timm:$cc))]>;
     def _c16 : M6800Pseudo<(outs ValRC:$dst),
-                           (ins ValRC:$t, ValRC:$f, ACC16:$l, IDX16:$r,
+                           (ins ValRC:$t, ValRC:$f, GR16:$l, IDX16:$r,
                                 i8imm_op:$cc), "",
                            [(set ValRC:$dst,
                                  (M6800SelectCC ValRC:$t, ValRC:$f,
-                                                (i16 ACC16:$l), IDX16:$r,
+                                                (i16 GR16:$l), IDX16:$r,
                                                 timm:$cc))]>;
   }
 }

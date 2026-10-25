@@ -786,20 +786,40 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       break;
     }
     case M6800::CB16rm: {
+      // X against memory that X does not have to reach: CPX. A stack slot
+      // is reached through X later, so X against one goes through D.
+      const MachineOperand &Base = MI.getOperand(1);
+      Register BaseReg = Base.isReg() ? Base.getReg() : Register();
+      if (L == M6800::X && (!BaseReg || BaseReg == M6800::X)) {
+        MachineInstrBuilder Cmp =
+            BuildMI(MBB, MI, DL, get(M6800::CPXm)).add(Lhs);
+        addMem(Cmp, MI, 1);
+        Cmp.cloneMemRefs(MI);
+        break;
+      }
       // D against memory: SUBD when D dies; "xgdx; cpx mem; xgdx" when the
       // address does not need X; otherwise D is pushed and pulled around
-      // SUBD.
+      // SUBD. X against memory swaps X into D around all of this.
       bool DLive = isLiveAfter(MI, M6800::D);
-      const MachineOperand &Base = MI.getOperand(1);
-      bool NeedsX = Base.isReg() && Base.getReg();
+      bool XLive = isLiveAfter(MI, M6800::X);
+      bool SwapX = L == M6800::X;
+      if (SwapX) {
+        buildXGDX(*this, MBB, MI, DL, !DLive, false);
+        std::swap(DLive, XLive);
+      }
+      bool NeedsX = BaseReg.isValid();
+      auto SwapBack = [&] {
+        if (SwapX && (DLive || XLive))
+          buildXGDX(*this, MBB, MI, DL, !DLive, !XLive);
+      };
       if (DLive && !NeedsX) {
-        bool XLive = isLiveAfter(MI, M6800::X);
         buildXGDX(*this, MBB, MI, DL, false, !XLive);
         MachineInstrBuilder Cmp =
             BuildMI(MBB, MI, DL, get(M6800::CPXm)).addReg(M6800::X);
         addMem(Cmp, MI, 1);
         Cmp.cloneMemRefs(MI);
         buildXGDX(*this, MBB, MI, DL, false, false);
+        SwapBack();
         break;
       }
       if (DLive)
@@ -810,6 +830,7 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       Sub.cloneMemRefs(MI);
       if (DLive)
         pullD(MBB, MI, DL);
+      SwapBack();
       break;
     }
     case M6800::CB8rr: {
@@ -836,6 +857,14 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       break;
     }
     case M6800::CB16rr: {
+      if (L == M6800::X) {
+        // X against itself, the one value on both sides: equal. CLRB sets
+        // the flags as the subtraction would, and PULB leaves them.
+        BuildMI(MBB, MI, DL, get(M6800::PSH8)).addReg(M6800::B);
+        BuildMI(MBB, MI, DL, get(M6800::CLR8), M6800::B);
+        BuildMI(MBB, MI, DL, get(M6800::PUL8), M6800::B);
+        break;
+      }
       // D against X: "pshx; tsx; subd 0,x; pulx", with D kept around it
       // when needed.
       bool DLive = isLiveAfter(MI, M6800::D);
