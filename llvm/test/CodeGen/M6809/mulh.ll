@@ -225,15 +225,23 @@ define i16 @mul8x8_mask(i16 %a, i16 %b) {
 define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-LABEL: mul16x8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    leas -3,s
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldb 4,s
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    std ,s
+; CHECK-NEXT:    tfr b, a
+; CHECK-NEXT:    ldb 5,s
+; CHECK-NEXT:    stb 2,s ; 1-byte Folded Spill
+; CHECK-NEXT:    mul
+; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    jsr __mulhi3
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    ; kill: def $a killed $a killed $d
+; CHECK-NEXT:    ldb 2,s ; 1-byte Folded Reload
+; CHECK-NEXT:    mul
+; CHECK-NEXT:    tfr b, a
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    ldx ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leax d,x
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    leas 3,s
 ; CHECK-NEXT:    rts
   %y = zext i8 %b to i16
   %r = mul i16 %a, %y

@@ -423,18 +423,35 @@ static bool isOrderedCompare32(SDValue Cond);
 static SDValue combineSelect32(SDNode *N, SelectionDAG &DAG);
 
 // mul a, b -> UMUL8 (trunc a), (trunc b), for i16 a and b that fit in a
-// byte.
+// byte, or two UMUL8s when only one of them does.
 static SDValue combineMul8(SDNode *N, SelectionDAG &DAG) {
   if (N->getValueType(0) != MVT::i16)
     return SDValue();
   SDValue A = N->getOperand(0), B = N->getOperand(1);
   APInt High = APInt::getHighBitsSet(16, 8);
-  if (!DAG.MaskedValueIsZero(A, High) || !DAG.MaskedValueIsZero(B, High))
+  bool ByteA = DAG.MaskedValueIsZero(A, High);
+  bool ByteB = DAG.MaskedValueIsZero(B, High);
+  if (!ByteA && !ByteB)
     return SDValue();
+  if (!ByteB)
+    std::swap(A, B);
   SDLoc DL(N);
-  return DAG.getNode(M6800ISD::UMUL8, DL, MVT::i16,
-                     DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, A),
-                     DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, B));
+  SDValue B8 = DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, B);
+  SDValue Lo = DAG.getNode(M6800ISD::UMUL8, DL, MVT::i16,
+                           DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, A), B8);
+  if (ByteA && ByteB)
+    return Lo;
+  // a * b = lo(a) * b + (hi(a) * b << 8): two MULs instead of a call to
+  // __mulhi3, unless optimizing for size.
+  if (DAG.getMachineFunction().getFunction().hasMinSize())
+    return SDValue();
+  SDValue HiA = DAG.getNode(ISD::SRL, DL, MVT::i16, A,
+                            DAG.getShiftAmountConstant(8, MVT::i16, DL));
+  SDValue Hi = DAG.getNode(M6800ISD::UMUL8, DL, MVT::i16,
+                           DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, HiA), B8);
+  Hi = DAG.getNode(ISD::SHL, DL, MVT::i16, Hi,
+                   DAG.getShiftAmountConstant(8, MVT::i16, DL));
+  return DAG.getNode(ISD::ADD, DL, MVT::i16, Lo, Hi);
 }
 
 SDValue M6800TargetLowering::PerformDAGCombine(SDNode *N,
