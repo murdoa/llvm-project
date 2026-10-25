@@ -148,22 +148,22 @@ define i16 @counter_in_w(ptr %a, ptr %b, ptr %c, ptr %d, i16 %n) {
 ; CHECK-NEXT:    stu 4,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    clrd
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldw 14,s
 ; CHECK-NEXT:    ldd 10,s
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldy 8,s
 ; CHECK-NEXT:  .LBB5_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    ldd ,u
 ; CHECK-NEXT:    addd ,y
-; CHECK-NEXT:    ldx ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 2,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std ,x++
-; CHECK-NEXT:    stx ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    stx 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr u, x
-; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    leau d,u
-; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr x, u
 ; CHECK-NEXT:    leau 2,u
 ; CHECK-NEXT:    leay 2,y
@@ -171,7 +171,7 @@ define i16 @counter_in_w(ptr %a, ptr %b, ptr %c, ptr %d, i16 %n) {
 ; CHECK-NEXT:    cmpw #0
 ; CHECK-NEXT:    bne .LBB5_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
-; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    ldu 4,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    leas 6,s
 ; CHECK-NEXT:    rts

@@ -15,15 +15,15 @@ define i16 @umulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    stb 2,s ; 1-byte Folded Spill
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    tfr b, a
-; CHECK-NEXT:    sta ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    sta 1,s ; 1-byte Folded Spill
 ; CHECK-NEXT:    ldb 2,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    ; kill: def $b killed $b killed $d
-; CHECK-NEXT:    stb 1,s ; 1-byte Folded Spill
-; CHECK-NEXT:    lda ,s ; 1-byte Folded Reload
-; CHECK-NEXT:    ldb 1,s ; 1-byte Folded Reload
+; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    lda 1,s ; 1-byte Folded Reload
+; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    clra
@@ -32,8 +32,8 @@ define i16 @umulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    leax d,x
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    ; kill: def $a killed $a killed $d
-; CHECK-NEXT:    sta ,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 1,s ; 1-byte Folded Reload
+; CHECK-NEXT:    sta 1,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    leay d,x
 ; CHECK-NEXT:    ldb #1
@@ -44,13 +44,13 @@ define i16 @umulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB0_2:
 ; CHECK-NEXT:    andb #1
-; CHECK-NEXT:    stb 1,s ; 1-byte Folded Spill
-; CHECK-NEXT:    lda ,s ; 1-byte Folded Reload
+; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    lda 1,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    ldb 2,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    addb 1,s ; 1-byte Folded Reload
+; CHECK-NEXT:    addb ,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    clrb
@@ -89,19 +89,19 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    std ,s
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    stb 8,s ; 1-byte Folded Spill
+; CHECK-NEXT:    stb 3,s ; 1-byte Folded Spill
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    tfr b, a
-; CHECK-NEXT:    sta 9,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 8,s ; 1-byte Folded Reload
+; CHECK-NEXT:    sta 4,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldb 3,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    std 5,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std 9,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ; kill: def $b killed $b killed $d
-; CHECK-NEXT:    stb 7,s ; 1-byte Folded Spill
-; CHECK-NEXT:    lda 9,s ; 1-byte Folded Reload
-; CHECK-NEXT:    ldb 7,s ; 1-byte Folded Reload
+; CHECK-NEXT:    stb 2,s ; 1-byte Folded Spill
+; CHECK-NEXT:    lda 4,s ; 1-byte Folded Reload
+; CHECK-NEXT:    ldb 2,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    clra
@@ -109,14 +109,14 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    leax d,x
 ; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    std 9,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std 4,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ; kill: def $a killed $a killed $d
-; CHECK-NEXT:    sta 4,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 7,s ; 1-byte Folded Reload
+; CHECK-NEXT:    sta 6,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldb 2,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    leau d,x
 ; CHECK-NEXT:    ldb #1
-; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    stu 7,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    cmpu ,s++
 ; CHECK-NEXT:    blo .LBB1_2
@@ -124,14 +124,14 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB1_2:
 ; CHECK-NEXT:    andb #1
-; CHECK-NEXT:    stb 7,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldd 9,s ; 2-byte Folded Reload
+; CHECK-NEXT:    stb 2,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldd 4,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    sex
 ; CHECK-NEXT:    jsr __mulhi3
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    addb 7,s ; 1-byte Folded Reload
+; CHECK-NEXT:    addb 2,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    clrb
@@ -143,13 +143,13 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    ora ,s+
 ; CHECK-NEXT:    orb ,s+
 ; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 7,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    leay d,x
-; CHECK-NEXT:    ldd 5,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 9,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr y, x
 ; CHECK-NEXT:    tfr d, u
@@ -157,19 +157,19 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    subd ,s++
 ; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    ldb 4,s ; 1-byte Folded Reload
+; CHECK-NEXT:    ldb 6,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    blt .LBB1_4
 ; CHECK-NEXT:  ; %bb.3:
 ; CHECK-NEXT:    tfr y, u
 ; CHECK-NEXT:  .LBB1_4:
-; CHECK-NEXT:    ldd 9,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 4,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    subd ,s++
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldb 8,s ; 1-byte Folded Reload
+; CHECK-NEXT:    ldb 3,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    blt .LBB1_6
 ; CHECK-NEXT:  ; %bb.5:
 ; CHECK-NEXT:    tfr u, x
@@ -229,16 +229,16 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    ldb 5,s
-; CHECK-NEXT:    stb 2,s ; 1-byte Folded Spill
+; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
 ; CHECK-NEXT:    mul
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std 1,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    ; kill: def $a killed $a killed $d
-; CHECK-NEXT:    ldb 2,s ; 1-byte Folded Reload
+; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    clrb
-; CHECK-NEXT:    ldx ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 1,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    leax d,x
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    leas 3,s

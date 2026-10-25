@@ -88,6 +88,27 @@ void M6809FrameLowering::determineCalleeSaves(MachineFunction &MF,
   MF.getFrameInfo().CreateFixedSpillStackObject(FPSaveSize, -FPSaveSize);
 }
 
+// An S-relative access takes no extra byte with an offset in -16..15, one
+// more up to 127 and two beyond. Objects are placed in order away from the
+// outgoing argument area at S, so put those with the most uses per byte
+// last: they land nearest S, and a large array does not push small spill
+// slots out of range.
+void M6809FrameLowering::orderFrameObjects(
+    const MachineFunction &MF, SmallVectorImpl<int> &Objects) const {
+  const MachineFrameInfo &MFI = MF.getFrameInfo();
+  SmallVector<unsigned, 16> Uses(MFI.getObjectIndexEnd());
+  for (const MachineBasicBlock &MBB : MF)
+    for (const MachineInstr &MI : MBB)
+      for (const MachineOperand &MO : MI.operands())
+        if (MO.isFI() && MO.getIndex() >= 0)
+          ++Uses[MO.getIndex()];
+  // Uses[A] / Size(A) < Uses[B] / Size(B), without division.
+  llvm::stable_sort(Objects, [&](int A, int B) {
+    return uint64_t(Uses[A]) * MFI.getObjectSize(B) <
+           uint64_t(Uses[B]) * MFI.getObjectSize(A);
+  });
+}
+
 MachineBasicBlock::iterator M6809FrameLowering::eliminateCallFramePseudoInstr(
     MachineFunction &MF, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator I) const {

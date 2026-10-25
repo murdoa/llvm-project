@@ -15,7 +15,7 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-NEXT:    stu 34,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    andb #1
 ; CHECK-NEXT:    ldx 44,s
-; CHECK-NEXT:    stx 24,s ; 2-byte Folded Spill
+; CHECK-NEXT:    stx 16,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldx 42,s
 ; CHECK-NEXT:    ldy 40,s
 ; CHECK-NEXT:    ldu 38,s
@@ -23,36 +23,36 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-NEXT:    beq .LBB0_2
 ; CHECK-NEXT:  ; %bb.1: ; %x
 ; CHECK-NEXT:    ldd 52,s
-; CHECK-NEXT:    std 22,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std 32,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldd 50,s
-; CHECK-NEXT:    std 20,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std 30,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldd 48,s
-; CHECK-NEXT:    std 16,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std 26,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldd 46,s
-; CHECK-NEXT:    std 18,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 16,s ; 2-byte Folded Reload
+; CHECK-NEXT:    std 28,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 26,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 10,s
-; CHECK-NEXT:    ldd 18,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 28,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 8,s
 ; CHECK-NEXT:    sty 2,s
 ; CHECK-NEXT:    stu ,s
-; CHECK-NEXT:    ldd 20,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 30,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 12,s
 ; CHECK-NEXT:    stx 4,s
-; CHECK-NEXT:    ldd 22,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 32,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 14,s
-; CHECK-NEXT:    ldd 24,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 16,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 6,s
-; CHECK-NEXT:    leax 26,s
+; CHECK-NEXT:    leax 18,s
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    jsr __muldi3
-; CHECK-NEXT:    ldd 32,s
+; CHECK-NEXT:    ldd 24,s
 ; CHECK-NEXT:    std g+6
-; CHECK-NEXT:    ldd 30,s
+; CHECK-NEXT:    ldd 22,s
 ; CHECK-NEXT:    std g+4
-; CHECK-NEXT:    ldd 28,s
+; CHECK-NEXT:    ldd 20,s
 ; CHECK-NEXT:    std g+2
-; CHECK-NEXT:    ldd 26,s
+; CHECK-NEXT:    ldd 18,s
 ; CHECK-NEXT:    std g
 ; CHECK-NEXT:    bra .LBB0_3
 ; CHECK-NEXT:  .LBB0_2: ; %y
@@ -62,19 +62,19 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-NEXT:    stu ,s
 ; CHECK-NEXT:    stx 12,s
 ; CHECK-NEXT:    stx 4,s
-; CHECK-NEXT:    ldd 24,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 16,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 14,s
 ; CHECK-NEXT:    std 6,s
-; CHECK-NEXT:    leax 26,s
+; CHECK-NEXT:    leax 18,s
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    jsr __muldi3
-; CHECK-NEXT:    ldd 32,s
+; CHECK-NEXT:    ldd 24,s
 ; CHECK-NEXT:    std h+6
-; CHECK-NEXT:    ldd 30,s
+; CHECK-NEXT:    ldd 22,s
 ; CHECK-NEXT:    std h+4
-; CHECK-NEXT:    ldd 28,s
+; CHECK-NEXT:    ldd 20,s
 ; CHECK-NEXT:    std h+2
-; CHECK-NEXT:    ldd 26,s
+; CHECK-NEXT:    ldd 18,s
 ; CHECK-NEXT:    std h
 ; CHECK-NEXT:  .LBB0_3: ; %y
 ; CHECK-NEXT:    ldu 34,s ; 2-byte Folded Reload
