@@ -499,6 +499,9 @@ std::string Triple::computeDataLayout(StringRef ABIName) const {
     return computeLoongArchDataLayout(*this);
   case Triple::m68k:
     return computeM68kDataLayout(*this);
+  case Triple::m6809:
+    // Big-endian, 16-bit pointers, no alignment requirements anywhere.
+    return "E-m:e-p:16:8-i16:8-i32:8-i64:8-f32:8-f64:8-a:8-n8:16-S8";
   case Triple::mips:
   case Triple::mipsel:
   case Triple::mips64:
