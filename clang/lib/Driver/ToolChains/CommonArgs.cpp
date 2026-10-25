@@ -95,6 +95,7 @@ static bool useFramePointerForTargetByDefault(const llvm::opt::ArgList &Args,
   case llvm::Triple::wasm32:
   case llvm::Triple::wasm64:
   case llvm::Triple::msp430:
+  case llvm::Triple::m6800:
   case llvm::Triple::m6809:
     // XCore never wants frame pointers, regardless of OS.
     // WebAssembly never wants frame pointers.
@@ -607,6 +608,8 @@ const char *tools::getLDMOption(const llvm::Triple &T, const ArgList &Args) {
   }
   case llvm::Triple::m68k:
     return "m68kelf";
+  case llvm::Triple::m6800:
+    return "m6800elf";
   case llvm::Triple::m6809:
     return "m6809elf";
   case llvm::Triple::ppc:
@@ -800,6 +803,7 @@ std::string tools::getCPUName(const Driver &D, const ArgList &Args,
       return A->getValue();
     return "";
 
+  case llvm::Triple::m6800:
   case llvm::Triple::m6809:
     if (const Arg *A = Args.getLastArg(options::OPT_mcpu_EQ))
       return A->getValue();

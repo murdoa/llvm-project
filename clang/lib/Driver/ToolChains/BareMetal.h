@@ -51,9 +51,10 @@ public:
 
   StringRef getOSLibName() const override { return "baremetal"; }
 
-  // The 6809 has no GNU toolchain to fall back on; link with lld.
+  // The 6800 and 6809 have no GNU toolchain to fall back on; link with lld.
   const char *getDefaultLinker() const override {
-    return getTriple().getArch() == llvm::Triple::m6809
+    return getTriple().getArch() == llvm::Triple::m6800 ||
+                   getTriple().getArch() == llvm::Triple::m6809
                ? "ld.lld"
                : ToolChain::getDefaultLinker();
   }

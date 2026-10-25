@@ -61,10 +61,11 @@ static bool isLoongArchBareMetal(const llvm::Triple &Triple) {
          Triple.getEnvironmentName() == "elf";
 }
 
-/// Is the triple m6809-*-*? There is no hosted 6809 environment, so every
-/// 6809 triple is bare metal.
+/// Is the triple m6800-*-* or m6809-*-*? There is no hosted 6800 or 6809
+/// environment, so every such triple is bare metal.
 static bool isM6809BareMetal(const llvm::Triple &Triple) {
-  return Triple.getArch() == llvm::Triple::m6809;
+  return Triple.getArch() == llvm::Triple::m6800 ||
+         Triple.getArch() == llvm::Triple::m6809;
 }
 
 static bool findRISCVMultilibs(const Driver &D,

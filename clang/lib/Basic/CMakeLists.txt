@@ -106,6 +106,7 @@ add_clang_library(clangBasic
   Targets/Hexagon.cpp
   Targets/Lanai.cpp
   Targets/LoongArch.cpp
+  Targets/M6800.cpp
   Targets/M6809.cpp
   Targets/M68k.cpp
   Targets/MSP430.cpp

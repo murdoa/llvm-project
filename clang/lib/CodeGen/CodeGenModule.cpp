@@ -232,6 +232,8 @@ createTargetCodeGenInfo(CodeGenModule &CGM) {
   case llvm::Triple::msp430:
     return createMSP430TargetCodeGenInfo(CGM);
 
+  // The 6800 passes arguments as the 6809 does.
+  case llvm::Triple::m6800:
   case llvm::Triple::m6809:
     return createM6809TargetCodeGenInfo(CGM);
 
