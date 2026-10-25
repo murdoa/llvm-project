@@ -84,6 +84,78 @@ void M6809InstrInfo::loadRegFromStackSlot(
       .setMIFlag(Flags);
 }
 
+// The memory form of a pseudo whose right-hand register operand (RhsIdx) can
+// be read from memory instead.
+static unsigned getMemForm(unsigned Opc, unsigned &RhsIdx) {
+  RhsIdx = 2;
+  switch (Opc) {
+  case M6809::ADD8rr: return M6809::ADD8m;
+  case M6809::SUB8rr: return M6809::SUB8m;
+  case M6809::AND8rr: return M6809::AND8m;
+  case M6809::OR8rr: return M6809::OR8m;
+  case M6809::EOR8rr: return M6809::EOR8m;
+  case M6809::ADDDrr: return M6809::ADDDm;
+  case M6809::SUBDrr: return M6809::SUBDm;
+  case M6809::ADC16rr: return M6809::ADC16m;
+  case M6809::SBC16rr: return M6809::SBC16m;
+  case M6809::AND16rr: return M6809::AND16m;
+  case M6809::OR16rr: return M6809::OR16m;
+  case M6809::EOR16rr: return M6809::EOR16m;
+  }
+  RhsIdx = 1;
+  switch (Opc) {
+  case M6809::CB8rr: return M6809::CB8rm;
+  case M6809::CB16rr: return M6809::CB16rm;
+  case M6809::SBCBRrr: return M6809::SBCBRm;
+  }
+  return 0;
+}
+
+// A spilled right-hand operand is read from its stack slot: "subd 4,s"
+// instead of "ldx 4,s; pshs x; subd ,s++". A compare whose left-hand
+// operand is spilled swaps its operands.
+MachineInstr *M6809InstrInfo::foldMemoryOperandImpl(
+    MachineFunction &MF, MachineInstr &MI, ArrayRef<unsigned> Ops,
+    int FrameIndex, MachineInstr *&CopyMI, LiveIntervals *LIS,
+    VirtRegMap *VRM) const {
+  if (Ops.size() != 1)
+    return nullptr;
+  unsigned RhsIdx;
+  unsigned MemOpc = getMemForm(MI.getOpcode(), RhsIdx);
+  if (!MemOpc || MI.getOperand(Ops[0]).getSubReg())
+    return nullptr;
+  bool IsCB = MI.getOpcode() == M6809::CB8rr || MI.getOpcode() == M6809::CB16rr;
+  bool Swap = IsCB && Ops[0] == 0;
+  if (Swap) {
+    auto CC = static_cast<M6809CC::CondCode>(MI.getOperand(2).getImm());
+    if (CC >= M6809CC::VC && CC <= M6809CC::MI)
+      return nullptr;
+  }
+  if (Ops[0] != RhsIdx && !Swap)
+    return nullptr;
+
+  MachineInstrBuilder MIB =
+      BuildMI(*MI.getParent(), MI, MI.getDebugLoc(), get(MemOpc));
+  for (unsigned I = 0, N = MI.getNumExplicitOperands(); I != N; ++I) {
+    const MachineOperand &MO = MI.getOperand(I);
+    if (Swap && I == 0)
+      continue;
+    if (I == RhsIdx) {
+      if (Swap)
+        MIB.add(MI.getOperand(1));
+      MIB.addFrameIndex(FrameIndex).addImm(0).addImm(M6809Mem::Auto);
+      continue;
+    }
+    if (Swap && I == 2) { // the condition
+      MIB.addImm(M6809CC::getSwapped(
+          static_cast<M6809CC::CondCode>(MO.getImm())));
+      continue;
+    }
+    MIB.add(MO);
+  }
+  return MIB;
+}
+
 // CLR clears C, so a rematerialized zero could break a carry chain that the
 // allocator placed it inside. LD #0 leaves C alone and is always safe.
 void M6809InstrInfo::reMaterialize(MachineBasicBlock &MBB,

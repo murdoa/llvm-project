@@ -46,6 +46,15 @@ public:
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
+protected:
+  MachineInstr *foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
+                                      ArrayRef<unsigned> Ops, int FrameIndex,
+                                      MachineInstr *&CopyMI,
+                                      LiveIntervals *LIS = nullptr,
+                                      VirtRegMap *VRM = nullptr) const override;
+
+public:
+
   void emitCompareWithZero(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MI, const DebugLoc &DL,
                            const MachineOperand &Lhs, int64_t CC) const;

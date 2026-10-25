@@ -56,6 +56,22 @@ inline CondCode getOpposite(CondCode CC) {
   return static_cast<CondCode>(CC ^ 1);
 }
 
+// The condition for "b cc' a" when CC is the one for "a cc b". The flag
+// tests (VC, VS, PL, MI) have none; they come back unchanged.
+inline CondCode getSwapped(CondCode CC) {
+  switch (CC) {
+  case HI: return LO;
+  case LO: return HI;
+  case LS: return HS;
+  case HS: return LS;
+  case GT: return LT;
+  case LT: return GT;
+  case GE: return LE;
+  case LE: return GE;
+  default: return CC;
+  }
+}
+
 inline const char *getName(CondCode CC) {
   static const char *const Names[] = {"hi", "ls", "hs", "lo", "ne",
                                       "eq", "vc", "vs", "pl", "mi",
