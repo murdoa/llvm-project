@@ -596,6 +596,7 @@ def get_run_handler(triple):
         "thumbv7-apple-ios": (scrub_asm_arm_eabi, ASM_FUNCTION_ARM_IOS_RE),
         "m68k": (scrub_asm_m68k, ASM_FUNCTION_M68K_RE),
         "mips": (scrub_asm_mips, ASM_FUNCTION_MIPS_RE),
+        "m6809": (scrub_asm_msp430, ASM_FUNCTION_MSP430_RE),
         "msp430": (scrub_asm_msp430, ASM_FUNCTION_MSP430_RE),
         "avr": (scrub_asm_avr, ASM_FUNCTION_AVR_RE),
         "ppc32": (scrub_asm_powerpc, ASM_FUNCTION_PPC_RE),

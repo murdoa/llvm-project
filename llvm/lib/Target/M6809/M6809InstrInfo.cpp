@@ -34,7 +34,7 @@ void M6809InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
   unsigned Opc;
   if (M6809::ACC8RegClass.contains(DestReg, SrcReg))
     Opc = M6809::TFR8;
-  else if (M6809::TFR16RegClass.contains(DestReg, SrcReg))
+  else if (M6809::XFER16RegClass.contains(DestReg, SrcReg))
     Opc = M6809::TFR16;
   else
     llvm_unreachable("M6809: cannot copy between these registers");

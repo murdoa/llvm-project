@@ -63,7 +63,7 @@ def GR16 : RegisterClass<"M6809", [i16], 8, (add D, X, U, Y)>;
 def PTR16 : RegisterClass<"M6809", [i16], 8, (add X, U, Y, S)>;
 
 // Anything TFR/EXG can move as a 16-bit value.
-def TFR16 : RegisterClass<"M6809", [i16], 8, (add D, X, Y, U, S)>;
+def XFER16 : RegisterClass<"M6809", [i16], 8, (add D, X, Y, U, S)>;
 
 def CCR : RegisterClass<"M6809", [i8], 8, (add CC)> {
   let CopyCost = -1;

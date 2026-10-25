@@ -17,7 +17,7 @@ namespace llvm {
 class M6809Subtarget;
 
 class M6809TargetLowering : public TargetLowering {
-  const M6809Subtarget &Subtarget;
+  [[maybe_unused]] const M6809Subtarget &Subtarget;
 
 public:
   explicit M6809TargetLowering(const TargetMachine &TM,

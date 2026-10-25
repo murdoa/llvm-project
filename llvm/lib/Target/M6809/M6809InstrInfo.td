@@ -87,7 +87,7 @@ let Defs = [CC], isReMaterializable = 1, isAsCheapAsAMove = 1,
 let isMoveReg = 1 in {
   def TFR8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src),
                        "tfr\t$src, $dst", [], 2>;
-  def TFR16 : M6809Inst<(outs TFR16:$dst), (ins TFR16:$src),
+  def TFR16 : M6809Inst<(outs XFER16:$dst), (ins XFER16:$src),
                         "tfr\t$src, $dst", [], 2>;
 }
 

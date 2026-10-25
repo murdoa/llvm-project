@@ -20,6 +20,7 @@ using namespace llvm;
 
 #define DEBUG_TYPE "m6809-lower"
 
+#define GET_CALLING_CONV_IMPL
 #include "M6809GenCallingConv.inc"
 
 // Return address pushed by JSR/BSR, between the incoming S and the first
