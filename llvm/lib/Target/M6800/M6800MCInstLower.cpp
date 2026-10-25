@@ -77,6 +77,14 @@ static void toRealInstruction(MCInst &MI) {
     Out.setOpcode(M6800::JSRm);
     addMem(Out, MI.getOperand(0).getReg(), MCOperand::createImm(0));
     break;
+  case M6800::TAILJMPe: // jmp sym
+    Out.setOpcode(M6800::JMPm);
+    addMem(Out, MCRegister(), MI.getOperand(0));
+    break;
+  case M6800::TAILJMPr: // jmp 0,x
+    Out.setOpcode(M6800::JMPm);
+    addMem(Out, MI.getOperand(0).getReg(), MCOperand::createImm(0));
+    break;
   }
   MI = Out;
 }

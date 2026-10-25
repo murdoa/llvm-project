@@ -11,6 +11,7 @@
 #include "M6800MachineFunctionInfo.h"
 #include "M6800SelectionDAGInfo.h"
 #include "M6800Subtarget.h"
+#include "llvm/ADT/Statistic.h"
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -21,6 +22,8 @@
 using namespace llvm;
 
 #define DEBUG_TYPE "m6800-lower"
+
+STATISTIC(NumTailCalls, "Number of sibling calls");
 
 // A struct passed by value is copied into the packed argument area. Unlike
 // CCPassByVal this ignores the byval alignment: the stack is never realigned,
@@ -1120,6 +1123,40 @@ SDValue M6800TargetLowering::LowerFormalArguments(
   return Chain;
 }
 
+// Lets CodeGenPrepare copy a shared return into the blocks of the calls
+// before it, so that each call can be a sibling call.
+bool M6800TargetLowering::mayBeEmittedAsTailCall(const CallInst *CI) const {
+  return CI->isTailCall();
+}
+
+// A call in tail position becomes "jmp callee" after the epilogue, when
+// the callee needs nothing from this frame: its arguments all go in
+// registers (the stack ones would have to go where the return address is),
+// and it is not variadic. A struct return goes through a hidden pointer
+// that the caller would have to pass on, so neither side may have one.
+// Every calling convention passes arguments the same way here, but the
+// callee must keep at least the registers the caller's own caller expects
+// kept.
+bool M6800TargetLowering::isEligibleForSiblingCall(
+    const TargetLowering::CallLoweringInfo &CLI, unsigned StackBytes) const {
+  MachineFunction &MF = CLI.DAG.getMachineFunction();
+  const Function &Caller = MF.getFunction();
+  if (StackBytes || CLI.IsVarArg || Caller.hasStructRetAttr())
+    return false;
+  const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
+  if (!TRI->regmaskSubsetEqual(
+          TRI->getCallPreservedMask(MF, Caller.getCallingConv()),
+          TRI->getCallPreservedMask(MF, CLI.CallConv)))
+    return false;
+  for (const ISD::OutputArg &Out : CLI.Outs)
+    if (Out.Flags.isSRet() || Out.Flags.isByVal())
+      return false;
+  // setjmp-like callees come back to their caller's frame.
+  if (CLI.CB && CLI.CB->hasFnAttr(Attribute::ReturnsTwice))
+    return false;
+  return true;
+}
+
 SDValue M6800TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
                                        SmallVectorImpl<SDValue> &InVals) const {
   SelectionDAG &DAG = CLI.DAG;
@@ -1128,15 +1165,21 @@ SDValue M6800TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   SDValue Callee = CLI.Callee;
   MachineFunction &MF = DAG.getMachineFunction();
 
-  // No tail calls yet.
-  CLI.IsTailCall = false;
-
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CLI.CallConv, CLI.IsVarArg, MF, ArgLocs, *DAG.getContext());
   CCInfo.AnalyzeCallOperands(CLI.Outs, CC_M6800);
   unsigned NumBytes = CCInfo.getStackSize();
 
-  Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, DL);
+  bool IsTailCall = CLI.IsTailCall && isEligibleForSiblingCall(CLI, NumBytes);
+  if (!IsTailCall && CLI.CB && CLI.CB->isMustTailCall())
+    report_fatal_error("M6800: cannot make a musttail call a sibling call");
+  CLI.IsTailCall = IsTailCall;
+  if (IsTailCall) {
+    ++NumTailCalls;
+    MF.getFrameInfo().setHasTailCall();
+  } else {
+    Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, DL);
+  }
 
   // Stack arguments are stored into the reserved call frame, which starts at
   // SP + 1. JSR then pushes the return address, so the callee finds them
@@ -1192,6 +1235,11 @@ SDValue M6800TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   SmallVector<SDValue, 8> Ops = {Chain, Callee};
   for (auto &[Reg, Val] : RegsToPass)
     Ops.push_back(DAG.getRegister(Reg, Val.getValueType()));
+  if (IsTailCall) {
+    if (Glue.getNode())
+      Ops.push_back(Glue);
+    return DAG.getNode(M6800ISD::TAIL_CALL, DL, MVT::Other, Ops);
+  }
   const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
   Ops.push_back(
       DAG.getRegisterMask(TRI->getCallPreservedMask(MF, CLI.CallConv)));
