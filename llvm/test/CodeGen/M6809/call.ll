@@ -161,17 +161,17 @@ define i16 @udiv16(i16 %a, i16 %b) {
 define i8 @srem8(i8 %a, i8 %b) {
 ; CHECK-LABEL: srem8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -4,s
+; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldb 6,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldb 4,s
 ; CHECK-NEXT:    sex
 ; CHECK-NEXT:    std ,s
-; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    sex
 ; CHECK-NEXT:    jsr __modhi3
 ; CHECK-NEXT:    ; kill: def $b killed $b killed $d
-; CHECK-NEXT:    leas 4,s
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %r = srem i8 %a, %b
   ret i8 %r

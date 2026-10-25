@@ -32,6 +32,17 @@ public:
                            RegScavenger *RS = nullptr) const override;
 
   Register getFrameRegister(const MachineFunction &MF) const override;
+
+  // Values that an instruction forces into D (or X/Y/U) may live in any
+  // 16-bit register between uses. Letting the allocator widen split ranges
+  // is what makes "D op D" (both sides computed in D) allocatable.
+  const TargetRegisterClass *
+  getLargestLegalSuperClass(const TargetRegisterClass *RC,
+                            const MachineFunction &) const override {
+    if (M6809::GR16RegClass.hasSubClassEq(RC))
+      return &M6809::GR16RegClass;
+    return RC;
+  }
 };
 
 } // namespace llvm
