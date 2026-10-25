@@ -326,26 +326,11 @@ bool M6809AsmParser::parseRegList(int64_t &Mask, bool UStack) {
   }
 }
 
-// Adds the first Count operands of the instruction, which are all
-// registers: the one the mnemonic names, or the only member of the
-// operand's class (D for SEX and ADDD).
 bool M6809AsmParser::addFixedRegisters(MCInst &Inst, unsigned Count,
                                        unsigned Reg, SMLoc Loc) {
-  const MCInstrDesc &Desc = MII.get(Inst.getOpcode());
-  const MCRegisterInfo *MRI = getContext().getRegisterInfo();
-  for (unsigned I = 0; I != Count; ++I) {
-    const MCOperandInfo &Info = Desc.operands()[I];
-    if (Info.OperandType != MCOI::OPERAND_REGISTER)
-      return Error(Loc, "internal error: unexpected operand");
-    unsigned R = Reg;
-    if (R == M6809::NoRegister) {
-      const MCRegisterClass &RC = MRI->getRegClass(Info.RegClass);
-      if (RC.getNumRegs() != 1)
-        return Error(Loc, "internal error: no register for operand");
-      R = RC.getRegister(0);
-    }
-    Inst.addOperand(MCOperand::createReg(R));
-  }
+  if (!M6809::addFixedRegisters(Inst, MII, *getContext().getRegisterInfo(),
+                                Count, Reg))
+    return Error(Loc, "internal error: unexpected operand");
   return false;
 }
 

@@ -8,6 +8,9 @@
 
 #include "M6809OpcodeTable.h"
 #include "M6809MCTargetDesc.h"
+#include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCRegisterInfo.h"
 
 using namespace llvm;
 using namespace llvm::M6809;
@@ -26,4 +29,24 @@ const OpcodeEntry *M6809::findOpcodeEntry(unsigned Opcode, unsigned Reg) {
     if (E.Opcode == Opcode && (E.Reg == M6809::NoRegister || E.Reg == Reg))
       return &E;
   return nullptr;
+}
+
+bool M6809::addFixedRegisters(MCInst &Inst, const MCInstrInfo &MII,
+                              const MCRegisterInfo &MRI, unsigned Count,
+                              unsigned Reg) {
+  const MCInstrDesc &Desc = MII.get(Inst.getOpcode());
+  for (unsigned I = 0; I != Count; ++I) {
+    const MCOperandInfo &Info = Desc.operands()[I];
+    if (Info.OperandType != MCOI::OPERAND_REGISTER)
+      return false;
+    unsigned R = Reg;
+    if (R == M6809::NoRegister) {
+      const MCRegisterClass &RC = MRI.getRegClass(Info.RegClass);
+      if (RC.getNumRegs() != 1)
+        return false;
+      R = RC.getRegister(0);
+    }
+    Inst.addOperand(MCOperand::createReg(R));
+  }
+  return true;
 }

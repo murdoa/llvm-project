@@ -1,0 +1,22 @@
+# RUN: llvm-mc -triple=m6809 --disassemble %s 2>&1 | FileCheck %s
+
+# Each line ends in NOPs so a byte left over cannot reach the next line.
+
+# An undefined opcode.
+# CHECK: [[@LINE+1]]:1: warning: invalid instruction encoding
+0x01 0x12
+# There is no store immediate.
+# CHECK: [[@LINE+1]]:1: warning: invalid instruction encoding
+0x87 0x12
+# An undefined indexed postbyte.
+# CHECK: [[@LINE+1]]:1: warning: invalid instruction encoding
+0xa6 0x87 0x12
+# ,x+ cannot be indirect.
+# CHECK: [[@LINE+1]]:1: warning: invalid instruction encoding
+0xa6 0x90 0x12 0x12
+# Extended indirect needs the register bits clear.
+# CHECK: [[@LINE+1]]:1: warning: invalid instruction encoding
+0xa6 0xbf 0x12 0x12 0x12
+# A transfer between an 8- and a 16-bit register.
+# CHECK: [[@LINE+1]]:1: warning: invalid instruction encoding
+0x1f 0x18 0x12

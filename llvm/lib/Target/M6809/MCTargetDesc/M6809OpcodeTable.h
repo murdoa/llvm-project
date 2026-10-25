@@ -18,6 +18,10 @@
 #include <cstdint>
 
 namespace llvm {
+class MCInst;
+class MCInstrInfo;
+class MCRegisterInfo;
+
 namespace M6809 {
 
 enum OperandForm : uint8_t {
@@ -59,6 +63,13 @@ ArrayRef<OpcodeEntry> getOpcodeTable();
 
 // The entry for an MC instruction whose first register operand is Reg.
 const OpcodeEntry *findOpcodeEntry(unsigned Opcode, unsigned Reg);
+
+// Adds the first Count operands of Inst, which must all be registers: Reg,
+// or when that is NoRegister the only member of the operand's class (D for
+// SEX and ADDD). Returns false if an operand is not such a register.
+bool addFixedRegisters(MCInst &Inst, const MCInstrInfo &MII,
+                       const MCRegisterInfo &MRI, unsigned Count,
+                       unsigned Reg);
 
 } // namespace M6809
 } // namespace llvm
