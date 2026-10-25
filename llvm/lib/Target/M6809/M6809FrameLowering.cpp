@@ -26,32 +26,66 @@
 
 using namespace llvm;
 
+// Without a frame pointer the frame is one LEAS. With one, U is saved first
+// and then points at its save slot, two bytes below S on entry:
+//
+//   pshs u; leau ,s; leas -n,s   ...   leas ,u; puls u
 void M6809FrameLowering::emitPrologue(MachineFunction &MF,
                                       MachineBasicBlock &MBB) const {
-  uint64_t StackSize = MF.getFrameInfo().getStackSize();
-  if (StackSize == 0)
-    return;
-
+  int64_t StackSize = MF.getFrameInfo().getStackSize();
   const TargetInstrInfo &TII = *STI.getInstrInfo();
   MachineBasicBlock::iterator MBBI = MBB.begin();
   DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
-  BuildMI(MBB, MBBI, DL, TII.get(M6809::LEASi))
-      .addImm(-static_cast<int64_t>(StackSize))
-      .setMIFlag(MachineInstr::FrameSetup);
+
+  if (hasFP(MF)) {
+    BuildMI(MBB, MBBI, DL, TII.get(M6809::PSHS16))
+        .addReg(M6809::U, RegState::Kill)
+        .setMIFlag(MachineInstr::FrameSetup);
+    BuildMI(MBB, MBBI, DL, TII.get(M6809::LEA16), M6809::U)
+        .addReg(M6809::S)
+        .addImm(0)
+        .addImm(M6809Mem::Auto)
+        .setMIFlag(MachineInstr::FrameSetup);
+    StackSize -= FPSaveSize;
+  }
+  if (StackSize)
+    BuildMI(MBB, MBBI, DL, TII.get(M6809::LEASi))
+        .addImm(-StackSize)
+        .setMIFlag(MachineInstr::FrameSetup);
 }
 
 void M6809FrameLowering::emitEpilogue(MachineFunction &MF,
                                       MachineBasicBlock &MBB) const {
-  uint64_t StackSize = MF.getFrameInfo().getStackSize();
-  if (StackSize == 0)
-    return;
-
+  int64_t StackSize = MF.getFrameInfo().getStackSize();
   const TargetInstrInfo &TII = *STI.getInstrInfo();
   MachineBasicBlock::iterator MBBI = MBB.getFirstTerminator();
   DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
-  BuildMI(MBB, MBBI, DL, TII.get(M6809::LEASi))
-      .addImm(static_cast<int64_t>(StackSize))
-      .setMIFlag(MachineInstr::FrameDestroy);
+
+  if (hasFP(MF)) {
+    BuildMI(MBB, MBBI, DL, TII.get(M6809::LEASm))
+        .addReg(M6809::U)
+        .addImm(0)
+        .addImm(M6809Mem::Auto)
+        .setMIFlag(MachineInstr::FrameDestroy);
+    BuildMI(MBB, MBBI, DL, TII.get(M6809::PULS16), M6809::U)
+        .setMIFlag(MachineInstr::FrameDestroy);
+    return;
+  }
+  if (StackSize)
+    BuildMI(MBB, MBBI, DL, TII.get(M6809::LEASi))
+        .addImm(StackSize)
+        .setMIFlag(MachineInstr::FrameDestroy);
+}
+
+void M6809FrameLowering::determineCalleeSaves(MachineFunction &MF,
+                                              BitVector &SavedRegs,
+                                              RegScavenger *RS) const {
+  TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
+  if (!hasFP(MF))
+    return;
+  // The prologue saves U itself, in a slot the frame layout must skip.
+  SavedRegs.reset(M6809::U);
+  MF.getFrameInfo().CreateFixedSpillStackObject(FPSaveSize, -FPSaveSize);
 }
 
 MachineBasicBlock::iterator M6809FrameLowering::eliminateCallFramePseudoInstr(

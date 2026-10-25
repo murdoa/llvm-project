@@ -19,6 +19,9 @@ class M6809FrameLowering : public TargetFrameLowering {
   const M6809Subtarget &STI;
 
 public:
+  // Bytes the saved U takes, between S on entry and the frame U points at.
+  static constexpr int FPSaveSize = 2;
+
   explicit M6809FrameLowering(const M6809Subtarget &STI)
       : TargetFrameLowering(StackGrowsDown, Align(1), /*LocalAreaOffset=*/0),
         STI(STI) {}
@@ -26,12 +29,19 @@ public:
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
 
+  void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
+                            RegScavenger *RS) const override;
+
   MachineBasicBlock::iterator
   eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator I) const override;
 
 protected:
-  bool hasFPImpl(const MachineFunction &MF) const override { return false; }
+  // S moves with variable-sized objects, so the frame is then addressed
+  // off U instead.
+  bool hasFPImpl(const MachineFunction &MF) const override {
+    return MF.getFrameInfo().hasVarSizedObjects();
+  }
 };
 
 } // namespace llvm

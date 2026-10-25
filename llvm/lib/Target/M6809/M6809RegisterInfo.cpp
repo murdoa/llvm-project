@@ -8,6 +8,7 @@
 
 #include "M6809RegisterInfo.h"
 #include "M6809.h"
+#include "M6809FrameLowering.h"
 #include "M6809Subtarget.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
@@ -38,11 +39,14 @@ BitVector M6809RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(M6809::PC);
   Reserved.set(M6809::CC);
   Reserved.set(M6809::DP);
+  if (getFrameLowering(MF)->hasFP(MF))
+    Reserved.set(M6809::U);
   return Reserved;
 }
 
-// Frame objects are addressed off,S. Object offsets are relative to S on
-// entry, and the prologue moves S down by the frame size.
+// Frame objects are addressed off,S, or off,U when there is a frame pointer.
+// Object offsets are relative to S on entry; the prologue moves S down by
+// the frame size, and points U two bytes below S on entry.
 bool M6809RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                             int SPAdj, unsigned FIOperandNum,
                                             RegScavenger *RS) const {
@@ -50,15 +54,20 @@ bool M6809RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   const MachineFrameInfo &MFI = MI.getMF()->getFrameInfo();
   int FI = MI.getOperand(FIOperandNum).getIndex();
 
-  int64_t Offset = MFI.getObjectOffset(FI) + MFI.getStackSize() + SPAdj +
+  int64_t Offset = MFI.getObjectOffset(FI) +
                    MI.getOperand(FIOperandNum + 1).getImm();
+  Register Base = getFrameRegister(*MI.getMF());
+  if (Base == M6809::U)
+    Offset += M6809FrameLowering::FPSaveSize;
+  else
+    Offset += MFI.getStackSize() + SPAdj;
 
   // Indexed mode takes a full 16-bit offset, so any frame offset fits.
-  MI.getOperand(FIOperandNum).ChangeToRegister(M6809::S, /*isDef=*/false);
+  MI.getOperand(FIOperandNum).ChangeToRegister(Base, /*isDef=*/false);
   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
   return false;
 }
 
 Register M6809RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return M6809::S;
+  return getFrameLowering(MF)->hasFP(MF) ? M6809::U : M6809::S;
 }
