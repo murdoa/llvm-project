@@ -32,6 +32,7 @@
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Target/TargetMachine.h"
 
 using namespace llvm;
 
@@ -55,14 +56,56 @@ char M6809SplitDOperands::ID = 0;
 
 INITIALIZE_PASS(M6809SplitDOperands, DEBUG_TYPE, PASS_NAME, false, false)
 
-// True if MI has a use tied to a def that must be in D.
-static bool hasTiedDUse(const MachineInstr &MI,
-                        const MachineRegisterInfo &MRI) {
-  for (const MachineOperand &MO : MI.explicit_uses())
-    if (MO.isReg() && MO.isTied() && MO.getReg().isVirtual() &&
-        MRI.getRegClass(MO.getReg()) == &M6809::ACC16RegClass)
+// D, or a class that the coalescer can narrow to D: DW16 (D or W) is what
+// subregister uses leave behind.
+static bool isDClass(const TargetRegisterClass *RC) {
+  return RC == &M6809::ACC16RegClass || RC == &M6809::DW16RegClass;
+}
+
+// True if MI has a use tied to a def that must be in D. At -O0 a GR16 tie
+// counts too: the fast allocator may put it in D, and it cannot move it
+// again when another operand also needs D.
+static bool hasTiedDUse(const MachineInstr &MI, const MachineRegisterInfo &MRI,
+                        bool FastRA) {
+  for (const MachineOperand &MO : MI.explicit_uses()) {
+    if (!MO.isReg() || !MO.isTied() || !MO.getReg().isVirtual())
+      continue;
+    const TargetRegisterClass *RC = MRI.getRegClass(MO.getReg());
+    if (FastRA ? RC->contains(M6809::D) : isDClass(RC))
       return true;
+  }
   return false;
+}
+
+// At -O0, read a D-only tied source of an instruction whose result may be
+// in any GR16 through a GR16 copy. Otherwise the two-address pass narrows
+// the result to D as well, and a chain of such operations pins every value
+// to D.
+static bool widenTiedDSources(MachineFunction &MF) {
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  bool Changed = false;
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineInstr &MI : MBB) {
+      if (MI.isCopy() || MI.isPHI() || MI.getNumExplicitDefs() != 1)
+        continue;
+      const TargetRegisterClass *DefRC = TII.getRegClass(MI.getDesc(), 0);
+      if (DefRC != &M6809::GR16RegClass)
+        continue;
+      for (MachineOperand &MO : MI.explicit_uses()) {
+        if (!MO.isReg() || !MO.isTied() || !MO.getReg().isVirtual() ||
+            !isDClass(MRI.getRegClass(MO.getReg())))
+          continue;
+        Register Copy = MRI.createVirtualRegister(&M6809::GR16RegClass);
+        BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(TargetOpcode::COPY), Copy)
+            .addReg(MO.getReg());
+        MO.setReg(Copy);
+        MO.setIsKill(true);
+        Changed = true;
+      }
+    }
+  }
+  return Changed;
 }
 
 static bool splitDOffsets(MachineFunction &MF);
@@ -70,17 +113,19 @@ static bool splitDOffsets(MachineFunction &MF);
 bool M6809SplitDOperands::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  bool FastRA = MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
   bool Changed = splitDOffsets(MF);
+  if (FastRA)
+    Changed |= widenTiedDSources(MF);
 
   for (MachineBasicBlock &MBB : MF) {
     for (MachineInstr &MI : MBB) {
-      if (MI.isCopy() || MI.isPHI() || !hasTiedDUse(MI, MRI))
+      if (MI.isCopy() || MI.isPHI() || !hasTiedDUse(MI, MRI, FastRA))
         continue;
       for (unsigned I = 0, E = MI.getNumExplicitOperands(); I != E; ++I) {
         MachineOperand &MO = MI.getOperand(I);
         if (!MO.isReg() || MO.isDef() || MO.isTied() ||
-            !MO.getReg().isVirtual() ||
-            MRI.getRegClass(MO.getReg()) != &M6809::ACC16RegClass)
+            !MO.getReg().isVirtual() || !isDClass(MRI.getRegClass(MO.getReg())))
           continue;
         // Only if the operand itself accepts more than D.
         const TargetRegisterClass *OpRC = TII.getRegClass(MI.getDesc(), I);

@@ -159,7 +159,7 @@ let hasSideEffects = 1 in {
 
 // i16 multiply: "muld x; tfr w,d", expanded after register allocation. The
 // low half of the signed 32-bit product is the product for both signs. W
-// is reserved, so it is free to clobber.
+// is clobbered.
 let Predicates = [Has6309], Constraints = "$src = $dst", Defs = [W, CC] in {
   def MUL16i : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, i16imm_op:$imm),
                            "", [(set ACC16:$dst, (mul ACC16:$src, imm:$imm))]>;
@@ -170,4 +170,25 @@ let Predicates = [Has6309], Constraints = "$src = $dst", Defs = [W, CC] in {
   let Uses = [S], Defs = [S, W, CC] in
   def MUL16rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, IDX16:$rhs),
                             "", [(set ACC16:$dst, (mul ACC16:$src, IDX16:$rhs))]>;
+}
+
+// Register-register arithmetic and logic on any 16-bit registers: "andr x,y"
+// is y = y & x. The 6809 forms above want the left operand in D; these leave
+// both to the allocator. Plain add keeps LEA16dr, which is shorter.
+multiclass RR16<SDNode node, bit carry = 0> {
+  let Predicates = [Has6309], Constraints = "$src = $dst", Defs = [CC],
+      Uses = !if(carry, [CC], []<Register>), AddedComplexity = 1 in
+  def "" : M6809Pseudo<(outs GR16:$dst), (ins GR16:$src, GR16:$rhs), "",
+                       [(set GR16:$dst, (node GR16:$src, GR16:$rhs))]>;
+}
+defm ADDR16 : RR16<addc>;
+defm SUBR16 : RR16<sub>;
+defm ANDR16 : RR16<and>;
+defm ORR16 : RR16<or>;
+defm EORR16 : RR16<xor>;
+defm ADCR16 : RR16<adde, 1>;
+defm SBCR16 : RR16<sube, 1>;
+let Predicates = [Has6309], AddedComplexity = 1 in {
+  def : Pat<(subc GR16:$s, GR16:$r), (SUBR16 GR16:$s, GR16:$r)>;
+  def : Pat<(M6809Subc GR16:$s, GR16:$r), (SUBR16 GR16:$s, GR16:$r)>;
 }

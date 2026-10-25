@@ -390,6 +390,20 @@ bool M6809InstrInfo::expand6309(MachineInstr &MI) const {
     return RegReg(M6809::ADCR, MI.getOperand(2), M6809::D);
   case M6809::SBC16rr:
     return RegReg(M6809::SBCR, MI.getOperand(2), M6809::D);
+  case M6809::ADDR16:
+    return RegReg(M6809::ADDR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::SUBR16:
+    return RegReg(M6809::SUBR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::ANDR16:
+    return RegReg(M6809::ANDR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::ORR16:
+    return RegReg(M6809::ORR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::EORR16:
+    return RegReg(M6809::EORR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::ADCR16:
+    return RegReg(M6809::ADCR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::SBCR16:
+    return RegReg(M6809::SBCR, MI.getOperand(2), MI.getOperand(0).getReg());
   default:
     break;
   }
