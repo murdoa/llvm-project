@@ -229,6 +229,16 @@ let Uses = [SP], Defs = [SP] in {
 let Uses = [X, B], Defs = [X] in
 def ABX : M6800Inst<(outs), (ins), "abx", [], 1>;
 
+// x + (zero-extended b) is "abx", 1 byte and 1 cycle; x + 2 * b, an index
+// into an array of words, is two of them. Expanded after register
+// allocation.
+let Constraints = "$src = $dst", AddedComplexity = 10 in {
+  def ABXp : M6800Pseudo<(outs IDX16:$dst), (ins IDX16:$src, BREG:$b), "",
+                         [(set IDX16:$dst, (add IDX16:$src, (zext BREG:$b)))]>;
+  def ABX2p : M6800Pseudo<(outs IDX16:$dst), (ins IDX16:$src, BREG:$b), "",
+                          []>; // pattern after M6800Lsl
+}
+
 //===----------------------------------------------------------------------===//
 // Stack push and pull of a single register
 //===----------------------------------------------------------------------===//
@@ -661,6 +671,10 @@ def UMUL8 : M6800Pseudo<(outs ACC16:$dst), (ins ACC8:$a, ACC8:$b), "",
 // a chain of these nodes and a variable amount into a loop.
 def SDT_M6800Shift1 : SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>, SDTCisInt<0>]>;
 def M6800Lsl : SDNode<"M6800ISD::LSL", SDT_M6800Shift1>;
+
+let AddedComplexity = 11 in
+def : Pat<(add IDX16:$src, (M6800Lsl (zext BREG:$b))),
+          (ABX2p IDX16:$src, BREG:$b)>;
 def M6800Lsr : SDNode<"M6800ISD::LSR", SDT_M6800Shift1>;
 def M6800Asr : SDNode<"M6800ISD::ASR", SDT_M6800Shift1>;
 

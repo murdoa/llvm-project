@@ -649,6 +649,13 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.eraseFromParent();
     return true;
   }
+  case M6800::ABXp:
+  case M6800::ABX2p:
+    BuildMI(MBB, MI, DL, get(M6800::ABX));
+    if (Opc == M6800::ABX2p)
+      BuildMI(MBB, MI, DL, get(M6800::ABX));
+    MI.eraseFromParent();
+    return true;
   case M6800::ADD16ri: {
     Register Dst = MI.getOperand(0).getReg();
     const MachineOperand &Imm = MI.getOperand(2);

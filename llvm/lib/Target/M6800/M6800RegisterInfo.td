@@ -48,6 +48,9 @@ def ACC16 : RegisterClass<"M6800", [i16], 8, (add D)>;
 // The index register alone.
 def IDX16 : RegisterClass<"M6800", [i16], 8, (add X)>;
 
+// B alone, the operand of ABX.
+def BREG : RegisterClass<"M6800", [i8], 8, (add B)>;
+
 // Every allocatable 16-bit register.
 def GR16 : RegisterClass<"M6800", [i16], 8, (add D, X)>;
 

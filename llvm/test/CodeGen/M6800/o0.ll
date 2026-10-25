@@ -153,12 +153,8 @@ define i16 @zext_add(i8 %a, i16 %b) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldx 2,x
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    addd 0,x
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    abx
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    rts
   %z = zext i8 %a to i16
   %r = add i16 %z, %b

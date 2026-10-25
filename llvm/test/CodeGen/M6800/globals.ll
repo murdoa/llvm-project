@@ -144,10 +144,8 @@ define void @store_bytes_var(i16 %i, i8 %v) {
 define i8 @load_bytes_idx8(i8 %i) {
 ; CHECK-LABEL: load_bytes_idx8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    addd #bytes
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    ldx #bytes
+; CHECK-NEXT:    abx
 ; CHECK-NEXT:    ldab 0,x
 ; CHECK-NEXT:    rts
   %z = zext i8 %i to i16
