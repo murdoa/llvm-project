@@ -356,6 +356,7 @@ def : Pat<(i8 (trunc GR16:$s)), (EXTRACT_SUBREG GR16:$s, sub_lo)>;
 def : Pat<(M6809Wrapper tglobaladdr:$a), (LD16i tglobaladdr:$a)>;
 def : Pat<(M6809Wrapper texternalsym:$a), (LD16i texternalsym:$a)>;
 def : Pat<(M6809Wrapper tblockaddress:$a), (LD16i tblockaddress:$a)>;
+def : Pat<(M6809Wrapper tjumptable:$a), (LD16i tjumptable:$a)>;
 
 //===----------------------------------------------------------------------===//
 // Compares and branches
@@ -647,6 +648,8 @@ def TSTm : M6809Inst<(outs), (ins memidx:$addr), "tst\t$addr", [], 2>;
 // Jumps and calls through any addressing mode.
 let isBranch = 1, isIndirectBranch = 1, isTerminator = 1, isBarrier = 1 in
 def JMPm : M6809Inst<(outs), (ins memidx:$addr), "jmp\t$addr", [], 2>;
+// An indirect branch through a register: "jmp ,x" (mode 0 is Auto).
+def : Pat<(brind PTR16:$r), (JMPm PTR16:$r, 0, 0)>;
 let isCall = 1, Uses = [S], Defs = [S] in
 def JSRm : M6809Inst<(outs), (ins memidx:$addr), "jsr\t$addr", [], 2>;
 

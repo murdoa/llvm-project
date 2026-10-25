@@ -59,6 +59,7 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::GlobalAddress, MVT::i16, Custom);
   setOperationAction(ISD::ExternalSymbol, MVT::i16, Custom);
   setOperationAction(ISD::BlockAddress, MVT::i16, Custom);
+  setOperationAction(ISD::JumpTable, MVT::i16, Custom);
 
   // Every compare ends up as BR_CC or SELECT_CC, which keep the compare and
   // its flag user together.
@@ -135,6 +136,11 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
     return lowerExternalSymbol(Op, DAG);
   case ISD::BlockAddress:
     return lowerBlockAddress(Op, DAG);
+  case ISD::JumpTable:
+    return DAG.getNode(
+        M6809ISD::WRAPPER, SDLoc(Op), MVT::i16,
+        DAG.getTargetJumpTable(cast<JumpTableSDNode>(Op)->getIndex(),
+                               MVT::i16));
   case ISD::BR_CC:
     return lowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:

@@ -27,6 +27,7 @@ public:
 
   void Select(SDNode *N) override;
 
+  SDValue getTargetSymbol(SDValue Sym, int64_t Off);
   bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
                   SDValue &Mode);
 
@@ -52,9 +53,29 @@ FunctionPass *llvm::createM6809ISelDag(M6809TargetMachine &TM,
   return new M6809DAGToDAGISelLegacy(TM, OptLevel);
 }
 
+// The target form of a wrapped address plus Off, if the address operand can
+// hold it.
+SDValue M6809DAGToDAGISel::getTargetSymbol(SDValue Sym, int64_t Off) {
+  SDLoc DL(Sym);
+  if (auto *G = dyn_cast<GlobalAddressSDNode>(Sym))
+    return CurDAG->getTargetGlobalAddress(G->getGlobal(), DL, MVT::i16,
+                                          G->getOffset() + Off);
+  if (auto *B = dyn_cast<BlockAddressSDNode>(Sym))
+    return CurDAG->getTargetBlockAddress(B->getBlockAddress(), MVT::i16,
+                                         B->getOffset() + Off);
+  if (Off != 0)
+    return SDValue();
+  if (auto *E = dyn_cast<ExternalSymbolSDNode>(Sym))
+    return CurDAG->getTargetExternalSymbol(E->getSymbol(), MVT::i16);
+  if (auto *J = dyn_cast<JumpTableSDNode>(Sym))
+    return CurDAG->getTargetJumpTable(J->getIndex(), MVT::i16);
+  return SDValue();
+}
+
 // Picks the addressing mode for a load or store:
 //  - frame index (+ constant)    -> off,S once the frame is laid out
 //  - global/symbol (+ constant)  -> extended "sym+off", no base register
+//  - reg + global/symbol         -> indexed "sym,X"
 //  - constant address            -> extended "nnnn"
 //  - anything else (+ constant)  -> indexed off,X / off,U / off,Y
 bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
@@ -76,17 +97,24 @@ bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
   }
 
   if (Addr.getOpcode() == M6809ISD::WRAPPER) {
-    SDValue Sym = Addr.getOperand(0);
-    if (auto *G = dyn_cast<GlobalAddressSDNode>(Sym)) {
+    if (SDValue Sym = getTargetSymbol(Addr.getOperand(0), Off)) {
       Base = CurDAG->getRegister(Register(), MVT::i16);
-      Offset = CurDAG->getTargetGlobalAddress(G->getGlobal(), DL, MVT::i16,
-                                              G->getOffset() + Off);
+      Offset = Sym;
       return true;
     }
-    if (auto *E = dyn_cast<ExternalSymbolSDNode>(Sym); E && Off == 0) {
-      Base = CurDAG->getRegister(Register(), MVT::i16);
-      Offset = CurDAG->getTargetExternalSymbol(E->getSymbol(), MVT::i16);
-      return true;
+  }
+
+  // reg + symbol: indexed with the symbol as a 16-bit offset ("ldb tab,x").
+  if (Addr.getOpcode() == ISD::ADD) {
+    for (unsigned I = 0; I != 2; ++I) {
+      SDValue W = Addr.getOperand(I), R = Addr.getOperand(1 - I);
+      if (W.getOpcode() != M6809ISD::WRAPPER || isa<ConstantSDNode>(R))
+        continue;
+      if (SDValue Sym = getTargetSymbol(W.getOperand(0), Off)) {
+        Base = R;
+        Offset = Sym;
+        return true;
+      }
     }
   }
 
