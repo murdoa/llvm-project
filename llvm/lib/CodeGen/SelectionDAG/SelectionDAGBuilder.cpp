@@ -10368,10 +10368,15 @@ getRegistersForValue(SelectionDAG &DAG, const SDLoc &DL,
     }
   }
 
-  for (; NumRegs; --NumRegs, ++I) {
+  // Virtual registers are not limited by the size of the class: a value
+  // that needs more than the class holds is diagnosed by the allocator.
+  for (; NumRegs; --NumRegs) {
+    if (!AssignedReg) {
+      Regs.push_back(RegInfo.createVirtualRegister(RC));
+      continue;
+    }
     assert(I != RC->end() && "Ran out of registers to allocate!");
-    Register R = AssignedReg ? Register(*I) : RegInfo.createVirtualRegister(RC);
-    Regs.push_back(R);
+    Regs.push_back(*I++);
   }
 
   OpInfo.AssignedRegs = RegsForValue(Regs, RegVT, ValueVT);
