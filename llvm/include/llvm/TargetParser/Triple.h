@@ -65,6 +65,7 @@ public:
     loongarch32, // LoongArch (32-bit): loongarch32
     loongarch64, // LoongArch (64-bit): loongarch64
     m68k,        // M68k: Motorola 680x0 family
+    m6800,       // M6800: Motorola 6800 family / Hitachi HD6301
     m6809,       // M6809: Motorola 6809 / Hitachi HD6309
     mips,        // MIPS: mips, mipsallegrex, mipsr6
     mipsel,      // MIPSEL: mipsel, mipsallegrexe, mipsr6el

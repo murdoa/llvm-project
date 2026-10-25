@@ -1,0 +1,13 @@
+
+#ifndef ELF_RELOC
+#error "ELF_RELOC must be defined"
+#endif
+
+// Motorola 6800 family (HD6301). Branch offsets count from the end of the
+// instruction, which is also the end of the offset.
+ELF_RELOC(R_M6800_NONE,   0)
+ELF_RELOC(R_M6800_8,      1) // S + A, one byte
+ELF_RELOC(R_M6800_16,     2) // S + A, big-endian
+ELF_RELOC(R_M6800_32,     3) // S + A, big-endian (debug info, data)
+ELF_RELOC(R_M6800_PCREL8, 4) // S + A - (P + 1)
+ELF_RELOC(R_M6800_DIR8,   5) // S + A, a direct-page address below $100

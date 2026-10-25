@@ -327,6 +327,8 @@ enum {
   EM_LOONGARCH = 258,     // LoongArch
   // Provisional: no number has been assigned for the 6809 yet.
   EM_M6809 = 0x6809, // Motorola 6809 / Hitachi HD6309
+  // Provisional: no number has been assigned for the 6800 family yet.
+  EM_M6800 = 0x6800, // Motorola 6800 family / Hitachi HD6301
 };
 
 // Object file classes.
@@ -1044,6 +1046,11 @@ enum {
 // ELF Relocation types for the Motorola 6809
 enum {
 #include "ELFRelocs/M6809.def"
+};
+
+// ELF Relocation types for the Motorola 6800 family
+enum {
+#include "ELFRelocs/M6800.def"
 };
 
 // ELF Relocation type for VE.

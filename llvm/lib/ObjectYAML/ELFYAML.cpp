@@ -285,6 +285,7 @@ void ScalarEnumerationTraits<ELFYAML::ELF_EM>::enumeration(
   ECase(EM_CR);
   ECase(EM_F2MC16);
   ECase(EM_MSP430);
+  ECase(EM_M6800);
   ECase(EM_M6809);
   ECase(EM_BLACKFIN);
   ECase(EM_SE_C33);
@@ -928,6 +929,9 @@ void ScalarEnumerationTraits<ELFYAML::ELF_REL>::enumeration(
     break;
   case ELF::EM_M6809:
 #include "llvm/BinaryFormat/ELFRelocs/M6809.def"
+    break;
+  case ELF::EM_M6800:
+#include "llvm/BinaryFormat/ELFRelocs/M6800.def"
     break;
   default:
     // Nothing to do.

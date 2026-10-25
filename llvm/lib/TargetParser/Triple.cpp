@@ -83,6 +83,8 @@ StringRef Triple::getArchTypeName(ArchType Kind) {
     return "loongarch64";
   case m68k:
     return "m68k";
+  case m6800:
+    return "m6800";
   case m6809:
     return "m6809";
   case mips64:
@@ -287,6 +289,8 @@ StringRef Triple::getArchTypePrefix(ArchType Kind) {
 
   case m68k:
     return "m68k";
+  case m6800:
+    return "m6800";
   case m6809:
     return "m6809";
 
@@ -472,6 +476,7 @@ Triple::ArchType Triple::getArchTypeForLLVMName(StringRef Name) {
       .Case("avr", avr)
       .StartsWith("bpf", BPFArch)
       .Case("m68k", m68k)
+      .Case("m6800", m6800)
       .Case("m6809", m6809)
       .Case("mips", mips)
       .Case("mipsel", mipsel)
@@ -627,6 +632,7 @@ Triple::ArchType Triple::parseArch(StringRef ArchName) {
           .Case("thumbeb", Triple::thumbeb)
           .Case("avr", Triple::avr)
           .Case("m68k", Triple::m68k)
+          .Case("m6800", Triple::m6800)
           .Case("m6809", Triple::m6809)
           .Case("msp430", Triple::msp430)
           .Cases({"mips", "mipseb", "mipsallegrex", "mipsisa32r6", "mipsr6"},
@@ -988,6 +994,7 @@ static Triple::ObjectFormatType getDefaultFormat(const Triple &T) {
   case Triple::loongarch32:
   case Triple::loongarch64:
   case Triple::m68k:
+  case Triple::m6800:
   case Triple::m6809:
   case Triple::mips64:
   case Triple::mips64el:
@@ -1745,6 +1752,7 @@ unsigned Triple::getArchPointerBitWidth(llvm::Triple::ArchType Arch) {
     return 0;
 
   case llvm::Triple::avr:
+  case llvm::Triple::m6800:
   case llvm::Triple::m6809:
   case llvm::Triple::msp430:
     return 16;
@@ -1854,6 +1862,7 @@ Triple Triple::get32BitArchVariant() const {
   case Triple::avr:
   case Triple::bpfeb:
   case Triple::bpfel:
+  case Triple::m6800:
   case Triple::m6809:
   case Triple::msp430:
   case Triple::systemz:
@@ -1973,6 +1982,7 @@ Triple Triple::get64BitArchVariant() const {
   case Triple::kalimba:
   case Triple::lanai:
   case Triple::m68k:
+  case Triple::m6800:
   case Triple::m6809:
   case Triple::msp430:
   case Triple::r600:
@@ -2176,6 +2186,7 @@ Triple Triple::getLittleEndianArchVariant() const {
   case Triple::sparcv9:
   case Triple::systemz:
   case Triple::m68k:
+  case Triple::m6800:
   case Triple::m6809:
 
   // ARM is intentionally unsupported here, changing the architecture would
@@ -2553,7 +2564,8 @@ FloatABI::ABIType Triple::getDefaultFloatABI(StringRef ABIName) const {
   if (isMIPS())
     return isOSFreeBSD() ? FloatABI::Soft : FloatABI::Hard;
 
-  if (isCSKY() || isAVR() || getArch() == msp430 || getArch() == m6809)
+  if (isCSKY() || isAVR() || getArch() == msp430 ||
+      getArch() == m6800 || getArch() == m6809)
     return FloatABI::Soft;
 
   // Most targets use hard float unless soft float is explicitly requested.

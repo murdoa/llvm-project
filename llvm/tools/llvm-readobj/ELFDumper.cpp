@@ -1300,6 +1300,7 @@ constexpr EnumStringDef<unsigned, 2> ElfMachineTypeDefs[] = {
   ENUM_ENT(EM_CR,            "National Semiconductor CompactRISC"),
   ENUM_ENT(EM_F2MC16,        "Fujitsu F2MC16"),
   ENUM_ENT(EM_MSP430,        "Texas Instruments msp430 microcontroller"),
+  ENUM_ENT(EM_M6800,         "Motorola 6800"),
   ENUM_ENT(EM_M6809,         "Motorola 6809"),
   ENUM_ENT(EM_BLACKFIN,      "Analog Devices Blackfin"),
   ENUM_ENT(EM_SE_C33,        "S1C33 Family of Seiko Epson processors"),
