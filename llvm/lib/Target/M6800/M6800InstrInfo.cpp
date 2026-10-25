@@ -25,7 +25,7 @@ void M6800InstrInfo::anchor() {}
 M6800InstrInfo::M6800InstrInfo(const M6800Subtarget &STI)
     : M6800GenInstrInfo(STI, RI, M6800::ADJCALLSTACKDOWN,
                         M6800::ADJCALLSTACKUP),
-      RI(STI), STI(STI) {}
+      RI(STI) {}
 
 bool M6800InstrInfo::isLiveAfter(const MachineInstr &MI, MCRegister Reg) const {
   const MachineBasicBlock &MBB = *MI.getParent();

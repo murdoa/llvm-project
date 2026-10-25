@@ -21,7 +21,6 @@ class M6800Subtarget;
 
 class M6800InstrInfo : public M6800GenInstrInfo {
   const M6800RegisterInfo RI;
-  const M6800Subtarget &STI;
   virtual void anchor();
 
   void pushD(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
