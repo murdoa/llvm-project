@@ -70,6 +70,8 @@ private:
   void rewriteStoreX(MachineInstr &MI, int64_t Off);
   void addToX(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
               const DebugLoc &DL, int64_t N, bool BFree);
+  void addToXKeepFlags(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
+                       const DebugLoc &DL, int64_t N);
 };
 
 } // namespace
@@ -123,6 +125,28 @@ void M6800FrameAccess::addToX(MachineBasicBlock &MBB,
   BuildMI(MBB, I, DL, TII->get(M6800::XGDX));
 }
 
+// X = SP + 1 + N, leaving A, B and the flags as they were: "pshb; psha;
+// tpa; psha; tsx; xgdx; addd #n; xgdx; pula; tap; pula; pulb". N counts from
+// SP as it is before this sequence.
+void M6800FrameAccess::addToXKeepFlags(MachineBasicBlock &MBB,
+                                       MachineBasicBlock::iterator I,
+                                       const DebugLoc &DL, int64_t N) {
+  BuildMI(MBB, I, DL, TII->get(M6800::PSH8)).addReg(M6800::B);
+  BuildMI(MBB, I, DL, TII->get(M6800::PSH8)).addReg(M6800::A);
+  BuildMI(MBB, I, DL, TII->get(M6800::TPA));
+  BuildMI(MBB, I, DL, TII->get(M6800::PSH8)).addReg(M6800::A);
+  BuildMI(MBB, I, DL, TII->get(M6800::TSX));
+  BuildMI(MBB, I, DL, TII->get(M6800::XGDX));
+  BuildMI(MBB, I, DL, TII->get(M6800::ADDDi), M6800::D)
+      .addReg(M6800::D)
+      .addImm(N + 3);
+  BuildMI(MBB, I, DL, TII->get(M6800::XGDX));
+  BuildMI(MBB, I, DL, TII->get(M6800::PUL8), M6800::A);
+  BuildMI(MBB, I, DL, TII->get(M6800::TAP));
+  BuildMI(MBB, I, DL, TII->get(M6800::PUL8), M6800::A);
+  BuildMI(MBB, I, DL, TII->get(M6800::PUL8), M6800::B);
+}
+
 // The address of a stack slot, into X or D.
 void M6800FrameAccess::rewriteLEAFI(MachineInstr &MI) {
   MachineBasicBlock &MBB = *MI.getParent();
@@ -170,9 +194,8 @@ void M6800FrameAccess::rewriteStoreX(MachineInstr &MI, int64_t Off) {
   BuildMI(MBB, MI, DL, TII->get(M6800::XGDX));
   BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
   if (Off > 255) {
-    if (LA.CC)
-      report_fatal_error("M6800: stack frame too large for this access");
-    // addToX keeps the value in D.
+    // addToX keeps the value in D. The flags it changes are set again by
+    // the store.
     addToX(MBB, MI, DL, Off, false);
     Off = 0;
   }
@@ -215,15 +238,19 @@ bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
 
   if (SaveX)
     BuildMI(MBB, MI, DL, TII->get(M6800::PSHX)).addReg(M6800::X);
-  if (SaveX || !XIsSP)
-    BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
   bool Moved = false;
-  if (XOff > 255) {
-    if (NeedsCC)
-      report_fatal_error("M6800: stack frame too large for this access");
-    addToX(MBB, MI, DL, XOff, false);
+  if (XOff > 255 && NeedsCC) {
+    addToXKeepFlags(MBB, MI, DL, XOff);
     XOff = 0;
     Moved = true;
+  } else {
+    if (SaveX || !XIsSP)
+      BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
+    if (XOff > 255) {
+      addToX(MBB, MI, DL, XOff, false);
+      XOff = 0;
+      Moved = true;
+    }
   }
   MI.getOperand(MemIdx).setReg(M6800::X);
   MI.getOperand(MemIdx + 1).setImm(XOff);
