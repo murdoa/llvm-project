@@ -604,7 +604,9 @@ bool RegAllocEvictionAdvisor::canReassign(const LiveInterval &VirtReg,
 
   for (MCRegister Reg :
        AllocationOrder::create(VirtReg.reg(), *VRM, RegClassInfo, Matrix)) {
-    if (Reg == FromReg)
+    // FromReg is taken by the evicting range, and so is any register that
+    // shares a unit with it (A or B when D is FromReg, say).
+    if (TRI->regsOverlap(Reg, FromReg))
       continue;
     // If no units have interference, reassignment is possible.
     if (none_of(TRI->regunits(Reg), HasRegUnitInterference)) {
