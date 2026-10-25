@@ -1,5 +1,5 @@
-; RUN: llc -mtriple=m6809 -show-mc-encoding < %s | FileCheck %s
-; RUN: llc -mtriple=m6809 -filetype=obj < %s | llvm-readelf -h -r - \
+; RUN: llc -verify-machineinstrs -mtriple=m6809 -show-mc-encoding < %s | FileCheck %s
+; RUN: llc -verify-machineinstrs -mtriple=m6809 -filetype=obj < %s | llvm-readelf -h -r - \
 ; RUN:   | FileCheck --check-prefix=ELF %s
 
 ; Machine code for the forms code generation uses.
