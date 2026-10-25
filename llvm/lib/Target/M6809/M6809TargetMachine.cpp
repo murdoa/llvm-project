@@ -42,8 +42,7 @@ M6809TargetMachine::M6809TargetMachine(const Target &T, const Triple &TT,
     : CodeGenTargetMachineImpl(T, TT, defaultCPU(CPU), FS, Options,
                                RM.value_or(Reloc::Static),
                                getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(std::make_unique<TargetLoweringObjectFileELF>()),
-      Subtarget(TT, std::string(defaultCPU(CPU)), std::string(FS), *this) {
+      TLOF(std::make_unique<TargetLoweringObjectFileELF>()) {
   initAsmInfo();
   // With two 8-bit and one 16-bit accumulator, a tied operand that stays
   // live often has no register to be copied into. TwoAddressInstruction
@@ -52,6 +51,20 @@ M6809TargetMachine::M6809TargetMachine(const Target &T, const Triple &TT,
 }
 
 M6809TargetMachine::~M6809TargetMachine() = default;
+
+const M6809Subtarget *
+M6809TargetMachine::getSubtargetImpl(const Function &F) const {
+  Attribute CPUAttr = F.getFnAttribute("target-cpu");
+  Attribute FSAttr = F.getFnAttribute("target-features");
+  std::string CPU = std::string(
+      defaultCPU(CPUAttr.isValid() ? CPUAttr.getValueAsString() : TargetCPU));
+  std::string FS =
+      FSAttr.isValid() ? FSAttr.getValueAsString().str() : TargetFS;
+  std::unique_ptr<M6809Subtarget> &ST = SubtargetMap[CPU + FS];
+  if (!ST)
+    ST = std::make_unique<M6809Subtarget>(TargetTriple, CPU, FS, *this);
+  return ST.get();
+}
 
 namespace {
 

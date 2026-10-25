@@ -10,6 +10,7 @@
 #define LLVM_LIB_TARGET_M6809_M6809TARGETMACHINE_H
 
 #include "M6809Subtarget.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/CodeGen/CodeGenTargetMachineImpl.h"
 #include <optional>
 
@@ -17,7 +18,9 @@ namespace llvm {
 
 class M6809TargetMachine : public CodeGenTargetMachineImpl {
   std::unique_ptr<TargetLoweringObjectFile> TLOF;
-  M6809Subtarget Subtarget;
+  // One subtarget per CPU and feature string, which functions can set with
+  // the "target-cpu" and "target-features" attributes.
+  mutable StringMap<std::unique_ptr<M6809Subtarget>> SubtargetMap;
 
 public:
   M6809TargetMachine(const Target &T, const Triple &TT, StringRef CPU,
@@ -27,11 +30,7 @@ public:
                      bool JIT);
   ~M6809TargetMachine() override;
 
-  // TODO: build per-function subtargets once -mcpu/-mattr attributes are
-  // honoured per function.
-  const M6809Subtarget *getSubtargetImpl(const Function &) const override {
-    return &Subtarget;
-  }
+  const M6809Subtarget *getSubtargetImpl(const Function &F) const override;
 
   TargetPassConfig *createPassConfig(PassManagerBase &PM) override;
 
