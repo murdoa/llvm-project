@@ -90,8 +90,9 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
   // Multiply: i8 uses the 8x8 MUL instruction, i16 the HD6309's MULD, and
-  // otherwise the runtime library. Divide and remainder always call the
-  // runtime library.
+  // otherwise the runtime library. Divide and remainder call the runtime
+  // library, except that the HD6309 uses DIVQ for signed i16 and, through
+  // custom lowering, for unsigned i16 by a constant below 0x8000.
   setOperationAction(ISD::MUL, MVT::i16, STI.has6309() ? Legal : LibCall);
   for (MVT VT : {MVT::i8, MVT::i16}) {
     for (unsigned Op : {ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM})
@@ -99,6 +100,10 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
     for (unsigned Op : {ISD::MULHS, ISD::MULHU, ISD::SMUL_LOHI,
                         ISD::UMUL_LOHI, ISD::SDIVREM, ISD::UDIVREM})
       setOperationAction(Op, VT, Expand);
+  }
+  if (STI.has6309()) {
+    setOperationAction({ISD::SDIV, ISD::SREM}, MVT::i16, Legal);
+    setOperationAction({ISD::UDIV, ISD::UREM}, MVT::i16, Custom);
   }
 
   // Varargs: va_list is a plain pointer into the caller's argument area.
@@ -186,9 +191,28 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
   case ISD::ROTL:
   case ISD::ROTR:
     return lowerRotate(Op, DAG);
+  case ISD::UDIV:
+  case ISD::UREM:
+    return lowerUDivRem(Op, DAG);
   default:
     llvm_unreachable("M6809: unexpected operation to lower");
   }
+}
+
+// HD6309 unsigned i16 divide and remainder: DIVQ when the divisor's top
+// bit is known clear, otherwise the runtime library.
+SDValue M6809TargetLowering::lowerUDivRem(SDValue Op,
+                                          SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  bool IsRem = Op.getOpcode() == ISD::UREM;
+  if (DAG.SignBitIsZero(Op.getOperand(1)))
+    return DAG.getNode(IsRem ? M6809ISD::UREMQ : M6809ISD::UDIVQ, DL,
+                       Op.getValueType(), Op.getOperand(0), Op.getOperand(1));
+  TargetLowering::MakeLibCallOptions CallOptions;
+  SDValue Ops[] = {Op.getOperand(0), Op.getOperand(1)};
+  return makeLibCall(DAG, IsRem ? RTLIB::UREM_I16 : RTLIB::UDIV_I16,
+                     Op.getValueType(), Ops, CallOptions, DL)
+      .first;
 }
 
 // The return address JSR pushed, just above the incoming arguments.

@@ -60,6 +60,7 @@ private:
                                      MachineBasicBlock *MBB) const;
 
   SDValue lowerShift(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerUDivRem(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerRotate(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBR_CC32(SDValue Op, SelectionDAG &DAG) const;

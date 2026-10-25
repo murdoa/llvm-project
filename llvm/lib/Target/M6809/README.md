@@ -13,11 +13,12 @@ Motorola 6809, with the Hitachi HD6309 as a subtarget (`-mcpu=6309`).
   lwasm.
 - `ld.lld` links the objects; no outside tools are needed to build a ROM.
 - HD6309: W is a fifth 16-bit register, and codegen uses the 16-bit ALU on
-  D and W, the register-register ops (`addr`, `cmpr`, ...), `muld`, `tstd`,
-  `clrd` and the W pushes and pulls.
+  D and W, the register-register ops (`addr`, `cmpr`, ...), `muld`, `divq`
+  (signed 16-bit division, and unsigned when the divisor is below 0x8000),
+  `tstd`, `clrd` and the W pushes and pulls.
 
-Missing on the HD6309 so far: `divd`/`divq` for division, `tfm` for block
-copies, and E and F as 8-bit registers.
+Missing on the HD6309 so far: `tfm` for block copies, and E and F as 8-bit
+registers.
 
 ## ABI
 

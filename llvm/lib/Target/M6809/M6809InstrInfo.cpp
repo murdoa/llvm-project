@@ -459,6 +459,61 @@ bool M6809InstrInfo::expand6309(MachineInstr &MI) const {
     return true;
   }
 
+  // Divide through DIVQ: tfr d,w; sexw (or clrd); divq <op>; then the
+  // quotient is in W and the remainder in D.
+  bool IsDiv = Opc == M6809::SDIV16i || Opc == M6809::SDIV16m ||
+               Opc == M6809::SDIV16rr || Opc == M6809::UDIV16i ||
+               Opc == M6809::UDIV16m || Opc == M6809::UDIV16rr;
+  bool IsRem = Opc == M6809::SREM16i || Opc == M6809::SREM16m ||
+               Opc == M6809::SREM16rr || Opc == M6809::UREM16i ||
+               Opc == M6809::UREM16m || Opc == M6809::UREM16rr;
+  if (IsDiv || IsRem) {
+    bool Unsigned = Opc == M6809::UDIV16i || Opc == M6809::UDIV16m ||
+                    Opc == M6809::UDIV16rr || Opc == M6809::UREM16i ||
+                    Opc == M6809::UREM16m || Opc == M6809::UREM16rr;
+    bool Imm = Opc == M6809::SDIV16i || Opc == M6809::SREM16i ||
+               Opc == M6809::UDIV16i || Opc == M6809::UREM16i;
+    bool Reg = Opc == M6809::SDIV16rr || Opc == M6809::SREM16rr ||
+               Opc == M6809::UDIV16rr || Opc == M6809::UREM16rr;
+    if (Reg) {
+      const MachineOperand &Rhs = MI.getOperand(2);
+      BuildMI(MBB, MI, DL, get(M6809::PSHS16))
+          .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
+    }
+    // tfr d,w
+    BuildMI(MBB, MI, DL, get(M6809::TFRrr))
+        .addReg(M6809::D)
+        .addReg(M6809::W, RegState::Undef)
+        .addReg(M6809::W, RegState::ImplicitDefine);
+    if (Unsigned)
+      BuildMI(MBB, MI, DL, get(M6809::CLR16r), M6809::D);
+    else
+      BuildMI(MBB, MI, DL, get(M6809::SEXW), M6809::D);
+    if (Imm) {
+      BuildMI(MBB, MI, DL, get(M6809::DIVQi)).add(MI.getOperand(2));
+    } else if (Reg) {
+      BuildMI(MBB, MI, DL, get(M6809::DIVQm))
+          .addReg(M6809::S)
+          .addImm(0)
+          .addImm(M6809Mem::PostInc2)
+          .addReg(M6809::S, RegState::Implicit)
+          .addReg(M6809::S, RegState::ImplicitDefine);
+    } else {
+      BuildMI(MBB, MI, DL, get(M6809::DIVQm))
+          .add(MI.getOperand(2))
+          .add(MI.getOperand(3))
+          .add(MI.getOperand(4))
+          .cloneMemRefs(MI);
+    }
+    if (IsDiv)
+      BuildMI(MBB, MI, DL, get(M6809::TFRrr))
+          .addReg(M6809::W, RegState::Kill)
+          .addReg(M6809::D, RegState::Undef)
+          .addReg(M6809::D, RegState::ImplicitDefine);
+    MI.eraseFromParent();
+    return true;
+  }
+
   unsigned InhOpc = 0;
   switch (Opc) {
   case M6809::NEG16: InhOpc = M6809::NEG16r; break;

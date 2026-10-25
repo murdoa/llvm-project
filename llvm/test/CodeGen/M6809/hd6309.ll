@@ -175,3 +175,85 @@ define void @or_xy(ptr %p, ptr %q) {
   store i16 %c, ptr %q
   ret void
 }
+
+; Signed i16 divide and remainder use DIVQ: W = D:W / operand, D = remainder.
+define i16 @sdiv(i16 %a, i16 %b) {
+; CHECK-LABEL: sdiv:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, w
+; CHECK-NEXT:    sexw
+; CHECK-NEXT:    divq 2,s
+; CHECK-NEXT:    tfr w, d
+; CHECK-NEXT:    rts
+  %q = sdiv i16 %a, %b
+  ret i16 %q
+}
+
+define i16 @srem_imm(i16 %a) {
+; CHECK-LABEL: srem_imm:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, w
+; CHECK-NEXT:    sexw
+; CHECK-NEXT:    divq #10
+; CHECK-NEXT:    rts
+  %r = srem i16 %a, 10
+  ret i16 %r
+}
+
+; Unsigned only when the divisor's top bit is known clear: DIVQ is signed.
+define i16 @udiv_imm(i16 %a) {
+; CHECK-LABEL: udiv_imm:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, w
+; CHECK-NEXT:    clrd
+; CHECK-NEXT:    divq #10
+; CHECK-NEXT:    tfr w, d
+; CHECK-NEXT:    rts
+  %q = udiv i16 %a, 10
+  ret i16 %q
+}
+
+define i16 @urem_zext(i16 %a, i8 %b) {
+; CHECK-LABEL: urem_zext:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldb 2,s
+; CHECK-NEXT:    ; kill: def $b killed $b def $d
+; CHECK-NEXT:    clra
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    pshs x
+; CHECK-NEXT:    tfr d, w
+; CHECK-NEXT:    clrd
+; CHECK-NEXT:    divq ,s++
+; CHECK-NEXT:    rts
+  %bz = zext i8 %b to i16
+  %r = urem i16 %a, %bz
+  ret i16 %r
+}
+
+define i16 @udiv_big(i16 %a) {
+; CHECK-LABEL: udiv_big:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    ldx #-25536
+; CHECK-NEXT:    stx ,s
+; CHECK-NEXT:    jsr __udivhi3
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    rts
+  %q = udiv i16 %a, 40000
+  ret i16 %q
+}
+
+define i16 @udiv_var(i16 %a, i16 %b) {
+; CHECK-LABEL: udiv_var:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:    stx ,s
+; CHECK-NEXT:    jsr __udivhi3
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    rts
+  %q = udiv i16 %a, %b
+  ret i16 %q
+}

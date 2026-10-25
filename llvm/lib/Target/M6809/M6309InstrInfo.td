@@ -172,6 +172,31 @@ let Predicates = [Has6309], Constraints = "$src = $dst", Defs = [W, CC] in {
                             "", [(set ACC16:$dst, (mul ACC16:$src, IDX16:$rhs))]>;
 }
 
+// Divide and remainder with DIVQ: W = Q / operand, D = remainder, where
+// Q = D:W. Signed division sign-extends the dividend from W into D. DIVQ is
+// a signed divide, but its quotient may reach 17 bits, so unsigned division
+// with D cleared works whenever the divisor's top bit is clear. Lowering
+// emits UDIVQ/UREMQ only then.
+def M6809UDivQ : SDNode<"M6809ISD::UDIVQ", SDTIntBinOp>;
+def M6809URemQ : SDNode<"M6809ISD::UREMQ", SDTIntBinOp>;
+multiclass DIV16<SDNode node> {
+  let Predicates = [Has6309], Constraints = "$src = $dst", Defs = [W, CC] in {
+    def i : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, i16imm_op:$imm),
+                        "", [(set ACC16:$dst, (node ACC16:$src, imm:$imm))]>;
+    let mayLoad = 1 in
+    def m : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, memidx:$addr),
+                        "", [(set ACC16:$dst,
+                                  (node ACC16:$src, (load addr:$addr)))]>;
+    let Uses = [S], Defs = [S, W, CC] in
+    def rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, IDX16:$rhs),
+                         "", [(set ACC16:$dst, (node ACC16:$src, IDX16:$rhs))]>;
+  }
+}
+defm SDIV16 : DIV16<sdiv>;
+defm SREM16 : DIV16<srem>;
+defm UDIV16 : DIV16<M6809UDivQ>;
+defm UREM16 : DIV16<M6809URemQ>;
+
 // Register-register arithmetic and logic on any 16-bit registers: "andr x,y"
 // is y = y & x. The 6809 forms above want the left operand in D; these leave
 // both to the allocator. Plain add keeps LEA16dr, which is shorter.
