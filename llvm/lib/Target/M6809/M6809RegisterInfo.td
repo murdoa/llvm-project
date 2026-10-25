@@ -59,6 +59,9 @@ def ACC16 : RegisterClass<"M6809", [i16], 8, (add D)>;
 // Every allocatable 16-bit register.
 def GR16 : RegisterClass<"M6809", [i16], 8, (add D, X, U, Y)>;
 
+// Index registers that LEA can write.
+def IDX16 : RegisterClass<"M6809", [i16], 8, (add X, U, Y)>;
+
 // Registers usable as the base of an indexed address.
 def PTR16 : RegisterClass<"M6809", [i16], 8, (add X, U, Y, S)>;
 

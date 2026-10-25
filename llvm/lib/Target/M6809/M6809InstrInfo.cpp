@@ -195,6 +195,17 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
+  if (Opc == M6809::ADD16ri) {
+    Register Dst = MI.getOperand(0).getReg();
+    const MachineOperand &Imm = MI.getOperand(2);
+    if (Dst == M6809::D)
+      BuildMI(MBB, MI, DL, get(M6809::ADDDi), Dst).addReg(Dst).add(Imm);
+    else
+      BuildMI(MBB, MI, DL, get(M6809::LEA16), Dst).addReg(Dst).add(Imm);
+    MI.eraseFromParent();
+    return true;
+  }
+
   if (isCompareAndBranch(Opc)) {
     unsigned N = MI.getNumExplicitOperands();
     const MachineOperand &Lhs = MI.getOperand(0);

@@ -122,24 +122,15 @@ define i8 @setcc_eq(i16 %a) {
 define i16 @count_down(i16 %n) {
 ; CHECK-LABEL: count_down:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:  .LBB6_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    addd #-1
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    addd #3
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    cmpd #0
+; CHECK-NEXT:    cmpx #0
 ; CHECK-NEXT:    lbne .LBB6_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
-; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 4,s
 ; CHECK-NEXT:    rts
 entry:
   br label %loop

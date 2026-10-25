@@ -102,5 +102,15 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
     N->setNodeId(-1);
     return;
   }
+
+  // The address of a stack object: LEAX off,S once the frame is laid out.
+  if (auto *FIN = dyn_cast<FrameIndexSDNode>(N)) {
+    SDLoc DL(N);
+    SDValue TFI = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i16);
+    SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i16);
+    CurDAG->SelectNodeTo(N, M6809::LEA16, MVT::i16, TFI, Zero);
+    return;
+  }
+
   SelectCode(N);
 }

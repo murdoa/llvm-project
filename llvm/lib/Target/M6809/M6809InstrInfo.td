@@ -203,9 +203,10 @@ defm EOR8 : ALU8<"eor", xor>;
 // 16-bit add and subtract exist only on D (ADDD/SUBD).
 multiclass ALU16D<string mnem, SDNode node> {
   let Constraints = "$src = $dst", Defs = [CC] in {
+    // No pattern: immediate adds select ADD16ri below, and the DAG turns
+    // subtracting a constant into adding its negation.
     def i : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src, i16imm_op:$imm),
-                      mnem # "\t#$imm",
-                      [(set ACC16:$dst, (node ACC16:$src, imm:$imm))], 3>;
+                      mnem # "\t#$imm", [], 3>;
     def m : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src, memidx:$addr),
                       mnem # "\t$addr",
                       [(set ACC16:$dst, (node ACC16:$src, (load addr:$addr)))],
@@ -223,6 +224,18 @@ multiclass ALU16D<string mnem, SDNode node> {
 
 defm ADDD : ALU16D<"addd", add>;
 defm SUBD : ALU16D<"subd", sub>;
+
+// Load effective address into X, Y or U: "leax 2,s", "leau -1,u". Sets Z.
+let Defs = [CC] in
+def LEA16 : M6809Inst<(outs IDX16:$dst), (ins memidx:$addr),
+                      "lea${dst}\t$addr", [], 2>;
+
+// Add a constant to any 16-bit register. Expanded after register allocation
+// to ADDD for D, or LEAX/LEAY/LEAU n,r for the index registers, so values
+// such as loop counters and pointers need not live in D.
+let Constraints = "$src = $dst", Defs = [CC] in
+def ADD16ri : M6809Pseudo<(outs GR16:$dst), (ins GR16:$src, i16imm_op:$imm), "",
+                          [(set GR16:$dst, (add GR16:$src, imm:$imm))]>;
 
 // The 6809 has no 16-bit AND/OR/EOR. These pseudos become the 8-bit
 // instruction on A (high byte) then B (low byte).
