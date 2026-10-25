@@ -71,4 +71,6 @@ LLVMInitializeM6809TargetMC() {
   TargetRegistry::RegisterMCRegInfo(T, createM6809MCRegisterInfo);
   TargetRegistry::RegisterMCSubtargetInfo(T, createM6809MCSubtargetInfo);
   TargetRegistry::RegisterMCInstPrinter(T, createM6809MCInstPrinter);
+  TargetRegistry::RegisterMCCodeEmitter(T, createM6809MCCodeEmitter);
+  TargetRegistry::RegisterMCAsmBackend(T, createM6809AsmBackend);
 }

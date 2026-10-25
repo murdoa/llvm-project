@@ -1,0 +1,152 @@
+//===-- M6809Opcodes.def - 6809 opcode bytes ---------------------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// One row per mnemonic and operand form:
+//
+//   M6809_OP(Mnemonic, MCOpcode, Reg, Form, Code)
+//
+// Reg is the register the mnemonic names ("lda" -> A), which is the first
+// register operand of the MC instruction, or NoRegister. Code is the opcode,
+// with the 0x10 or 0x11 page prefix in the high byte. For the Mem form it is
+// the direct-page opcode; the indexed and extended opcodes follow from it.
+// The encoder, the assembler and the disassembler all read this table.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef M6809_OP
+#error "M6809_OP must be defined"
+#endif
+
+#define NOREG M6809::NoRegister
+
+// Inherent operations on A or B.
+M6809_OP("nega", NEG8, M6809::A, Inh, 0x40)
+M6809_OP("negb", NEG8, M6809::B, Inh, 0x50)
+M6809_OP("coma", COM8, M6809::A, Inh, 0x43)
+M6809_OP("comb", COM8, M6809::B, Inh, 0x53)
+M6809_OP("lsra", LSR8, M6809::A, Inh, 0x44)
+M6809_OP("lsrb", LSR8, M6809::B, Inh, 0x54)
+M6809_OP("rora", ROR8, M6809::A, Inh, 0x46)
+M6809_OP("rorb", ROR8, M6809::B, Inh, 0x56)
+M6809_OP("asra", ASR8, M6809::A, Inh, 0x47)
+M6809_OP("asrb", ASR8, M6809::B, Inh, 0x57)
+M6809_OP("asla", ASL8, M6809::A, Inh, 0x48)
+M6809_OP("aslb", ASL8, M6809::B, Inh, 0x58)
+M6809_OP("rola", ROL8, M6809::A, Inh, 0x49)
+M6809_OP("rolb", ROL8, M6809::B, Inh, 0x59)
+M6809_OP("deca", DEC8, M6809::A, Inh, 0x4A)
+M6809_OP("decb", DEC8, M6809::B, Inh, 0x5A)
+M6809_OP("inca", INC8, M6809::A, Inh, 0x4C)
+M6809_OP("incb", INC8, M6809::B, Inh, 0x5C)
+M6809_OP("tsta", TST8, M6809::A, Inh, 0x4D)
+M6809_OP("tstb", TST8, M6809::B, Inh, 0x5D)
+M6809_OP("clra", CLR8, M6809::A, Inh, 0x4F)
+M6809_OP("clrb", CLR8, M6809::B, Inh, 0x5F)
+
+// Other inherent instructions.
+M6809_OP("nop", NOP, NOREG, Inh, 0x12)
+M6809_OP("sync", SYNC, NOREG, Inh, 0x13)
+M6809_OP("daa", DAA, NOREG, Inh, 0x19)
+M6809_OP("sex", SEX, NOREG, Inh, 0x1D)
+M6809_OP("rts", RTS, NOREG, Inh, 0x39)
+M6809_OP("abx", ABX, NOREG, Inh, 0x3A)
+M6809_OP("rti", RTI, NOREG, Inh, 0x3B)
+M6809_OP("mul", MUL, NOREG, Inh, 0x3D)
+M6809_OP("swi", SWI, NOREG, Inh, 0x3F)
+M6809_OP("swi2", SWI2, NOREG, Inh, 0x103F)
+M6809_OP("swi3", SWI3, NOREG, Inh, 0x113F)
+
+// Condition code masks.
+M6809_OP("orcc", ORCC, NOREG, Imm8, 0x1A)
+M6809_OP("andcc", ANDCC, NOREG, Imm8, 0x1C)
+M6809_OP("cwai", CWAI, NOREG, Imm8, 0x3C)
+
+// Read-modify-write on memory, and JMP.
+M6809_OP("neg", NEGm, NOREG, Mem, 0x00)
+M6809_OP("com", COMm, NOREG, Mem, 0x03)
+M6809_OP("lsr", LSRm, NOREG, Mem, 0x04)
+M6809_OP("ror", RORm, NOREG, Mem, 0x06)
+M6809_OP("asr", ASRm, NOREG, Mem, 0x07)
+M6809_OP("asl", ASLm, NOREG, Mem, 0x08)
+M6809_OP("rol", ROLm, NOREG, Mem, 0x09)
+M6809_OP("dec", DECm, NOREG, Mem, 0x0A)
+M6809_OP("inc", INCm, NOREG, Mem, 0x0C)
+M6809_OP("tst", TSTm, NOREG, Mem, 0x0D)
+M6809_OP("jmp", JMPm, NOREG, Mem, 0x0E)
+M6809_OP("clr", CLRm, NOREG, Mem, 0x0F)
+
+// Load effective address: indexed addressing only.
+M6809_OP("leax", LEA16, M6809::X, Idx, 0x30)
+M6809_OP("leay", LEA16, M6809::Y, Idx, 0x31)
+M6809_OP("leas", LEASm, NOREG, Idx, 0x32)
+M6809_OP("leau", LEA16, M6809::U, Idx, 0x33)
+
+// Register lists and pairs.
+M6809_OP("pshs", PSHSr, NOREG, RegList, 0x34)
+M6809_OP("puls", PULSr, NOREG, RegList, 0x35)
+M6809_OP("pshu", PSHUr, NOREG, RegList, 0x36)
+M6809_OP("pulu", PULUr, NOREG, RegList, 0x37)
+M6809_OP("exg", EXGrr, NOREG, RegPair, 0x1E)
+M6809_OP("tfr", TFRrr, NOREG, RegPair, 0x1F)
+
+// Branches. "b"/"lb" take the condition from the cc operand.
+M6809_OP("bra", BRA, NOREG, Rel8, 0x20)
+M6809_OP("brn", BRN, NOREG, Rel8, 0x21)
+M6809_OP("b", Bcc, NOREG, Cond8, 0x20)
+M6809_OP("bsr", BSR, NOREG, Rel8, 0x8D)
+M6809_OP("lbra", LBRA, NOREG, Rel16, 0x16)
+M6809_OP("lbsr", LBSR, NOREG, Rel16, 0x17)
+M6809_OP("lbrn", LBRN, NOREG, Rel16, 0x1021)
+M6809_OP("lb", LBcc, NOREG, Cond16, 0x1020)
+M6809_OP("jsr", JSRm, NOREG, Mem, 0x9D)
+
+// 8-bit accumulator operations. Immediate opcode, then the direct one.
+#define ALU8(MNEM, OPC, IMM)                                                   \
+  M6809_OP(MNEM "a", OPC##i, M6809::A, Imm8, IMM)                              \
+  M6809_OP(MNEM "a", OPC##m, M6809::A, Mem, (IMM) + 0x10)                      \
+  M6809_OP(MNEM "b", OPC##i, M6809::B, Imm8, (IMM) + 0x40)                     \
+  M6809_OP(MNEM "b", OPC##m, M6809::B, Mem, (IMM) + 0x50)
+ALU8("sub", SUB8, 0x80)
+ALU8("cmp", CMP8, 0x81)
+ALU8("sbc", SBC8, 0x82)
+ALU8("and", AND8, 0x84)
+ALU8("bit", BIT8, 0x85)
+ALU8("ld", LD8, 0x86)
+ALU8("eor", EOR8, 0x88)
+ALU8("adc", ADC8, 0x89)
+ALU8("or", OR8, 0x8A)
+ALU8("add", ADD8, 0x8B)
+#undef ALU8
+M6809_OP("sta", ST8m, M6809::A, Mem, 0x97)
+M6809_OP("stb", ST8m, M6809::B, Mem, 0xD7)
+
+// 16-bit operations.
+#define OP16(MNEM, OPI, OPM, REG, IMM)                                         \
+  M6809_OP(MNEM, OPI, REG, Imm16, IMM)                                         \
+  M6809_OP(MNEM, OPM, REG, Mem, (IMM) + 0x10)
+OP16("subd", SUBDi, SUBDm, NOREG, 0x83)
+OP16("addd", ADDDi, ADDDm, NOREG, 0xC3)
+OP16("ldd", LD16i, LD16m, M6809::D, 0xCC)
+OP16("ldx", LD16i, LD16m, M6809::X, 0x8E)
+OP16("ldu", LD16i, LD16m, M6809::U, 0xCE)
+OP16("ldy", LD16i, LD16m, M6809::Y, 0x108E)
+OP16("lds", LDSi, LDSm, NOREG, 0x10CE)
+OP16("cmpd", CMP16i, CMP16m, M6809::D, 0x1083)
+OP16("cmpx", CMP16i, CMP16m, M6809::X, 0x8C)
+OP16("cmpy", CMP16i, CMP16m, M6809::Y, 0x108C)
+OP16("cmpu", CMP16i, CMP16m, M6809::U, 0x1183)
+OP16("cmps", CMPSi, CMPSm, NOREG, 0x118C)
+#undef OP16
+M6809_OP("std", ST16m, M6809::D, Mem, 0xDD)
+M6809_OP("stx", ST16m, M6809::X, Mem, 0x9F)
+M6809_OP("stu", ST16m, M6809::U, Mem, 0xDF)
+M6809_OP("sty", ST16m, M6809::Y, Mem, 0x109F)
+M6809_OP("sts", STSm, NOREG, Mem, 0x10DF)
+
+#undef NOREG
+#undef M6809_OP

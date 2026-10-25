@@ -10,9 +10,27 @@
 #define LLVM_LIB_TARGET_M6809_MCTARGETDESC_M6809MCTARGETDESC_H
 
 #include "llvm/Support/DataTypes.h"
+#include <memory>
 
 namespace llvm {
+class MCAsmBackend;
+class MCCodeEmitter;
+class MCContext;
+class MCInstrInfo;
+class MCObjectTargetWriter;
+class MCRegisterInfo;
+class MCSubtargetInfo;
+class MCTargetOptions;
 class Target;
+
+MCCodeEmitter *createM6809MCCodeEmitter(const MCInstrInfo &MCII,
+                                        MCContext &Ctx);
+MCAsmBackend *createM6809AsmBackend(const Target &T,
+                                    const MCSubtargetInfo &STI,
+                                    const MCRegisterInfo &MRI,
+                                    const MCTargetOptions &Options);
+std::unique_ptr<MCObjectTargetWriter>
+createM6809ELFObjectWriter(uint8_t OSABI);
 
 namespace M6809CC {
 // Branch conditions, in the order of the Bcc opcodes' low nibble from 0x22.
