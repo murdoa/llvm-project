@@ -30,6 +30,11 @@ def SP : M6800Reg<"sp">, DwarfRegNum<[4]>;
 def PC : M6800Reg<"pc">, DwarfRegNum<[5]>;
 def CC : M6800Reg<"cc">, DwarfRegNum<[6]>;
 
+// The frame pointer of a function with variable-sized stack objects. It is
+// not a register but the word __m6800_fp in memory: the base of a stack slot
+// until M6800FrameAccess loads it into X.
+def FP : M6800Reg<"fp">;
+
 //===----------------------------------------------------------------------===//
 // Register classes
 //===----------------------------------------------------------------------===//
@@ -46,10 +51,10 @@ def IDX16 : RegisterClass<"M6800", [i16], 8, (add X)>;
 // Every allocatable 16-bit register.
 def GR16 : RegisterClass<"M6800", [i16], 8, (add D, X)>;
 
-// Registers usable as the base of a memory operand. SP (reserved, so never
-// allocated) is the base of a stack slot until M6800FrameAccess rewrites it
-// to X.
-def PTR16 : RegisterClass<"M6800", [i16], 8, (add X, SP)>;
+// Registers usable as the base of a memory operand. SP and FP (reserved, so
+// never allocated) are the base of a stack slot until M6800FrameAccess
+// rewrites it to X.
+def PTR16 : RegisterClass<"M6800", [i16], 8, (add X, SP, FP)>;
 
 def CCR : RegisterClass<"M6800", [i8], 8, (add CC)> {
   let CopyCost = -1;

@@ -57,6 +57,22 @@ def M6800SelectCC : SDNode<"M6800ISD::SELECT_CC",
                                                 SDTCisSameAs<3, 4>,
                                                 SDTCisVT<5, i8>]>>;
 
+// Variable-sized stack objects. DYNALLOC moves SP down by its first operand
+// and returns the lowest byte of the new space, aligned down to the second.
+// STACKSAVE gives SP + 1, the value TSX gives, and STACKRESTORE takes it
+// back.
+def M6800DynAlloc : SDNode<"M6800ISD::DYNALLOC",
+                           SDTypeProfile<1, 2, [SDTCisVT<0, i16>,
+                                                SDTCisVT<1, i16>,
+                                                SDTCisVT<2, i16>]>,
+                           [SDNPHasChain, SDNPSideEffect]>;
+def M6800StackSave : SDNode<"ISD::STACKSAVE",
+                            SDTypeProfile<1, 0, [SDTCisVT<0, i16>]>,
+                            [SDNPHasChain, SDNPSideEffect]>;
+def M6800StackRestore : SDNode<"ISD::STACKRESTORE",
+                               SDTypeProfile<0, 1, [SDTCisVT<0, i16>]>,
+                               [SDNPHasChain, SDNPSideEffect]>;
+
 def M6800Call : SDNode<"M6800ISD::CALL",
                        SDTypeProfile<0, -1, [SDTCisVT<0, i16>]>,
                        [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
@@ -353,6 +369,24 @@ def ADD16ri : M6800Pseudo<(outs GR16:$dst), (ins GR16:$src, i16imm_op:$imm), "",
 // The address of a stack slot, in D or X. Expanded by M6800FrameAccess.
 let Defs = [CC] in
 def LEAFI : M6800Pseudo<(outs GR16:$dst), (ins memidx:$addr), "", []>;
+
+// Variable-sized stack objects, expanded after register allocation:
+//   DYNALLOC:       pshb; psha; tsx; xgdx; tsx; subd 0,x; xgdx; inx; inx; txs
+//   STACKSAVE16:    tsx
+//   STACKRESTORE16: txs
+let hasSideEffects = 1 in {
+  let Uses = [SP], Defs = [D, SP, CC] in
+  def DYNALLOC : M6800Pseudo<(outs IDX16:$dst),
+                             (ins ACC16:$size, i16imm:$align), "",
+                             [(set IDX16:$dst,
+                                   (M6800DynAlloc ACC16:$size, timm:$align))]>;
+  let Uses = [SP] in
+  def STACKSAVE16 : M6800Pseudo<(outs IDX16:$dst), (ins), "",
+                                [(set IDX16:$dst, (M6800StackSave))]>;
+  let Uses = [SP], Defs = [SP] in
+  def STACKRESTORE16 : M6800Pseudo<(outs), (ins IDX16:$src), "",
+                                   [(M6800StackRestore IDX16:$src)]>;
+}
 
 // There is no 16-bit AND/OR/EOR. These pseudos become the 8-bit instruction
 // on A (high byte) then B (low byte).

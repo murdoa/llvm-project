@@ -12,11 +12,17 @@
 //            +-----------------+
 //   higher   | stack args      |  2 ... on entry
 //            | return address  |  0, 1 on entry (pushed by JSR/BSR)
+//            | [caller's FP]   |  with a frame pointer
 //            | locals / spills |  0 .. N - 1 after the prologue
 //   SP + 1 ->+-----------------+
+//            | [dynamic allocas, call arguments]
 //
-// There is no frame pointer: frames with variable-sized objects are not
-// supported yet.
+// A function with variable-sized objects has a frame pointer. No register
+// is free for it, so it is the word __m6800_fp in memory, which holds SP + 1
+// as it is after the prologue: stack slots are "ldx __m6800_fp" and "off,x"
+// with the same offsets as from SP. The prologue saves the caller's value
+// and the epilogue puts it back. Calls then move SP themselves, since the
+// space below the fixed frame belongs to the allocas.
 //
 //===----------------------------------------------------------------------===//
 
@@ -32,22 +38,51 @@
 
 using namespace llvm;
 
+static const char *const FPSymbol = "__m6800_fp";
+
 // Frames up to this size are allocated and freed with PSHX/PULX and
 // DES/INS, one byte of code per two (or one) bytes of frame.
 static constexpr int64_t SmallFrame = 8;
+
+bool M6800FrameLowering::hasFPImpl(const MachineFunction &MF) const {
+  return MF.getFrameInfo().hasVarSizedObjects();
+}
+
+// The caller's frame pointer is saved just below the return address.
+void M6800FrameLowering::determineCalleeSaves(MachineFunction &MF,
+                                              BitVector &SavedRegs,
+                                              RegScavenger *RS) const {
+  TargetFrameLowering::determineCalleeSaves(MF, SavedRegs, RS);
+  if (hasFP(MF))
+    MF.getFrameInfo().CreateFixedSpillStackObject(2, -2);
+}
+
+// Loads or stores the frame pointer word: "ldx", "stx" or "lds".
+static MachineInstrBuilder buildFPAccess(const TargetInstrInfo &TII,
+                                         MachineBasicBlock &MBB,
+                                         MachineBasicBlock::iterator I,
+                                         const DebugLoc &DL, unsigned Opc) {
+  MachineInstrBuilder MIB = BuildMI(MBB, I, DL, TII.get(Opc));
+  if (Opc == M6800::LD16m)
+    MIB.addReg(M6800::X, RegState::Define);
+  else if (Opc == M6800::ST16m)
+    MIB.addReg(M6800::X);
+  return MIB.addReg(0)
+      .addExternalSymbol(FPSymbol)
+      .addImm(M6800Mem::Extended);
+}
 
 // The prologue keeps D, which may hold the first argument. X is free.
 //
 //   small:  pshx ... [des]
 //   large:  tsx; xgdx; subd #n; xgdx; txs
 //
-// In the large form the second XGDX puts the caller's D back.
+// In the large form the second XGDX puts the caller's D back. With a frame
+// pointer, "ldx __m6800_fp; pshx" comes first and "tsx; stx __m6800_fp"
+// last.
 void M6800FrameLowering::emitPrologue(MachineFunction &MF,
                                       MachineBasicBlock &MBB) const {
   MachineFrameInfo &MFI = MF.getFrameInfo();
-  if (MFI.hasVarSizedObjects())
-    MF.getFunction().getContext().diagnose(DiagnosticInfoUnsupported(
-        MF.getFunction(), "variable-sized stack objects on the 6800"));
   int64_t StackSize = MFI.getStackSize();
   const TargetInstrInfo &TII = *STI.getInstrInfo();
   MachineBasicBlock::iterator MBBI = MBB.begin();
@@ -56,23 +91,36 @@ void M6800FrameLowering::emitPrologue(MachineFunction &MF,
     return BuildMI(MBB, MBBI, DL, TII.get(Opc))
         .setMIFlag(MachineInstr::FrameSetup);
   };
+  bool FP = hasFP(MF);
 
+  if (FP) {
+    buildFPAccess(TII, MBB, MBBI, DL, M6800::LD16m)
+        .setMIFlag(MachineInstr::FrameSetup);
+    Emit(M6800::PSHX).addReg(M6800::X);
+    StackSize -= 2;
+  }
   if (StackSize <= SmallFrame) {
     for (int64_t I = 0; I + 2 <= StackSize; I += 2)
       Emit(M6800::PSHX).addReg(M6800::X, RegState::Undef);
     if (StackSize & 1)
       Emit(M6800::DES);
-    return;
+  } else {
+    Emit(M6800::TSX);
+    Emit(M6800::XGDX);
+    Emit(M6800::SUBDi).addReg(M6800::D, RegState::Define).addReg(M6800::D)
+        .addImm(StackSize);
+    Emit(M6800::XGDX);
+    Emit(M6800::TXS);
   }
-  Emit(M6800::TSX);
-  Emit(M6800::XGDX);
-  Emit(M6800::SUBDi).addReg(M6800::D, RegState::Define).addReg(M6800::D)
-      .addImm(StackSize);
-  Emit(M6800::XGDX);
-  Emit(M6800::TXS);
+  if (FP) {
+    Emit(M6800::TSX);
+    buildFPAccess(TII, MBB, MBBI, DL, M6800::ST16m)
+        .setMIFlag(MachineInstr::FrameSetup);
+  }
 }
 
 // The epilogue keeps D, and X too when it holds part of the return value.
+// It frees N bytes:
 //
 //   X free, small:  pulx ... [ins]
 //   X free, large:  tsx; xgdx; addd #n; xgdx; txs
@@ -82,6 +130,12 @@ void M6800FrameLowering::emitPrologue(MachineFunction &MF,
 //
 // The last form copies the saved D and X above the frame, then moves SP up
 // to them.
+//
+// With a frame pointer, "lds __m6800_fp" first frees the allocas and all but
+// one byte of the fixed frame below the saved FP; the saved FP is then put
+// back with "pulx; stx __m6800_fp", or with X live:
+//
+//   pshx; pshb; psha; tsx; ldx 4,x; stx __m6800_fp; pula; pulb; pulx; ins; ins
 void M6800FrameLowering::emitEpilogue(MachineFunction &MF,
                                       MachineBasicBlock &MBB) const {
   int64_t StackSize = MF.getFrameInfo().getStackSize();
@@ -91,6 +145,50 @@ void M6800FrameLowering::emitEpilogue(MachineFunction &MF,
   MachineBasicBlock::iterator MBBI = MBB.getFirstTerminator();
   DebugLoc DL = MBBI != MBB.end() ? MBBI->getDebugLoc() : DebugLoc();
   bool XLive = MBBI != MBB.end() && MBBI->readsRegister(M6800::X, nullptr);
+  auto Emit = [&](unsigned Opc) {
+    return BuildMI(MBB, MBBI, DL, TII.get(Opc))
+        .setMIFlag(MachineInstr::FrameDestroy);
+  };
+
+  if (!hasFP(MF)) {
+    emitFree(MF, MBB, MBBI, DL, StackSize, XLive);
+    return;
+  }
+  // SP + 1 = __m6800_fp: the bottom of the fixed frame.
+  buildFPAccess(TII, MBB, MBBI, DL, M6800::LDSm)
+      .setMIFlag(MachineInstr::FrameDestroy);
+  if (StackSize == 2)
+    Emit(M6800::DES);
+  else
+    emitFree(MF, MBB, MBBI, DL, StackSize - 3, XLive);
+  if (!XLive) {
+    Emit(M6800::PULX).addReg(M6800::X, RegState::Define);
+    buildFPAccess(TII, MBB, MBBI, DL, M6800::ST16m)
+        .setMIFlag(MachineInstr::FrameDestroy);
+    return;
+  }
+  Emit(M6800::PSHX).addReg(M6800::X);
+  Emit(M6800::PSH8).addReg(M6800::B);
+  Emit(M6800::PSH8).addReg(M6800::A);
+  Emit(M6800::TSX);
+  Emit(M6800::LD16m).addReg(M6800::X, RegState::Define).addReg(M6800::X)
+      .addImm(4).addImm(M6800Mem::Auto);
+  buildFPAccess(TII, MBB, MBBI, DL, M6800::ST16m)
+      .setMIFlag(MachineInstr::FrameDestroy);
+  Emit(M6800::PUL8).addReg(M6800::A, RegState::Define);
+  Emit(M6800::PUL8).addReg(M6800::B, RegState::Define);
+  Emit(M6800::PULX).addReg(M6800::X, RegState::Define);
+  Emit(M6800::INS);
+  Emit(M6800::INS);
+}
+
+void M6800FrameLowering::emitFree(MachineFunction &MF, MachineBasicBlock &MBB,
+                                  MachineBasicBlock::iterator MBBI,
+                                  const DebugLoc &DL, int64_t StackSize,
+                                  bool XLive) const {
+  if (!StackSize)
+    return;
+  const TargetInstrInfo &TII = *STI.getInstrInfo();
   auto Emit = [&](unsigned Opc) {
     return BuildMI(MBB, MBBI, DL, TII.get(Opc))
         .setMIFlag(MachineInstr::FrameDestroy);
@@ -143,6 +241,18 @@ void M6800FrameLowering::emitEpilogue(MachineFunction &MF,
 MachineBasicBlock::iterator M6800FrameLowering::eliminateCallFramePseudoInstr(
     MachineFunction &MF, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator I) const {
-  // The call frame is part of the fixed frame, so these do nothing.
+  // Without a frame pointer the call frame is part of the fixed frame, so
+  // these do nothing. With one, "des" or "ins" for each byte: they change
+  // no register or flag.
+  if (!hasReservedCallFrame(MF)) {
+    const TargetInstrInfo &TII = *STI.getInstrInfo();
+    bool Setup = I->getOpcode() == TII.getCallFrameSetupOpcode();
+    int64_t Amount = I->getOperand(0).getImm();
+    if (!Setup)
+      Amount -= I->getOperand(1).getImm();
+    for (int64_t K = 0; K < Amount; ++K)
+      BuildMI(MBB, I, I->getDebugLoc(),
+              TII.get(Setup ? M6800::DES : M6800::INS));
+  }
   return MBB.erase(I);
 }

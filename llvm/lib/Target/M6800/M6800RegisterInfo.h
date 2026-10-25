@@ -34,14 +34,6 @@ public:
 
   Register getFrameRegister(const MachineFunction &MF) const override;
 
-  // The 6800 has no alignment requirements. An over-aligned local keeps its
-  // alignment within the frame but SP is never realigned. A frame that could
-  // not be realigned would make the local a dynamic alloca, which needs a
-  // frame pointer.
-  bool canRealignStack(const MachineFunction &) const override {
-    return false;
-  }
-
   // Values that an instruction forces into D (or X) may live in any
   // 16-bit register between uses. Letting the allocator widen split ranges
   // is what makes "D op D" (both sides computed in D) allocatable.

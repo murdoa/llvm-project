@@ -20,10 +20,10 @@ class M6800FrameLowering : public TargetFrameLowering {
 
 public:
   explicit M6800FrameLowering(const M6800Subtarget &STI)
-      // Stack objects keep their alignment within the frame, but SP is
-      // never realigned (see M6800RegisterInfo::canRealignStack).
+      // The fixed frame is not realigned. A local with more than byte
+      // alignment becomes a dynamic alloca, which DYNALLOC aligns.
       : TargetFrameLowering(StackGrowsDown, Align(1), /*LocalAreaOffset=*/0,
-                            Align(1), /*StackRealignable=*/true),
+                            Align(1), /*StackRealignable=*/false),
         STI(STI) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
@@ -33,8 +33,16 @@ public:
   eliminateCallFramePseudoInstr(MachineFunction &MF, MachineBasicBlock &MBB,
                                 MachineBasicBlock::iterator I) const override;
 
+  void determineCalleeSaves(MachineFunction &MF, BitVector &SavedRegs,
+                            RegScavenger *RS) const override;
+
 protected:
-  bool hasFPImpl(const MachineFunction &MF) const override { return false; }
+  bool hasFPImpl(const MachineFunction &MF) const override;
+
+private:
+  void emitFree(MachineFunction &MF, MachineBasicBlock &MBB,
+                MachineBasicBlock::iterator MBBI, const DebugLoc &DL,
+                int64_t StackSize, bool XLive) const;
 };
 
 } // namespace llvm

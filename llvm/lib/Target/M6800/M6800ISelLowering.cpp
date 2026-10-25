@@ -106,9 +106,9 @@ M6800TargetLowering::M6800TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::VACOPY, MVT::Other, Expand);
   setOperationAction(ISD::VAEND, MVT::Other, Expand);
 
-  setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
-  setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
-  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
+  setOperationAction(ISD::STACKSAVE, MVT::Other, Legal);
+  setOperationAction(ISD::STACKRESTORE, MVT::Other, Legal);
+  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Custom);
   setOperationAction(ISD::RETURNADDR, MVT::i16, Custom);
   setOperationAction(ISD::FRAMEADDR, MVT::i16, Custom);
 
@@ -170,6 +170,15 @@ SDValue M6800TargetLowering::LowerOperation(SDValue Op,
     return lowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:
     return lowerFRAMEADDR(Op, DAG);
+  case ISD::DYNAMIC_STACKALLOC: {
+    SDLoc DL(Op);
+    uint64_t Align = std::max<uint64_t>(Op.getConstantOperandVal(2), 1);
+    SDValue Res = DAG.getNode(M6800ISD::DYNALLOC, DL,
+                              DAG.getVTList(MVT::i16, MVT::Other),
+                              Op.getOperand(0), Op.getOperand(1),
+                              DAG.getTargetConstant(Align, DL, MVT::i16));
+    return DAG.getMergeValues({Res, Res.getValue(1)}, DL);
+  }
   case ISD::SHL:
   case ISD::SRL:
   case ISD::SRA:

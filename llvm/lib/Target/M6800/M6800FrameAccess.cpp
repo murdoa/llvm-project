@@ -22,6 +22,10 @@
 // (LEAFI) is computed here too. Offsets above 255, which indexed mode cannot
 // hold, are added to X with "xgdx; addd #n; xgdx".
 //
+// In a function with a frame pointer, stack slots are based on FP instead,
+// and "ldx __m6800_fp" takes the place of TSX. FP does not move when X is
+// pushed, so those offsets stay as they are.
+//
 //===----------------------------------------------------------------------===//
 
 #include "M6800.h"
@@ -61,17 +65,21 @@ private:
   const M6800InstrInfo *TII = nullptr;
   const TargetRegisterInfo *TRI = nullptr;
   DenseMap<const MachineInstr *, LiveAfter> Live;
-  // X holds SP + 1, from a TSX this pass emitted, and no other value.
-  bool XIsSP = false;
+  // The base register whose value X holds, from a TSX or "ldx __m6800_fp"
+  // this pass emitted, or 0.
+  Register XBase;
+
+  void loadBase(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
+                const DebugLoc &DL, Register Base);
 
   void computeLiveness(MachineBasicBlock &MBB);
   bool rewrite(MachineInstr &MI, unsigned MemIdx);
   void rewriteLEAFI(MachineInstr &MI);
-  void rewriteStoreX(MachineInstr &MI, int64_t Off);
+  void rewriteStoreX(MachineInstr &MI, Register Base, int64_t Off);
   void addToX(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
               const DebugLoc &DL, int64_t N, bool BFree);
   void addToXKeepFlags(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
-                       const DebugLoc &DL, int64_t N);
+                       const DebugLoc &DL, Register Base, int64_t N);
 };
 
 } // namespace
@@ -132,15 +140,31 @@ void M6800FrameAccess::computeLiveness(MachineBasicBlock &MBB) {
   }
 }
 
-// The explicit operand that starts a memory operand based on SP, or -1.
+// The explicit operand that starts a memory operand based on SP or FP, or -1.
 static int findStackOperand(const MachineInstr &MI) {
   for (unsigned I = 0, N = MI.getNumExplicitOperands(); I + 2 < N; ++I) {
     const MachineOperand &MO = MI.getOperand(I);
-    if (MO.isReg() && !MO.isDef() && MO.getReg() == M6800::SP &&
+    if (MO.isReg() && !MO.isDef() &&
+        (MO.getReg() == M6800::SP || MO.getReg() == M6800::FP) &&
         MI.getOperand(I + 1).isImm() && MI.getOperand(I + 2).isImm())
       return I;
   }
   return -1;
+}
+
+// X = SP + 1 ("tsx") or X = __m6800_fp ("ldx __m6800_fp", which leaves C
+// alone).
+void M6800FrameAccess::loadBase(MachineBasicBlock &MBB,
+                                MachineBasicBlock::iterator I,
+                                const DebugLoc &DL, Register Base) {
+  if (Base == M6800::SP) {
+    BuildMI(MBB, I, DL, TII->get(M6800::TSX));
+    return;
+  }
+  BuildMI(MBB, I, DL, TII->get(M6800::LD16m), M6800::X)
+      .addReg(0)
+      .addExternalSymbol("__m6800_fp")
+      .addImm(M6800Mem::Extended);
 }
 
 // X += N. "inx" for small N; "ldab #n; abx" when B is free; else "xgdx;
@@ -165,21 +189,22 @@ void M6800FrameAccess::addToX(MachineBasicBlock &MBB,
   BuildMI(MBB, I, DL, TII->get(M6800::XGDX));
 }
 
-// X = SP + 1 + N, leaving A, B and the flags as they were: "pshb; psha;
-// tpa; psha; tsx; xgdx; addd #n; xgdx; pula; tap; pula; pulb". N counts from
-// SP as it is before this sequence.
+// X = Base + N, leaving A, B and the flags as they were: "pshb; psha;
+// tpa; psha; tsx; xgdx; addd #n; xgdx; pula; tap; pula; pulb". For SP, N
+// counts from SP + 1 as it is before this sequence.
 void M6800FrameAccess::addToXKeepFlags(MachineBasicBlock &MBB,
                                        MachineBasicBlock::iterator I,
-                                       const DebugLoc &DL, int64_t N) {
+                                       const DebugLoc &DL, Register Base,
+                                       int64_t N) {
   BuildMI(MBB, I, DL, TII->get(M6800::PSH8)).addReg(M6800::B);
   BuildMI(MBB, I, DL, TII->get(M6800::PSH8)).addReg(M6800::A);
   BuildMI(MBB, I, DL, TII->get(M6800::TPA));
   BuildMI(MBB, I, DL, TII->get(M6800::PSH8)).addReg(M6800::A);
-  BuildMI(MBB, I, DL, TII->get(M6800::TSX));
+  loadBase(MBB, I, DL, Base);
   BuildMI(MBB, I, DL, TII->get(M6800::XGDX));
   BuildMI(MBB, I, DL, TII->get(M6800::ADDDi), M6800::D)
       .addReg(M6800::D)
-      .addImm(N + 3);
+      .addImm(Base == M6800::SP ? N + 3 : N);
   BuildMI(MBB, I, DL, TII->get(M6800::XGDX));
   BuildMI(MBB, I, DL, TII->get(M6800::PUL8), M6800::A);
   BuildMI(MBB, I, DL, TII->get(M6800::TAP));
@@ -192,52 +217,55 @@ void M6800FrameAccess::rewriteLEAFI(MachineInstr &MI) {
   MachineBasicBlock &MBB = *MI.getParent();
   DebugLoc DL = MI.getDebugLoc();
   Register Dst = MI.getOperand(0).getReg();
+  Register Base = MI.getOperand(1).getReg();
   int64_t Off = MI.getOperand(2).getImm();
   LiveAfter LA = Live.lookup(&MI);
 
   if (Dst == M6800::X) {
-    if (!XIsSP)
-      BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
+    if (XBase != Base)
+      loadBase(MBB, MI, DL, Base);
     addToX(MBB, MI, DL, Off, !LA.B && !LA.D);
-    XIsSP = Off == 0;
+    XBase = Off == 0 ? Base : Register();
   } else {
     // tsx; xgdx; addd #n, with X kept around it when live.
     bool SaveX = LA.X;
     if (SaveX)
       BuildMI(MBB, MI, DL, TII->get(M6800::PSHX)).addReg(M6800::X);
-    if (SaveX || !XIsSP)
-      BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
+    if (XBase != Base || (SaveX && Base == M6800::SP))
+      loadBase(MBB, MI, DL, Base);
     BuildMI(MBB, MI, DL, TII->get(M6800::XGDX));
-    Off += SaveX ? 2 : 0;
+    Off += SaveX && Base == M6800::SP ? 2 : 0;
     if (Off)
       BuildMI(MBB, MI, DL, TII->get(M6800::ADDDi), M6800::D)
           .addReg(M6800::D)
           .addImm(Off);
     if (SaveX)
       BuildMI(MBB, MI, DL, TII->get(M6800::PULX), M6800::X);
-    XIsSP = false;
+    XBase = Register();
   }
   MI.eraseFromParent();
 }
 
 // "stx off,sp": X goes through D. "[pshb; psha] xgdx; tsx; std off,x;
 // [xgdx] [pula; pulb]", with D kept when live and X put back when live.
-void M6800FrameAccess::rewriteStoreX(MachineInstr &MI, int64_t Off) {
+void M6800FrameAccess::rewriteStoreX(MachineInstr &MI, Register Base,
+                                     int64_t Off) {
   MachineBasicBlock &MBB = *MI.getParent();
   DebugLoc DL = MI.getDebugLoc();
   LiveAfter LA = Live.lookup(&MI);
   if (LA.D) {
     BuildMI(MBB, MI, DL, TII->get(M6800::PSH8)).addReg(M6800::B);
     BuildMI(MBB, MI, DL, TII->get(M6800::PSH8)).addReg(M6800::A);
-    Off += 2;
+    if (Base == M6800::SP)
+      Off += 2;
   }
   BuildMI(MBB, MI, DL, TII->get(M6800::XGDX));
   if (Off > 255 && LA.C) {
     // The store leaves C alone, so C must survive the add.
-    addToXKeepFlags(MBB, MI, DL, Off);
+    addToXKeepFlags(MBB, MI, DL, Base, Off);
     Off = 0;
   } else {
-    BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
+    loadBase(MBB, MI, DL, Base);
     if (Off > 255) {
       // addToX keeps the value in D. The store sets N, Z and V again.
       addToX(MBB, MI, DL, Off, false);
@@ -256,7 +284,7 @@ void M6800FrameAccess::rewriteStoreX(MachineInstr &MI, int64_t Off) {
     BuildMI(MBB, MI, DL, TII->get(M6800::PUL8), M6800::A);
     BuildMI(MBB, MI, DL, TII->get(M6800::PUL8), M6800::B);
   }
-  XIsSP = false;
+  XBase = Register();
   MI.eraseFromParent();
 }
 
@@ -264,11 +292,12 @@ void M6800FrameAccess::rewriteStoreX(MachineInstr &MI, int64_t Off) {
 bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
   MachineBasicBlock &MBB = *MI.getParent();
   DebugLoc DL = MI.getDebugLoc();
+  Register Base = MI.getOperand(MemIdx).getReg();
   int64_t Off = MI.getOperand(MemIdx + 1).getImm();
   LiveAfter LA = Live.lookup(&MI);
 
   if (MI.getOpcode() == M6800::ST16m && MI.getOperand(0).getReg() == M6800::X) {
-    rewriteStoreX(MI, Off);
+    rewriteStoreX(MI, Base, Off);
     return false;
   }
   if (MI.readsRegister(M6800::X, TRI))
@@ -278,19 +307,19 @@ bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
   bool SaveX = LA.X && !DefsX;
   bool NeedsCC = MI.readsRegister(M6800::CC, TRI) ||
                  (LA.C && !clobbersC(MI, TRI));
-  int64_t Pushed = SaveX ? 2 : 0;
+  int64_t Pushed = SaveX && Base == M6800::SP ? 2 : 0;
   int64_t XOff = Off + Pushed;
 
   if (SaveX)
     BuildMI(MBB, MI, DL, TII->get(M6800::PSHX)).addReg(M6800::X);
   bool Moved = false;
   if (XOff > 255 && NeedsCC) {
-    addToXKeepFlags(MBB, MI, DL, XOff);
+    addToXKeepFlags(MBB, MI, DL, Base, XOff);
     XOff = 0;
     Moved = true;
   } else {
-    if (SaveX || !XIsSP)
-      BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
+    if (SaveX || XBase != Base)
+      loadBase(MBB, MI, DL, Base);
     if (XOff > 255) {
       addToX(MBB, MI, DL, XOff, false);
       XOff = 0;
@@ -302,7 +331,7 @@ bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
   if (SaveX)
     BuildMI(MBB, std::next(MI.getIterator()), DL, TII->get(M6800::PULX),
             M6800::X);
-  XIsSP = !SaveX && !DefsX && !Moved;
+  XBase = !SaveX && !DefsX && !Moved ? Base : Register();
   return true;
 }
 
@@ -314,7 +343,7 @@ bool M6800FrameAccess::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     Live.clear();
     computeLiveness(MBB);
-    XIsSP = false;
+    XBase = Register();
     for (MachineInstr &MI : make_early_inc_range(MBB)) {
       if (MI.isDebugInstr())
         continue;
@@ -328,14 +357,14 @@ bool M6800FrameAccess::runOnMachineFunction(MachineFunction &MF) {
         Changed = true;
         if (!rewrite(MI, MemIdx))
           continue;
-        // rewrite() has set XIsSP for what MI leaves in X.
-        if (MI.modifiesRegister(M6800::SP, TRI))
-          XIsSP = false;
+        // rewrite() has set XBase for what MI leaves in X.
+        if (XBase == M6800::SP && MI.modifiesRegister(M6800::SP, TRI))
+          XBase = Register();
         continue;
       }
       if (MI.modifiesRegister(M6800::X, TRI) ||
-          MI.modifiesRegister(M6800::SP, TRI))
-        XIsSP = false;
+          (XBase == M6800::SP && MI.modifiesRegister(M6800::SP, TRI)))
+        XBase = Register();
     }
   }
   return Changed;

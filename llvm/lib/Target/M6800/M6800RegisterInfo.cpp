@@ -41,6 +41,7 @@ BitVector M6800RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(M6800::SP);
   Reserved.set(M6800::PC);
   Reserved.set(M6800::CC);
+  Reserved.set(M6800::FP);
   return Reserved;
 }
 
@@ -56,14 +57,18 @@ bool M6800RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   const MachineFrameInfo &MFI = MI.getMF()->getFrameInfo();
   int FI = MI.getOperand(FIOperandNum).getIndex();
 
+  // With a frame pointer, the same offset from __m6800_fp, which does not
+  // move with SP.
+  bool FP = getFrameLowering(*MI.getMF())->hasFP(*MI.getMF());
   int64_t Offset = MFI.getObjectOffset(FI) +
                    MI.getOperand(FIOperandNum + 1).getImm() +
-                   MFI.getStackSize() + SPAdj;
-  MI.getOperand(FIOperandNum).ChangeToRegister(M6800::SP, /*isDef=*/false);
+                   MFI.getStackSize() + (FP ? 0 : SPAdj);
+  MI.getOperand(FIOperandNum)
+      .ChangeToRegister(FP ? M6800::FP : M6800::SP, /*isDef=*/false);
   MI.getOperand(FIOperandNum + 1).ChangeToImmediate(Offset);
   return false;
 }
 
 Register M6800RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
-  return M6800::SP;
+  return getFrameLowering(MF)->hasFP(MF) ? M6800::FP : M6800::SP;
 }

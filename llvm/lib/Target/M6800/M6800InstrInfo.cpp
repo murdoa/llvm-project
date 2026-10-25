@@ -473,6 +473,53 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.eraseFromParent();
     return true;
   }
+  case M6800::STACKSAVE16:
+    BuildMI(MBB, MI, DL, get(M6800::TSX));
+    MI.eraseFromParent();
+    return true;
+  case M6800::STACKRESTORE16:
+    BuildMI(MBB, MI, DL, get(M6800::TXS));
+    MI.eraseFromParent();
+    return true;
+  case M6800::DYNALLOC: {
+    // X = SP + 1 - D, the lowest byte of the new space, and SP = X - 1. D
+    // goes on the stack to be subtracted from SP + 1 there.
+    //   pshb; psha; tsx; xgdx; tsx; subd 0,x; xgdx; inx; inx; txs
+    // After the pushes X = SP + 1 is two below the old SP + 1. An alignment
+    // above 1 replaces "xgdx; inx; inx" with "addd #2; andb #m; [anda #m];
+    // xgdx".
+    uint64_t Align = MI.getOperand(2).getImm();
+    pushD(MBB, MI, DL);
+    BuildMI(MBB, MI, DL, get(M6800::TSX));
+    buildXGDX(*this, MBB, MI, DL, false, false);
+    BuildMI(MBB, MI, DL, get(M6800::TSX));
+    BuildMI(MBB, MI, DL, get(M6800::SUBDm), M6800::D)
+        .addReg(M6800::D)
+        .addReg(M6800::X)
+        .addImm(0)
+        .addImm(M6800Mem::Auto);
+    if (Align > 1) {
+      uint64_t Mask = ~(Align - 1) & 0xffff;
+      BuildMI(MBB, MI, DL, get(M6800::ADDDi), M6800::D)
+          .addReg(M6800::D)
+          .addImm(2);
+      BuildMI(MBB, MI, DL, get(M6800::AND8i), M6800::B)
+          .addReg(M6800::B)
+          .addImm(Mask & 0xff);
+      if (Mask >> 8 != 0xff)
+        BuildMI(MBB, MI, DL, get(M6800::AND8i), M6800::A)
+            .addReg(M6800::A)
+            .addImm(Mask >> 8);
+      buildXGDX(*this, MBB, MI, DL, false, false);
+    } else {
+      buildXGDX(*this, MBB, MI, DL, false, false);
+      BuildMI(MBB, MI, DL, get(M6800::INX));
+      BuildMI(MBB, MI, DL, get(M6800::INX));
+    }
+    BuildMI(MBB, MI, DL, get(M6800::TXS));
+    MI.eraseFromParent();
+    return true;
+  }
   case M6800::NEG16: {
     // nega; negb; sbca #0. NEGB sets C when B was not zero, which borrows
     // from the high byte.
