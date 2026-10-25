@@ -797,6 +797,28 @@ let isBranch = 1, isIndirectBranch = 1, isTerminator = 1, isBarrier = 1 in
 def JMPm : M6800Inst<(outs), (ins memidx:$addr), "jmp\t$addr", [], 2>;
 // An indirect branch through X (mode 0 is Auto).
 def : Pat<(brind IDX16:$r), (JMPm IDX16:$r, 0, 0)>;
+
+// __builtin_setjmp and __builtin_longjmp. The buffer holds, in 16-bit words:
+// [0] the frame address and [2] SP + 1 (from STACKSAVE16), both stored by
+// clang, and [1] the resume address and [3] __m6800_fp, stored by
+// SJLJ_SETJMP. SJLJ_SETJMP gives 0, or 1 when SJLJ_LONGJMP resumes there.
+def M6800SjLjSetjmp
+    : SDNode<"M6800ISD::EH_SJLJ_SETJMP",
+             SDTypeProfile<1, 1, [SDTCisVT<0, i16>, SDTCisPtrTy<1>]>,
+             [SDNPHasChain, SDNPSideEffect]>;
+def M6800SjLjLongjmp
+    : SDNode<"M6800ISD::EH_SJLJ_LONGJMP", SDTypeProfile<0, 1, [SDTCisPtrTy<0>]>,
+             [SDNPHasChain, SDNPSideEffect]>;
+let usesCustomInserter = 1, hasSideEffects = 1 in {
+  def SJLJ_SETJMP : M6800Pseudo<(outs GR16:$dst), (ins IDX16:$buf), "",
+                                [(set GR16:$dst, (M6800SjLjSetjmp IDX16:$buf))]>;
+  let isTerminator = 1, isBarrier = 1 in
+  def SJLJ_LONGJMP : M6800Pseudo<(outs), (ins IDX16:$buf), "",
+                                 [(M6800SjLjLongjmp IDX16:$buf)]>;
+}
+// Marks where SJLJ_SETJMP's resume block is entered from. Emits nothing.
+let isBranch = 1, isTerminator = 1, hasSideEffects = 1 in
+def SJLJ_SETUP : M6800Pseudo<(outs), (ins brtarget:$dst), "", []>;
 let isCall = 1, Uses = [SP], Defs = [SP] in
 def JSRm : M6800Inst<(outs), (ins memidx:$addr), "jsr\t$addr", [], 2>;
 

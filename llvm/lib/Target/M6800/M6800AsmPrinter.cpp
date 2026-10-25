@@ -36,6 +36,8 @@ public:
   StringRef getPassName() const override { return "M6800 Assembly Printer"; }
 
   void emitInstruction(const MachineInstr *MI) override {
+    if (MI->getOpcode() == M6800::SJLJ_SETUP)
+      return;
     M6800_MC::verifyInstructionPredicates(MI->getOpcode(),
                                           getSubtargetInfo().getFeatureBits());
     MCInst Inst;

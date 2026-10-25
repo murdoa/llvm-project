@@ -111,6 +111,8 @@ M6800TargetLowering::M6800TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Custom);
   setOperationAction(ISD::RETURNADDR, MVT::i16, Custom);
   setOperationAction(ISD::FRAMEADDR, MVT::i16, Custom);
+  setOperationAction(ISD::EH_SJLJ_SETJMP, MVT::i32, Custom);
+  setOperationAction(ISD::EH_SJLJ_LONGJMP, MVT::Other, Custom);
 
   // Multi-word add and subtract use glued carry chains: ADDD/SUBD for the
   // low word, then adcb/adca or sbcb/sbca for each higher one.
@@ -170,6 +172,9 @@ SDValue M6800TargetLowering::LowerOperation(SDValue Op,
     return lowerRETURNADDR(Op, DAG);
   case ISD::FRAMEADDR:
     return lowerFRAMEADDR(Op, DAG);
+  case ISD::EH_SJLJ_LONGJMP:
+    return DAG.getNode(M6800ISD::EH_SJLJ_LONGJMP, SDLoc(Op), MVT::Other,
+                       Op.getOperand(0), Op.getOperand(1));
   case ISD::DYNAMIC_STACKALLOC: {
     SDLoc DL(Op);
     uint64_t Align = std::max<uint64_t>(Op.getConstantOperandVal(2), 1);
@@ -309,6 +314,15 @@ void M6800TargetLowering::ReplaceNodeResults(SDNode *N,
                                              SmallVectorImpl<SDValue> &Results,
                                              SelectionDAG &DAG) const {
   unsigned Opc = N->getOpcode();
+  if (Opc == ISD::EH_SJLJ_SETJMP) {
+    SDLoc DL(N);
+    SDValue R = DAG.getNode(M6800ISD::EH_SJLJ_SETJMP, DL,
+                            DAG.getVTList(MVT::i16, MVT::Other),
+                            N->getOperand(0), N->getOperand(1));
+    Results.push_back(DAG.getNode(ISD::ZERO_EXTEND, DL, MVT::i32, R));
+    Results.push_back(R.getValue(1));
+    return;
+  }
   if ((Opc != ISD::SHL && Opc != ISD::SRL && Opc != ISD::SRA) ||
       N->getValueType(0) != MVT::i32)
     return;
@@ -556,9 +570,114 @@ M6800TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case M6800::SELECT32rr:
   case M6800::SELECT32ri:
     return emitSelect32(MI, MBB);
+  case M6800::SJLJ_SETJMP:
+    return emitSjLjSetjmp(MI, MBB);
+  case M6800::SJLJ_LONGJMP:
+    return emitSjLjLongjmp(MI, MBB);
   default:
     return emitSelect(MI, MBB);
   }
+}
+
+// SJLJ_SETJMP stores the resume address and __m6800_fp, then gives 0 on the
+// way in and 1 when SJLJ_LONGJMP jumps to RestoreMBB:
+//
+//   ThisMBB:    ldd #RestoreMBB; std 2,buf; ldd __m6800_fp; std 6,buf
+//               SJLJ_SETUP RestoreMBB   ; clobbers every register
+//   MainMBB:    v0 = 0
+//   SinkMBB:    dst = PHI [v0, MainMBB], [v1, RestoreMBB]
+//   ...
+//   RestoreMBB: v1 = 1; bra SinkMBB
+MachineBasicBlock *
+M6800TargetLowering::emitSjLjSetjmp(MachineInstr &MI,
+                                    MachineBasicBlock *MBB) const {
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  MachineFunction *MF = MBB->getParent();
+  MachineRegisterInfo &MRI = MF->getRegInfo();
+  const BasicBlock *BB = MBB->getBasicBlock();
+  MachineFunction::iterator It = std::next(MBB->getIterator());
+
+  MachineBasicBlock *MainMBB = MF->CreateMachineBasicBlock(BB);
+  MachineBasicBlock *SinkMBB = MF->CreateMachineBasicBlock(BB);
+  MachineBasicBlock *RestoreMBB = MF->CreateMachineBasicBlock(BB);
+  MF->insert(It, MainMBB);
+  MF->insert(It, SinkMBB);
+  MF->push_back(RestoreMBB);
+  RestoreMBB->setMachineBlockAddressTaken();
+
+  SinkMBB->splice(SinkMBB->begin(), MBB,
+                  std::next(MachineBasicBlock::iterator(MI)), MBB->end());
+  SinkMBB->transferSuccessorsAndUpdatePHIs(MBB);
+  MBB->addSuccessor(MainMBB);
+  MBB->addSuccessor(RestoreMBB);
+  MainMBB->addSuccessor(SinkMBB);
+  RestoreMBB->addSuccessor(SinkMBB);
+
+  Register Dst = MI.getOperand(0).getReg();
+  Register Buf = MI.getOperand(1).getReg();
+  Register Addr = MRI.createVirtualRegister(&M6800::ACC16RegClass);
+  Register FP = MRI.createVirtualRegister(&M6800::ACC16RegClass);
+  Register V0 = MRI.createVirtualRegister(&M6800::GR16RegClass);
+  Register V1 = MRI.createVirtualRegister(&M6800::GR16RegClass);
+
+  BuildMI(MBB, DL, TII.get(M6800::LD16i), Addr).addMBB(RestoreMBB);
+  BuildMI(MBB, DL, TII.get(M6800::ST16m))
+      .addReg(Addr)
+      .addReg(Buf)
+      .addImm(2)
+      .addImm(M6800Mem::Auto);
+  BuildMI(MBB, DL, TII.get(M6800::LD16m), FP)
+      .addReg(0)
+      .addExternalSymbol("__m6800_fp")
+      .addImm(M6800Mem::Extended);
+  BuildMI(MBB, DL, TII.get(M6800::ST16m))
+      .addReg(FP)
+      .addReg(Buf)
+      .addImm(6)
+      .addImm(M6800Mem::Auto);
+  BuildMI(MBB, DL, TII.get(M6800::SJLJ_SETUP))
+      .addMBB(RestoreMBB)
+      .addRegMask(Subtarget.getRegisterInfo()->getNoPreservedMask());
+
+  BuildMI(MainMBB, DL, TII.get(M6800::LD16i), V0).addImm(0);
+  BuildMI(RestoreMBB, DL, TII.get(M6800::LD16i), V1).addImm(1);
+  BuildMI(RestoreMBB, DL, TII.get(M6800::BRA)).addMBB(SinkMBB);
+  BuildMI(*SinkMBB, SinkMBB->begin(), DL, TII.get(TargetOpcode::PHI), Dst)
+      .addReg(V0)
+      .addMBB(MainMBB)
+      .addReg(V1)
+      .addMBB(RestoreMBB);
+
+  MI.eraseFromParent();
+  return SinkMBB;
+}
+
+// SJLJ_LONGJMP restores __m6800_fp and SP from the buffer and jumps to the
+// resume address: "ldd 6,x; std __m6800_fp; lds 4,x; des; ldx 2,x; jmp 0,x".
+// The buffer holds SP + 1, hence the DES.
+MachineBasicBlock *
+M6800TargetLowering::emitSjLjLongjmp(MachineInstr &MI,
+                                     MachineBasicBlock *MBB) const {
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  auto Mem = [](MachineInstrBuilder MIB, int64_t Off) {
+    MIB.addReg(M6800::X).addImm(Off).addImm(M6800Mem::Auto);
+  };
+  BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY), M6800::X)
+      .addReg(MI.getOperand(0).getReg());
+  Mem(BuildMI(*MBB, MI, DL, TII.get(M6800::LD16m), M6800::D), 6);
+  BuildMI(*MBB, MI, DL, TII.get(M6800::ST16m))
+      .addReg(M6800::D, RegState::Kill)
+      .addReg(0)
+      .addExternalSymbol("__m6800_fp")
+      .addImm(M6800Mem::Extended);
+  Mem(BuildMI(*MBB, MI, DL, TII.get(M6800::LDSm)), 4);
+  BuildMI(*MBB, MI, DL, TII.get(M6800::DES));
+  Mem(BuildMI(*MBB, MI, DL, TII.get(M6800::LD16m), M6800::X), 2);
+  Mem(BuildMI(*MBB, MI, DL, TII.get(M6800::JMPm)), 0);
+  MI.eraseFromParent();
+  return MBB;
 }
 
 // Variable shifts become a count-down loop:
