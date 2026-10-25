@@ -6,9 +6,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Encodings are not modelled yet. The backend only emits assembly for now.
-// Byte encodings (opcode, 0x10/0x11 prefix pages, indexed postbytes) will go
-// in here when the MC code emitter is added.
+// Encodings are not given here: the encoder, assembler and disassembler
+// share the opcode table in MCTargetDesc/M6809Opcodes.def.
 //
 //===----------------------------------------------------------------------===//
 

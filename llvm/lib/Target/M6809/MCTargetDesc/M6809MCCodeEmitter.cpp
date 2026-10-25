@@ -46,7 +46,8 @@ private:
                  SmallVectorImpl<MCFixup> &Fixups) const;
   void encodeMemory(const MCInst &MI, const M6809::OpcodeEntry &E,
                     SmallVectorImpl<char> &CB,
-                    SmallVectorImpl<MCFixup> &Fixups) const;
+                    SmallVectorImpl<MCFixup> &Fixups,
+                    const MCOperand *Imm8 = nullptr) const;
   void error(const MCInst &MI, const Twine &Msg) const {
     Ctx.reportError(MI.getLoc(), Msg);
   }
@@ -86,9 +87,10 @@ void M6809MCCodeEmitter::emitValue(const MCInst &MI, const MCOperand &Op,
       error(MI, "value does not fit in 8 bits");
     if (Size == 2 && !isIntN(16, V) && !isUIntN(16, V))
       error(MI, "value does not fit in 16 bits");
-    if (Size == 2)
-      emitByte(CB, V >> 8);
-    emitByte(CB, V);
+    if (Size == 4 && !isIntN(32, V) && !isUIntN(32, V))
+      error(MI, "value does not fit in 32 bits");
+    for (unsigned I = Size; I-- > 0;)
+      emitByte(CB, V >> (8 * I));
     return;
   }
   const MCExpr *Expr =
@@ -109,10 +111,13 @@ static int getIndexBits(MCRegister Reg) {
   }
 }
 
+// A memory operand and the opcode before it. Imm8, for AIM and the like,
+// goes between the opcode and the address bytes.
 void M6809MCCodeEmitter::encodeMemory(const MCInst &MI,
                                       const M6809::OpcodeEntry &E,
                                       SmallVectorImpl<char> &CB,
-                                      SmallVectorImpl<MCFixup> &Fixups) const {
+                                      SmallVectorImpl<MCFixup> &Fixups,
+                                      const MCOperand *Imm8) const {
   unsigned N = MI.getNumOperands();
   MCRegister Base = MI.getOperand(N - 3).getReg();
   const MCOperand &Off = MI.getOperand(N - 2);
@@ -122,8 +127,13 @@ void M6809MCCodeEmitter::encodeMemory(const MCInst &MI,
   Mode &= M6809Mem::ModeMask;
   bool IdxOnly = E.Form == M6809::Idx;
 
+  auto EmitCode = [&](uint16_t Code) {
+    emitCode(CB, Code);
+    if (Imm8)
+      emitValue(MI, *Imm8, 1, FK_Data_1, CB, Fixups);
+  };
   auto Indexed = [&](unsigned Post) {
-    emitCode(CB, M6809::getIndexedCode(E));
+    EmitCode(M6809::getIndexedCode(E));
     emitByte(CB, Post);
   };
 
@@ -146,15 +156,41 @@ void M6809MCCodeEmitter::encodeMemory(const MCInst &MI,
     if (IdxOnly)
       return error(MI, "instruction needs an indexed address");
     if (Mode == M6809Mem::Direct) {
-      emitCode(CB, M6809::getDirectCode(E));
+      EmitCode(M6809::getDirectCode(E));
       emitValue(MI, Off, 1, M6809::fixup_dp8, CB, Fixups);
       return;
     }
     if (Mode != M6809Mem::Auto && Mode != M6809Mem::Extended)
       return error(MI, "invalid address");
-    emitCode(CB, M6809::getExtendedCode(E));
+    EmitCode(M6809::getExtendedCode(E));
     emitValue(MI, Off, 2, FK_Data_2, CB, Fixups);
     return;
+  }
+
+  // W as the base (HD6309): ,W  n16,W  ,W++  ,--W, and each indirect.
+  if (Base == M6809::W) {
+    unsigned Ind1 = Ind ? 1 : 0;
+    switch (Mode) {
+    case M6809Mem::PostInc2:
+      Indexed(0xCF + Ind1);
+      return;
+    case M6809Mem::PreDec2:
+      Indexed(0xEF + Ind1);
+      return;
+    case M6809Mem::Auto:
+    case M6809Mem::Off16: {
+      int64_t V;
+      if (Mode == M6809Mem::Auto && getConstant(Off, V) && V == 0) {
+        Indexed(0x8F + Ind1);
+        return;
+      }
+      Indexed(0xAF + Ind1);
+      emitValue(MI, Off, 2, FK_Data_2, CB, Fixups);
+      return;
+    }
+    default:
+      return error(MI, "W takes only ,w  n,w  ,w++ and ,--w");
+    }
   }
 
   // n,PC: a raw offset from the end of the instruction.
@@ -197,6 +233,15 @@ void M6809MCCodeEmitter::encodeMemory(const MCInst &MI,
     return;
   case M6809Mem::AccD:
     Indexed(RR | 0x8B | IndBit);
+    return;
+  case M6809Mem::AccE:
+    Indexed(RR | 0x87 | IndBit);
+    return;
+  case M6809Mem::AccF:
+    Indexed(RR | 0x8A | IndBit);
+    return;
+  case M6809Mem::AccW:
+    Indexed(RR | 0x8E | IndBit);
     return;
   case M6809Mem::Auto:
   case M6809Mem::Off5:
@@ -269,13 +314,22 @@ void M6809MCCodeEmitter::encodeInstruction(const MCInst &MI,
     emitCode(CB, E->Code);
     return;
   case M6809::Imm8:
-  case M6809::Imm16: {
+  case M6809::Imm16:
+  case M6809::Imm32: {
     emitCode(CB, E->Code);
-    unsigned Size = E->Form == M6809::Imm8 ? 1 : 2;
-    emitValue(MI, MI.getOperand(N - 1), Size, Size == 1 ? FK_Data_1 : FK_Data_2,
+    unsigned Size = E->Form == M6809::Imm8    ? 1
+                    : E->Form == M6809::Imm16 ? 2
+                                              : 4;
+    emitValue(MI, MI.getOperand(N - 1), Size,
+              Size == 1   ? FK_Data_1
+              : Size == 2 ? FK_Data_2
+                          : FK_Data_4,
               CB, Fixups);
     return;
   }
+  case M6809::ImmMem:
+    encodeMemory(MI, *E, CB, Fixups, &MI.getOperand(0));
+    return;
   case M6809::Mem:
   case M6809::Idx:
     encodeMemory(MI, *E, CB, Fixups);
@@ -294,7 +348,8 @@ void M6809MCCodeEmitter::encodeInstruction(const MCInst &MI,
               Long ? M6809::fixup_pcrel16 : M6809::fixup_pcrel8, CB, Fixups);
     return;
   }
-  case M6809::RegPair: {
+  case M6809::RegPair:
+  case M6809::Tfm: {
     emitCode(CB, E->Code);
     unsigned A = MRI.getEncodingValue(MI.getOperand(0).getReg());
     unsigned B = MRI.getEncodingValue(MI.getOperand(1).getReg());

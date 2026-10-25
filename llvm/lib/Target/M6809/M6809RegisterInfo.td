@@ -42,9 +42,15 @@ def PC : M6809Reg<0x5, "pc">, DwarfRegNum<[7]>;
 def CC : M6809Reg<0xA, "cc">, DwarfRegNum<[8]>;
 def DP : M6809Reg<0xB, "dp">, DwarfRegNum<[9]>;
 
-// TODO(HD6309): E, F (8-bit), W = E:F, V, Q = D:W and the zero register.
-// They must be modelled with sub-registers like D so the allocator sees the
-// overlaps, and only made allocatable when Feature6309 is enabled.
+// HD6309 registers: E and F, W = E:F, and V, which only TFR/EXG and the
+// register-register ops reach. Q = D:W is only ever an implicit operand
+// (LDQ, STQ, MULD, DIVQ), so it is not modelled. They are reserved unless
+// the 6309 feature is on.
+def E : M6809Reg<0xE, "e">, DwarfRegNum<[10]>;
+def F : M6809Reg<0xF, "f">, DwarfRegNum<[11]>;
+let SubRegIndices = [sub_hi, sub_lo], CoveredBySubRegs = 1 in
+def W : M6809Reg<0x6, "w", [E, F]>, DwarfRegNum<[12]>;
+def V : M6809Reg<0x7, "v">, DwarfRegNum<[13]>;
 
 //===----------------------------------------------------------------------===//
 // Register classes
@@ -73,8 +79,17 @@ def CCR : RegisterClass<"M6809", [i8], 8, (add CC)> {
   let isAllocatable = 0;
 }
 
+// W alone, and D or W: the 16-bit registers with inherent operations on
+// the HD6309.
+def WREG : RegisterClass<"M6809", [i16], 8, (add W)> {
+  let isAllocatable = 0;
+}
+def DW16 : RegisterClass<"M6809", [i16], 8, (add D, W)> {
+  let isAllocatable = 0;
+}
+
 // Every register TFR and EXG can name. Only the assembler uses it.
 def TFRREG : RegisterClass<"M6809", [i16], 8,
-                           (add D, X, Y, U, S, PC, A, B, CC, DP)> {
+                           (add D, X, Y, U, S, PC, A, B, CC, DP, W, V, E, F)> {
   let isAllocatable = 0;
 }

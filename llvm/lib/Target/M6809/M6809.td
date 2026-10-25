@@ -29,6 +29,7 @@ def Feature6309 : SubtargetFeature<"6309", "Has6309", "true",
 include "M6809RegisterInfo.td"
 include "M6809CallingConv.td"
 include "M6809InstrInfo.td"
+include "M6309InstrInfo.td"
 
 defm : RemapAllTargetPseudoPointerOperands<PTR16>;
 

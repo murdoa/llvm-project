@@ -90,10 +90,13 @@ class M6809AsmParser : public MCTargetAsmParser {
   void convertToMapAndConstraints(unsigned Kind,
                                   const OperandVector &Operands) override {}
 
+  bool has6309() const { return getSTI().hasFeature(M6809::Feature6309); }
+  MCRegister matchRegister(StringRef Name) const;
   bool parseValue(MCOperand &Op);
   bool parseMemory(MemOperand &M);
   bool parseIndexRegister(MCRegister &Reg, bool AllowPC);
   bool parseRegList(int64_t &Mask, bool UStack);
+  bool parseTfmOperand(MCRegister &Reg, int &Step);
   bool buildInstruction(const SmallVectorImpl<const M6809::OpcodeEntry *> &Rows,
                         int CondCode, SMLoc NameLoc, MCInst &Inst);
   bool addFixedRegisters(MCInst &Inst, unsigned Count, unsigned Reg,
@@ -109,8 +112,14 @@ public:
 
 } // namespace
 
-static MCRegister matchRegister(StringRef Name) {
-  return StringSwitch<MCRegister>(Name.lower())
+static bool is6309Register(MCRegister R) {
+  return R == M6809::E || R == M6809::F || R == M6809::W || R == M6809::V;
+}
+
+// A register name. The HD6309 registers are names only with -mcpu=6309, so
+// "w" can be a symbol on the 6809.
+MCRegister M6809AsmParser::matchRegister(StringRef Name) const {
+  MCRegister R = StringSwitch<MCRegister>(Name.lower())
       .Case("a", M6809::A)
       .Case("b", M6809::B)
       .Case("d", M6809::D)
@@ -121,11 +130,19 @@ static MCRegister matchRegister(StringRef Name) {
       .Case("pc", M6809::PC)
       .Cases({"cc", "ccr"}, M6809::CC)
       .Cases({"dp", "dpr"}, M6809::DP)
+      .Case("e", M6809::E)
+      .Case("f", M6809::F)
+      .Case("w", M6809::W)
+      .Case("v", M6809::V)
       .Default(MCRegister());
+  if (is6309Register(R) && !has6309())
+    return MCRegister();
+  return R;
 }
 
 static bool is8BitRegister(MCRegister R) {
-  return R == M6809::A || R == M6809::B || R == M6809::CC || R == M6809::DP;
+  return R == M6809::A || R == M6809::B || R == M6809::CC || R == M6809::DP ||
+         R == M6809::E || R == M6809::F;
 }
 
 static int matchCondition(StringRef S) {
@@ -187,8 +204,9 @@ bool M6809AsmParser::parseIndexRegister(MCRegister &Reg, bool AllowPC) {
     return Error(Loc, "expected an index register");
   MCRegister R = matchRegister(tok().getIdentifier());
   if (!(R == M6809::X || R == M6809::Y || R == M6809::U || R == M6809::S ||
-        (AllowPC && R == M6809::PC)))
-    return Error(Loc, "expected x, y, u or s");
+        R == M6809::W || (AllowPC && R == M6809::PC)))
+    return Error(Loc, has6309() ? "expected x, y, u, s or w"
+                                : "expected x, y, u or s");
   Reg = R;
   Parser.Lex();
   return false;
@@ -253,12 +271,18 @@ bool M6809AsmParser::parseMemory(MemOperand &M) {
              getLexer().peekTok().is(AsmToken::Comma) &&
              (tok().getIdentifier().equals_insensitive("a") ||
               tok().getIdentifier().equals_insensitive("b") ||
-              tok().getIdentifier().equals_insensitive("d"))) {
-    // A,R  B,R  D,R
+              tok().getIdentifier().equals_insensitive("d") ||
+              (has6309() && (tok().getIdentifier().equals_insensitive("e") ||
+                             tok().getIdentifier().equals_insensitive("f") ||
+                             tok().getIdentifier().equals_insensitive("w"))))) {
+    // A,R  B,R  D,R, and on the HD6309 E,R  F,R  W,R
     char Acc = tolower(tok().getIdentifier()[0]);
     M.Mode = Acc == 'a'   ? M6809Mem::AccA
              : Acc == 'b' ? M6809Mem::AccB
-                          : M6809Mem::AccD;
+             : Acc == 'd' ? M6809Mem::AccD
+             : Acc == 'e' ? M6809Mem::AccE
+             : Acc == 'f' ? M6809Mem::AccF
+                          : M6809Mem::AccW;
     Parser.Lex();
     Parser.Lex(); // the comma
     if (parseIndexRegister(M.Base, false))
@@ -326,6 +350,23 @@ bool M6809AsmParser::parseRegList(int64_t &Mask, bool UStack) {
   }
 }
 
+// One side of a TFM: a register and "+", "-" or nothing (Step 1, -1, 0).
+bool M6809AsmParser::parseTfmOperand(MCRegister &Reg, int &Step) {
+  SMLoc S, End;
+  SMLoc Loc = tok().getLoc();
+  if (parseRegister(Reg, S, End))
+    return true;
+  if (!(Reg == M6809::D || Reg == M6809::X || Reg == M6809::Y ||
+        Reg == M6809::U || Reg == M6809::S))
+    return Error(Loc, "tfm takes d, x, y, u or s");
+  Step = 0;
+  if (tok().is(AsmToken::Plus) || tok().is(AsmToken::Minus)) {
+    Step = tok().is(AsmToken::Plus) ? 1 : -1;
+    Parser.Lex();
+  }
+  return false;
+}
+
 bool M6809AsmParser::addFixedRegisters(MCInst &Inst, unsigned Count,
                                        unsigned Reg, SMLoc Loc) {
   if (!M6809::addFixedRegisters(Inst, MII, *getContext().getRegisterInfo(),
@@ -355,8 +396,57 @@ bool M6809AsmParser::buildInstruction(
   if (const M6809::OpcodeEntry *E = Find({M6809::Inh}))
     return addFixedRegisters(Inst, Start(*E), E->Reg, NameLoc);
 
+  // "aim #n,addr": the immediate, then the address.
+  if (const M6809::OpcodeEntry *E = Find({M6809::ImmMem})) {
+    Start(*E);
+    if (tok().isNot(AsmToken::Hash))
+      return Error(Loc, "expected '#'");
+    Parser.Lex();
+    MCOperand Imm;
+    if (parseValue(Imm))
+      return true;
+    if (tok().isNot(AsmToken::Comma))
+      return Error(tok().getLoc(), "expected ','");
+    Parser.Lex();
+    Inst.addOperand(Imm);
+    MemOperand M;
+    if (parseMemory(M))
+      return true;
+    Inst.addOperand(MCOperand::createReg(M.Base));
+    Inst.addOperand(M.Off);
+    Inst.addOperand(MCOperand::createImm(M.Mode));
+    return false;
+  }
+
+  // "tfm x+,y+" and the other three directions.
+  if (Find({M6809::Tfm})) {
+    MCRegister R1, R2;
+    int S1, S2;
+    if (parseTfmOperand(R1, S1))
+      return true;
+    if (tok().isNot(AsmToken::Comma))
+      return Error(tok().getLoc(), "expected ','");
+    Parser.Lex();
+    if (parseTfmOperand(R2, S2))
+      return true;
+    uint16_t Code = S1 == 1 && S2 == 1     ? 0x1138
+                    : S1 == -1 && S2 == -1 ? 0x1139
+                    : S1 == 1 && S2 == 0   ? 0x113A
+                    : S1 == 0 && S2 == 1   ? 0x113B
+                                           : 0;
+    if (!Code)
+      return Error(Loc, "tfm takes r+,r+  r-,r-  r+,r  or r,r+");
+    for (const M6809::OpcodeEntry *E : Rows)
+      if (E->Code == Code)
+        Start(*E);
+    Inst.addOperand(MCOperand::createReg(R1));
+    Inst.addOperand(MCOperand::createReg(R2));
+    return false;
+  }
+
   if (tok().is(AsmToken::Hash)) {
-    const M6809::OpcodeEntry *E = Find({M6809::Imm8, M6809::Imm16});
+    const M6809::OpcodeEntry *E =
+        Find({M6809::Imm8, M6809::Imm16, M6809::Imm32});
     if (!E) {
       if (Find({M6809::RegList}))
         E = Find({M6809::RegList});
@@ -453,9 +543,17 @@ bool M6809AsmParser::parseInstruction(ParseInstructionInfo &Info,
              .Default(Mnem);
 
   SmallVector<const M6809::OpcodeEntry *, 4> Rows;
-  for (const M6809::OpcodeEntry &E : M6809::getOpcodeTable())
-    if (Mnem == E.Mnemonic)
+  bool Needs6309 = false;
+  for (const M6809::OpcodeEntry &E : M6809::getOpcodeTable()) {
+    if (Mnem != E.Mnemonic)
+      continue;
+    if (E.Only6309 && !has6309())
+      Needs6309 = true;
+    else
       Rows.push_back(&E);
+  }
+  if (Rows.empty() && Needs6309)
+    return Error(NameLoc, "instruction requires -mcpu=6309");
 
   // Conditional branches: b<cc> and lb<cc>.
   int CondCode = -1;

@@ -9,6 +9,9 @@
 // One row per mnemonic and operand form:
 //
 //   M6809_OP(Mnemonic, MCOpcode, Reg, Form, Code)
+//   M6309_OP(Mnemonic, MCOpcode, Reg, Form, Code)
+//
+// M6309_OP rows exist only on the HD6309.
 //
 // Reg is the register the mnemonic names ("lda" -> A), which is the first
 // register operand of the MC instruction, or NoRegister. Code is the opcode,
@@ -20,6 +23,9 @@
 
 #ifndef M6809_OP
 #error "M6809_OP must be defined"
+#endif
+#ifndef M6309_OP
+#define M6309_OP(MNEM, OPC, REG, FORM, CODE) M6809_OP(MNEM, OPC, REG, FORM, CODE)
 #endif
 
 #define NOREG M6809::NoRegister
@@ -148,5 +154,110 @@ M6809_OP("stu", ST16m, M6809::U, Mem, 0xDF)
 M6809_OP("sty", ST16m, M6809::Y, Mem, 0x109F)
 M6809_OP("sts", STSm, NOREG, Mem, 0x10DF)
 
+//===----------------------------------------------------------------------===//
+// HD6309
+//===----------------------------------------------------------------------===//
+
+// Inherent operations on D, W, E and F.
+M6309_OP("negd", NEG16r, M6809::D, Inh, 0x1040)
+M6309_OP("comd", COM16r, M6809::D, Inh, 0x1043)
+M6309_OP("lsrd", LSR16r, M6809::D, Inh, 0x1044)
+M6309_OP("rord", ROR16r, M6809::D, Inh, 0x1046)
+M6309_OP("asrd", ASR16r, M6809::D, Inh, 0x1047)
+M6309_OP("asld", ASL16r, M6809::D, Inh, 0x1048)
+M6309_OP("rold", ROL16r, M6809::D, Inh, 0x1049)
+M6309_OP("decd", DEC16r, M6809::D, Inh, 0x104A)
+M6309_OP("incd", INC16r, M6809::D, Inh, 0x104C)
+M6309_OP("tstd", TST16r, M6809::D, Inh, 0x104D)
+M6309_OP("clrd", CLR16r, M6809::D, Inh, 0x104F)
+M6309_OP("comw", COM16r, M6809::W, Inh, 0x1053)
+M6309_OP("lsrw", LSR16r, M6809::W, Inh, 0x1054)
+M6309_OP("rorw", ROR16r, M6809::W, Inh, 0x1056)
+M6309_OP("rolw", ROL16r, M6809::W, Inh, 0x1059)
+M6309_OP("decw", DEC16r, M6809::W, Inh, 0x105A)
+M6309_OP("incw", INC16r, M6809::W, Inh, 0x105C)
+M6309_OP("tstw", TST16r, M6809::W, Inh, 0x105D)
+M6309_OP("clrw", CLR16r, M6809::W, Inh, 0x105F)
+M6309_OP("come", COM8, M6809::E, Inh, 0x1143)
+M6309_OP("dece", DEC8, M6809::E, Inh, 0x114A)
+M6309_OP("ince", INC8, M6809::E, Inh, 0x114C)
+M6309_OP("tste", TST8, M6809::E, Inh, 0x114D)
+M6309_OP("clre", CLR8, M6809::E, Inh, 0x114F)
+M6309_OP("comf", COM8, M6809::F, Inh, 0x1153)
+M6309_OP("decf", DEC8, M6809::F, Inh, 0x115A)
+M6309_OP("incf", INC8, M6809::F, Inh, 0x115C)
+M6309_OP("tstf", TST8, M6809::F, Inh, 0x115D)
+M6309_OP("clrf", CLR8, M6809::F, Inh, 0x115F)
+M6309_OP("sexw", SEXW, NOREG, Inh, 0x14)
+M6309_OP("pshsw", PSHSW, NOREG, Inh, 0x1038)
+M6309_OP("pulsw", PULSW, NOREG, Inh, 0x1039)
+M6309_OP("pshuw", PSHUW, NOREG, Inh, 0x103A)
+M6309_OP("puluw", PULUW, NOREG, Inh, 0x103B)
+
+// 8-bit operations on E and F.
+#define ALU8EF(MNEM, OPC, IMM)                                                 \
+  M6309_OP(MNEM "e", OPC##i, M6809::E, Imm8, 0x1100 + (IMM))                   \
+  M6309_OP(MNEM "e", OPC##m, M6809::E, Mem, 0x1110 + (IMM))                    \
+  M6309_OP(MNEM "f", OPC##i, M6809::F, Imm8, 0x1140 + (IMM))                   \
+  M6309_OP(MNEM "f", OPC##m, M6809::F, Mem, 0x1150 + (IMM))
+ALU8EF("sub", SUB8, 0x80)
+ALU8EF("cmp", CMP8, 0x81)
+ALU8EF("ld", LD8, 0x86)
+ALU8EF("add", ADD8, 0x8B)
+#undef ALU8EF
+M6309_OP("ste", ST8m, M6809::E, Mem, 0x1197)
+M6309_OP("stf", ST8m, M6809::F, Mem, 0x11D7)
+
+// 16-bit operations on D and W.
+#define OP16_6309(MNEM, OPI, OPM, REG, IMM)                                    \
+  M6309_OP(MNEM, OPI, REG, Imm16, IMM)                                         \
+  M6309_OP(MNEM, OPM, REG, Mem, (IMM) + 0x10)
+OP16_6309("subw", SUBWi, SUBWm, NOREG, 0x1080)
+OP16_6309("cmpw", CMP16i, CMP16m, M6809::W, 0x1081)
+OP16_6309("sbcd", SBCDi, SBCDm, NOREG, 0x1082)
+OP16_6309("andd", ANDDi, ANDDm, NOREG, 0x1084)
+OP16_6309("bitd", BITDi, BITDm, NOREG, 0x1085)
+OP16_6309("ldw", LD16i, LD16m, M6809::W, 0x1086)
+OP16_6309("eord", EORDi, EORDm, NOREG, 0x1088)
+OP16_6309("adcd", ADCDi, ADCDm, NOREG, 0x1089)
+OP16_6309("ord", ORDi, ORDm, NOREG, 0x108A)
+OP16_6309("addw", ADDWi, ADDWm, NOREG, 0x108B)
+OP16_6309("muld", MULDi, MULDm, NOREG, 0x118F)
+OP16_6309("divq", DIVQi, DIVQm, NOREG, 0x118E)
+#undef OP16_6309
+M6309_OP("stw", ST16m, M6809::W, Mem, 0x1097)
+M6309_OP("divd", DIVDi, NOREG, Imm8, 0x118D)
+M6309_OP("divd", DIVDm, NOREG, Mem, 0x119D)
+M6309_OP("ldq", LDQi, NOREG, Imm32, 0xCD)
+M6309_OP("ldq", LDQm, NOREG, Mem, 0x10DC)
+M6309_OP("stq", STQm, NOREG, Mem, 0x10DD)
+
+// Register-register operations.
+M6309_OP("addr", ADDR, NOREG, RegPair, 0x1030)
+M6309_OP("adcr", ADCR, NOREG, RegPair, 0x1031)
+M6309_OP("subr", SUBR, NOREG, RegPair, 0x1032)
+M6309_OP("sbcr", SBCR, NOREG, RegPair, 0x1033)
+M6309_OP("andr", ANDR, NOREG, RegPair, 0x1034)
+M6309_OP("orr", ORR, NOREG, RegPair, 0x1035)
+M6309_OP("eorr", EORR, NOREG, RegPair, 0x1036)
+M6309_OP("cmpr", CMPR, NOREG, RegPair, 0x1037)
+
+// Block moves. The form gives the direction of each pointer.
+M6309_OP("tfm", TFMpp, NOREG, Tfm, 0x1138)
+M6309_OP("tfm", TFMmm, NOREG, Tfm, 0x1139)
+M6309_OP("tfm", TFMpn, NOREG, Tfm, 0x113A)
+M6309_OP("tfm", TFMnp, NOREG, Tfm, 0x113B)
+
+// Immediate logic on memory.
+M6309_OP("oim", OIM, NOREG, ImmMem, 0x01)
+M6309_OP("aim", AIM, NOREG, ImmMem, 0x02)
+M6309_OP("eim", EIM, NOREG, ImmMem, 0x05)
+M6309_OP("tim", TIM, NOREG, ImmMem, 0x0B)
+
+// The mode register.
+M6309_OP("bitmd", BITMD, NOREG, Imm8, 0x113C)
+M6309_OP("ldmd", LDMD, NOREG, Imm8, 0x113D)
+
 #undef NOREG
 #undef M6809_OP
+#undef M6309_OP

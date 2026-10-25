@@ -17,7 +17,9 @@ using namespace llvm::M6809;
 
 static const OpcodeEntry Table[] = {
 #define M6809_OP(MNEM, OPC, REG, FORM, CODE)                                   \
-  {MNEM, M6809::OPC, REG, M6809::FORM, CODE},
+  {MNEM, M6809::OPC, REG, M6809::FORM, CODE, false},
+#define M6309_OP(MNEM, OPC, REG, FORM, CODE)                                   \
+  {MNEM, M6809::OPC, REG, M6809::FORM, CODE, true},
 #include "M6809Opcodes.def"
 };
 

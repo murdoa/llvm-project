@@ -36,6 +36,9 @@ enum OperandForm : uint8_t {
   Cond16,  // LBcc
   RegPair, // TFR/EXG postbyte
   RegList, // PSHS/PULS/PSHU/PULU postbyte
+  Imm32,   // #nnnn (LDQ)
+  ImmMem,  // #n, then a memory operand (AIM, OIM, EIM, TIM)
+  Tfm,     // TFM postbyte; the code gives the pointer directions
 };
 
 struct OpcodeEntry {
@@ -44,6 +47,7 @@ struct OpcodeEntry {
   unsigned Reg;    // register named by the mnemonic, or NoRegister
   OperandForm Form;
   uint16_t Code; // opcode byte, with any page prefix in the high byte
+  bool Only6309; // an HD6309 instruction
 };
 
 // Opcode bytes for the three memory forms of a Mem entry.
@@ -51,8 +55,9 @@ inline uint16_t getDirectCode(const OpcodeEntry &E) { return E.Code; }
 inline uint16_t getIndexedCode(const OpcodeEntry &E) {
   if (E.Form == Idx)
     return E.Code;
-  // The read-modify-write group puts direct at 0x0X and indexed at 0x6X;
-  // everything else has indexed 0x10 above direct.
+  // The read-modify-write group, and AIM/OIM/EIM/TIM beside it, put direct
+  // at 0x0X and indexed at 0x6X; everything else has indexed 0x10 above
+  // direct.
   return (E.Code & 0xF0) == 0 ? E.Code + 0x60 : E.Code + 0x10;
 }
 inline uint16_t getExtendedCode(const OpcodeEntry &E) {

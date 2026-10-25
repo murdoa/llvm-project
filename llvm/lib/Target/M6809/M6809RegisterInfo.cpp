@@ -43,6 +43,9 @@ BitVector M6809RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
   Reserved.set(M6809::PC);
   Reserved.set(M6809::CC);
   Reserved.set(M6809::DP);
+  // The HD6309 registers are not allocated yet.
+  for (MCPhysReg R : {M6809::E, M6809::F, M6809::W, M6809::V})
+    Reserved.set(R);
   if (getFrameLowering(MF)->hasFP(MF))
     Reserved.set(M6809::U);
   return Reserved;

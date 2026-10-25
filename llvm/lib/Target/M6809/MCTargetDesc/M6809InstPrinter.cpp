@@ -116,7 +116,15 @@ void M6809InstPrinter::printMemIndexedOperand(const MCInst *MI, unsigned OpNo,
   case M6809Mem::AccA:
   case M6809Mem::AccB:
   case M6809Mem::AccD:
-    O << (Mode == M6809Mem::AccA ? "a," : Mode == M6809Mem::AccB ? "b," : "d,");
+  case M6809Mem::AccE:
+  case M6809Mem::AccF:
+  case M6809Mem::AccW:
+    O << (Mode == M6809Mem::AccA   ? "a,"
+          : Mode == M6809Mem::AccB ? "b,"
+          : Mode == M6809Mem::AccD ? "d,"
+          : Mode == M6809Mem::AccE ? "e,"
+          : Mode == M6809Mem::AccF ? "f,"
+                                   : "w,");
     PrintReg();
     break;
   case M6809Mem::PCRel:

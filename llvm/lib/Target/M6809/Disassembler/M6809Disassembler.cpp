@@ -21,6 +21,7 @@
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstrInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
+#include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/MathExtras.h"
@@ -78,6 +79,7 @@ M6809Disassembler::M6809Disassembler(const MCSubtargetInfo &STI,
   for (const M6809::OpcodeEntry &E : M6809::getOpcodeTable()) {
     switch (E.Form) {
     case M6809::Mem:
+    case M6809::ImmMem:
       Set(M6809::getDirectCode(E), E, Decoded::Direct);
       Set(M6809::getIndexedCode(E), E, Decoded::Indexed);
       Set(M6809::getExtendedCode(E), E, Decoded::Extended);
@@ -97,12 +99,17 @@ M6809Disassembler::M6809Disassembler(const MCSubtargetInfo &STI,
   }
 }
 
-// The register with a TFR/EXG postbyte code.
-static MCRegister getTransferRegister(unsigned Code) {
+// The register with a TFR/EXG postbyte code. W, V, E and F are HD6309 only.
+static MCRegister getTransferRegister(unsigned Code, bool Has6309) {
   static const unsigned Regs[16] = {
-      M6809::D, M6809::X, M6809::Y, M6809::U, M6809::S, M6809::PC, 0, 0,
-      M6809::A, M6809::B, M6809::CC, M6809::DP, 0, 0, 0, 0};
-  return Regs[Code & 0xF];
+      M6809::D, M6809::X, M6809::Y, M6809::U, M6809::S, M6809::PC,
+      M6809::W, M6809::V, M6809::A, M6809::B, M6809::CC, M6809::DP,
+      0,        0,        M6809::E, M6809::F};
+  MCRegister R = Regs[Code & 0xF];
+  if (!Has6309 && (R == M6809::W || R == M6809::V || R == M6809::E ||
+                   R == M6809::F))
+    return MCRegister();
+  return R;
 }
 
 DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
@@ -130,7 +137,8 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
   }
   const Decoded &D = Codes[Page][U8()];
   const M6809::OpcodeEntry *E = D.Entry;
-  if (!E)
+  bool Has6309 = STI.hasFeature(M6809::Feature6309);
+  if (!E || (E->Only6309 && !Has6309))
     return MCDisassembler::Fail;
 
   MI.setOpcode(E->Opcode);
@@ -150,11 +158,17 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
       return MCDisassembler::Fail;
     return Done();
   case M6809::Imm8:
-  case M6809::Imm16: {
-    bool Wide = E->Form == M6809::Imm16;
-    if (!Avail(Wide ? 2 : 1) || !Fixed(NumOps - 1))
+  case M6809::Imm16:
+  case M6809::Imm32: {
+    unsigned Size = E->Form == M6809::Imm8    ? 1
+                    : E->Form == M6809::Imm16 ? 2
+                                              : 4;
+    if (!Avail(Size) || !Fixed(NumOps - 1))
       return MCDisassembler::Fail;
-    MI.addOperand(MCOperand::createImm(Wide ? U16() : U8()));
+    uint64_t V = 0;
+    for (unsigned I = 0; I != Size; ++I)
+      V = V << 8 | U8();
+    MI.addOperand(MCOperand::createImm(V));
     return Done();
   }
   case M6809::Rel8:
@@ -171,14 +185,18 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
     MI.addOperand(MCOperand::createImm((Address + Pos + Off) & 0xFFFF));
     return Done();
   }
-  case M6809::RegPair: {
+  case M6809::RegPair:
+  case M6809::Tfm: {
     if (!Avail(1))
       return MCDisassembler::Fail;
     unsigned Post = U8();
-    MCRegister R1 = getTransferRegister(Post >> 4);
-    MCRegister R2 = getTransferRegister(Post);
+    MCRegister R1 = getTransferRegister(Post >> 4, Has6309);
+    MCRegister R2 = getTransferRegister(Post, Has6309);
     // Mixing 8- and 16-bit registers is not a defined 6809 transfer.
     if (!R1 || !R2 || ((Post ^ (Post << 4)) & 0x80))
+      return MCDisassembler::Fail;
+    // TFM moves between D, X, Y, U and S.
+    if (E->Form == M6809::Tfm && ((Post >> 4) > 4 || (Post & 0xF) > 4))
       return MCDisassembler::Fail;
     MI.addOperand(MCOperand::createReg(R1));
     MI.addOperand(MCOperand::createReg(R2));
@@ -191,12 +209,19 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
     return Done();
   case M6809::Mem:
   case M6809::Idx:
+  case M6809::ImmMem:
     break;
   }
 
-  // Memory operand: base, offset, mode.
-  if (!Fixed(NumOps - 3))
+  // Memory operand: base, offset, mode. AIM and the like have an immediate
+  // byte first.
+  if (E->Form == M6809::ImmMem) {
+    if (!Avail(1))
+      return MCDisassembler::Fail;
+    MI.addOperand(MCOperand::createImm(U8()));
+  } else if (!Fixed(NumOps - 3)) {
     return MCDisassembler::Fail;
+  }
   MCRegister Base;
   int64_t Off = 0;
   unsigned Mode = M6809Mem::Auto;
@@ -219,7 +244,24 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
     static const unsigned IndexRegs[4] = {M6809::X, M6809::Y, M6809::U,
                                           M6809::S};
     Base = IndexRegs[(Post >> 5) & 3];
-    if (!(Post & 0x80)) {
+    if (Has6309 && ((Post & 0x9F) == 0x8F || (Post & 0x9F) == 0x90)) {
+      // ,W  n,W  ,W++  ,--W, and indirect.
+      bool Ind = (Post & 0x9F) == 0x90;
+      Base = M6809::W;
+      switch ((Post >> 5) & 3) {
+      case 0: Mode = M6809Mem::Auto; break;
+      case 1:
+        if (!Avail(2))
+          return MCDisassembler::Fail;
+        Off = SignExtend64<16>(U16());
+        Mode = Off == 0 ? M6809Mem::Off16 : M6809Mem::Auto;
+        break;
+      case 2: Mode = M6809Mem::PostInc2; break;
+      default: Mode = M6809Mem::PreDec2; break;
+      }
+      if (Ind)
+        Mode |= M6809Mem::Indirect;
+    } else if (!(Post & 0x80)) {
       // n,R with a 5-bit offset. Auto would pick ,R for zero.
       Off = SignExtend64<5>(Post);
       Mode = Off == 0 ? M6809Mem::Off5 : M6809Mem::Auto;
@@ -238,6 +280,15 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
       case 0x5: Mode = M6809Mem::AccB; break;
       case 0x6: Mode = M6809Mem::AccA; break;
       case 0xB: Mode = M6809Mem::AccD; break;
+      case 0x7:
+      case 0xA:
+      case 0xE:
+        if (!Has6309)
+          return MCDisassembler::Fail;
+        Mode = (Post & 0x0F) == 0x7   ? M6809Mem::AccE
+               : (Post & 0x0F) == 0xA ? M6809Mem::AccF
+                                      : M6809Mem::AccW;
+        break;
       case 0x8:
         if (!Avail(1))
           return MCDisassembler::Fail;

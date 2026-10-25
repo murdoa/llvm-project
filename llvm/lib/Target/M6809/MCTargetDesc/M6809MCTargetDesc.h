@@ -99,6 +99,9 @@ enum Mode {
   AccB = 11,    // B,R
   AccD = 12,    // D,R
   PCRel = 13,   // addr,PCR: the offset operand is the target address
+  AccE = 14,    // E,R (HD6309)
+  AccF = 15,    // F,R (HD6309)
+  AccW = 16,    // W,R (HD6309)
   ModeMask = 0x3F,
   Indirect = 0x40, // [...]
 };
