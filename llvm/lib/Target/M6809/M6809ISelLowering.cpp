@@ -65,6 +65,20 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   }
   setTruncStoreAction(MVT::i16, MVT::i8, Expand);
 
+  // One CPU, and an interrupt never splits an instruction: 8- and 16-bit
+  // atomic loads and stores are plain ones and a fence only stops the
+  // compiler.  Read-modify-write operations become __sync_* calls.
+  setMaxAtomicSizeInBitsSupported(16);
+  for (MVT VT : {MVT::i8, MVT::i16}) {
+    for (unsigned Op :
+         {ISD::ATOMIC_SWAP, ISD::ATOMIC_CMP_SWAP, ISD::ATOMIC_LOAD_ADD,
+          ISD::ATOMIC_LOAD_SUB, ISD::ATOMIC_LOAD_AND, ISD::ATOMIC_LOAD_OR,
+          ISD::ATOMIC_LOAD_XOR, ISD::ATOMIC_LOAD_NAND, ISD::ATOMIC_LOAD_MIN,
+          ISD::ATOMIC_LOAD_MAX, ISD::ATOMIC_LOAD_UMIN, ISD::ATOMIC_LOAD_UMAX})
+      setOperationAction(Op, VT, Expand);
+    setOperationAction(ISD::ATOMIC_CMP_SWAP_WITH_SUCCESS, VT, Expand);
+  }
+
   // SEX covers i8-in-i16; smaller widths become shifts.
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
 

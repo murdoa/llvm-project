@@ -880,3 +880,10 @@ let Uses = [A], Defs = [CC] in
 def TAP : Inherent<"tap">;
 let Uses = [CC], Defs = [A] in
 def TPA : Inherent<"tpa">;
+
+// Atomics: see M6800TargetLowering's constructor.
+def : Pat<(i8 (atomic_load_nonext_8 addr:$a)), (LD8m addr:$a)>;
+def : Pat<(i16 (atomic_load_nonext_16 addr:$a)), (LD16m addr:$a)>;
+def : Pat<(atomic_store_8 ACC8:$v, addr:$a), (ST8m ACC8:$v, addr:$a)>;
+def : Pat<(atomic_store_16 GR16:$v, addr:$a), (ST16m GR16:$v, addr:$a)>;
+def : Pat<(atomic_fence timm, timm), (MEMBARRIER)>;

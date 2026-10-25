@@ -904,3 +904,10 @@ let Uses = [CC], Defs = [CC] in {
   def ANDCC : M6809Inst<(outs), (ins i8imm_op:$imm), "andcc\t#$imm", [], 2>;
   def CWAI : M6809Inst<(outs), (ins i8imm_op:$imm), "cwai\t#$imm", [], 2>;
 }
+
+// Atomics: see M6809TargetLowering's constructor.
+def : Pat<(i8 (atomic_load_nonext_8 addr:$a)), (LD8m addr:$a)>;
+def : Pat<(i16 (atomic_load_nonext_16 addr:$a)), (LD16m addr:$a)>;
+def : Pat<(atomic_store_8 ACC8:$v, addr:$a), (ST8m ACC8:$v, addr:$a)>;
+def : Pat<(atomic_store_16 GR16:$v, addr:$a), (ST16m GR16:$v, addr:$a)>;
+def : Pat<(atomic_fence timm, timm), (MEMBARRIER)>;
