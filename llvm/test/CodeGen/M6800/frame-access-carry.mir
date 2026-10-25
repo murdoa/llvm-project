@@ -1,0 +1,55 @@
+# RUN: llc -mtriple=m6800 -run-pass=m6800-frame-access -o - %s | FileCheck %s
+
+# Loads and stores leave C alone, so the register allocator may put a spill
+# between an instruction that sets C and one that reads it. An offset over
+# 255 needs an add to X, which must then keep the flags.
+
+---
+name: spill_in_carry_chain
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $d
+    ; CHECK-LABEL: name: spill_in_carry_chain
+    ; CHECK: LSL16
+    ; CHECK-NEXT: PSH8 $b
+    ; CHECK-NEXT: PSH8 $a
+    ; CHECK-NEXT: TPA
+    ; CHECK-NEXT: PSH8 $a
+    ; CHECK-NEXT: TSX
+    ; CHECK-NEXT: XGDX
+    ; CHECK-NEXT: $d = ADDDi $d, 303
+    ; CHECK-NEXT: XGDX
+    ; CHECK-NEXT: $a = PUL8
+    ; CHECK-NEXT: TAP
+    ; CHECK-NEXT: $a = PUL8
+    ; CHECK-NEXT: $b = PUL8
+    ; CHECK-NEXT: ST16m killed $d, $x, 0, 0
+    ; CHECK-NEXT: TSX
+    ; CHECK-NEXT: $d = LD16m $x, 6, 0
+    ; CHECK-NEXT: ROL8
+    $d = LSL16 killed $d, implicit-def $cc
+    ST16m killed $d, $sp, 300, 0, implicit-def $cc
+    $d = LD16m $sp, 6, 0, implicit-def $cc
+    $b = ROL8 $b, implicit-def $cc, implicit $cc
+    $a = ROL8 $a, implicit-def $cc, implicit $cc, implicit $d, implicit-def $d
+    RTS implicit $d
+...
+---
+name: no_carry
+tracksRegLiveness: true
+body: |
+  bb.0:
+    liveins: $d
+    ; Nothing reads C, so a plain add will do.
+    ; CHECK-LABEL: name: no_carry
+    ; CHECK: TSX
+    ; CHECK-NEXT: XGDX
+    ; CHECK-NEXT: $d = ADDDi $d, 300
+    ; CHECK-NEXT: XGDX
+    ; CHECK-NEXT: ST16m killed $d, $x, 0, 0
+    $d = LSL16 killed $d, implicit-def $cc
+    ST16m killed $d, $sp, 300, 0, implicit-def $cc
+    $d = LD16m $sp, 6, 0, implicit-def $cc
+    RTS implicit $d
+...
