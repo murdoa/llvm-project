@@ -45,6 +45,11 @@ def M6809SelectCC : SDNode<"M6809ISD::SELECT_CC",
                                                 SDTCisSameAs<3, 4>,
                                                 SDTCisVT<5, i8>]>>;
 
+def M6809Call : SDNode<"M6809ISD::CALL",
+                       SDTypeProfile<0, -1, [SDTCisVT<0, i16>]>,
+                       [SDNPHasChain, SDNPOptInGlue, SDNPOutGlue,
+                        SDNPVariadic]>;
+
 def SDT_M6809CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i16>,
                                             SDTCisVT<1, i16>]>;
 def SDT_M6809CallSeqEnd : SDCallSeqEnd<[SDTCisVT<0, i16>, SDTCisVT<1, i16>]>;
@@ -96,6 +101,16 @@ let Defs = [S], Uses = [S] in {
 
 let isReturn = 1, isTerminator = 1, isBarrier = 1 in
 def RTS : M6809Inst<(outs), (ins), "rts", [(M6809RetGlue)], 1>;
+
+// Calls. The register mask operand added by call lowering says which
+// registers the callee may clobber.
+let isCall = 1, Uses = [S], Defs = [CC] in {
+  def JSRe : M6809Inst<(outs), (ins i16imm_op:$dst), "jsr\t$dst", [], 3>;
+  def JSRr : M6809Inst<(outs), (ins IDX16:$r), "jsr\t,$r",
+                       [(M6809Call IDX16:$r)], 2>;
+}
+def : Pat<(M6809Call tglobaladdr:$dst), (JSRe tglobaladdr:$dst)>;
+def : Pat<(M6809Call texternalsym:$dst), (JSRe texternalsym:$dst)>;
 
 //===----------------------------------------------------------------------===//
 // Moves
@@ -381,3 +396,17 @@ multiclass SELECT<RegisterClass ValRC> {
 
 defm SELECT8 : SELECT<ACC8>;
 defm SELECT16 : SELECT<GR16>;
+
+//===----------------------------------------------------------------------===//
+// Multiply
+//===----------------------------------------------------------------------===//
+
+// MUL: D = A * B, unsigned.
+let Uses = [A, B], Defs = [D, CC] in
+def MUL : M6809Inst<(outs), (ins), "mul", [], 1>;
+
+// i8 multiply. The custom inserter copies the operands into A and B, emits
+// MUL, and takes the low byte from B.
+let usesCustomInserter = 1 in
+def MUL8 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$a, ACC8:$b), "",
+                       [(set ACC8:$dst, (mul ACC8:$a, ACC8:$b))]>;

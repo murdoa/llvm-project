@@ -57,6 +57,16 @@ void M6809FrameLowering::emitEpilogue(MachineFunction &MF,
 MachineBasicBlock::iterator M6809FrameLowering::eliminateCallFramePseudoInstr(
     MachineFunction &MF, MachineBasicBlock &MBB,
     MachineBasicBlock::iterator I) const {
-  // The call frame is reserved in the prologue, so the pseudos do nothing.
+  // Normally the call frame is part of the fixed frame and these pseudos do
+  // nothing. With variable-sized objects S moves around the call instead.
+  if (!hasReservedCallFrame(MF)) {
+    int64_t Amount = I->getOperand(0).getImm();
+    if (Amount) {
+      bool Down = I->getOpcode() == M6809::ADJCALLSTACKDOWN;
+      BuildMI(MBB, I, I->getDebugLoc(),
+              STI.getInstrInfo()->get(M6809::LEASi))
+          .addImm(Down ? -Amount : Amount);
+    }
+  }
   return MBB.erase(I);
 }

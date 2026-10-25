@@ -88,10 +88,15 @@ bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
     }
   }
 
-  if (auto *FIN = dyn_cast<FrameIndexSDNode>(Addr))
+  if (auto *FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
     Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i16);
-  else
+  } else if (Addr.getOpcode() == ISD::CopyFromReg &&
+             cast<RegisterSDNode>(Addr.getOperand(1))->getReg() == M6809::S) {
+    // Outgoing call arguments are stored S-relative.
+    Base = CurDAG->getRegister(M6809::S, MVT::i16);
+  } else {
     Base = Addr;
+  }
 
   Offset = CurDAG->getTargetConstant(Off, DL, MVT::i16);
   return true;

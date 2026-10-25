@@ -16,8 +16,14 @@ namespace llvm {
 class M6809FunctionInfo : public MachineFunctionInfo {
   virtual void anchor();
 
+  /// Fixed stack object at the first variadic argument, for va_start.
+  int VarArgsFrameIndex = 0;
+
 public:
   M6809FunctionInfo(const Function &F, const TargetSubtargetInfo *STI) {}
+
+  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
+  void setVarArgsFrameIndex(int FI) { VarArgsFrameIndex = FI; }
 
   MachineFunctionInfo *
   clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,

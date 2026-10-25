@@ -8,6 +8,7 @@
 
 #include "M6809ISelLowering.h"
 #include "M6809.h"
+#include "M6809MachineFunctionInfo.h"
 #include "M6809SelectionDAGInfo.h"
 #include "M6809Subtarget.h"
 #include "llvm/CodeGen/CallingConvLower.h"
@@ -70,6 +71,27 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
+  // Multiply: i8 uses the 8x8 MUL instruction; wider types call the runtime
+  // library. Divide and remainder always call the runtime library.
+  setOperationAction(ISD::MUL, MVT::i16, LibCall);
+  for (MVT VT : {MVT::i8, MVT::i16}) {
+    for (unsigned Op : {ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM})
+      setOperationAction(Op, VT, VT == MVT::i8 ? Promote : LibCall);
+    for (unsigned Op : {ISD::MULHS, ISD::MULHU, ISD::SMUL_LOHI,
+                        ISD::UMUL_LOHI, ISD::SDIVREM, ISD::UDIVREM})
+      setOperationAction(Op, VT, Expand);
+  }
+
+  // Varargs: va_list is a plain pointer into the caller's argument area.
+  setOperationAction(ISD::VASTART, MVT::Other, Custom);
+  setOperationAction(ISD::VAARG, MVT::Other, Expand);
+  setOperationAction(ISD::VACOPY, MVT::Other, Expand);
+  setOperationAction(ISD::VAEND, MVT::Other, Expand);
+
+  setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
+  setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
+  setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
+
   // TODO: everything not listed here is left Legal and fails instruction
   // selection until it is added. Next up: shifts, multiply, divide and
   // calls.
@@ -92,6 +114,8 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
     return lowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:
     return lowerSELECT_CC(Op, DAG);
+  case ISD::VASTART:
+    return lowerVASTART(Op, DAG);
   default:
     llvm_unreachable("M6809: unexpected operation to lower");
   }
@@ -160,6 +184,18 @@ SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
                      DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
 }
 
+// va_start stores the address of the first variadic argument into the
+// va_list.
+SDValue M6809TargetLowering::lowerVASTART(SDValue Op, SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  auto *FuncInfo = MF.getInfo<M6809FunctionInfo>();
+  SDLoc DL(Op);
+  SDValue FI = DAG.getFrameIndex(FuncInfo->getVarArgsFrameIndex(), MVT::i16);
+  const Value *SV = cast<SrcValueSDNode>(Op.getOperand(2))->getValue();
+  return DAG.getStore(Op.getOperand(0), DL, FI, Op.getOperand(1),
+                      MachinePointerInfo(SV));
+}
+
 SDValue M6809TargetLowering::lowerSELECT_CC(SDValue Op,
                                             SelectionDAG &DAG) const {
   SDValue LHS = Op.getOperand(0);
@@ -182,6 +218,31 @@ SDValue M6809TargetLowering::lowerSELECT_CC(SDValue Op,
 MachineBasicBlock *
 M6809TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                  MachineBasicBlock *MBB) const {
+  if (MI.getOpcode() == M6809::MUL8)
+    return emitMul8(MI, MBB);
+  return emitSelect(MI, MBB);
+}
+
+// MUL8: copy the operands into A and B, MUL, and take the low byte (B).
+MachineBasicBlock *
+M6809TargetLowering::emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const {
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY), M6809::A)
+      .add(MI.getOperand(1));
+  BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY), M6809::B)
+      .add(MI.getOperand(2));
+  BuildMI(*MBB, MI, DL, TII.get(M6809::MUL));
+  BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY),
+          MI.getOperand(0).getReg())
+      .addReg(M6809::B);
+  MI.eraseFromParent();
+  return MBB;
+}
+
+MachineBasicBlock *
+M6809TargetLowering::emitSelect(MachineInstr &MI,
+                                MachineBasicBlock *MBB) const {
   unsigned CBOpc;
   switch (MI.getOpcode()) {
   case M6809::SELECT8_c8:
@@ -240,9 +301,6 @@ SDValue M6809TargetLowering::LowerFormalArguments(
     SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
     SelectionDAG &DAG, SmallVectorImpl<SDValue> &InVals) const {
-  if (IsVarArg)
-    report_fatal_error("M6809: varargs are not supported yet");
-
   MachineFunction &MF = DAG.getMachineFunction();
   MachineFrameInfo &MFI = MF.getFrameInfo();
   MachineRegisterInfo &MRI = MF.getRegInfo();
@@ -270,6 +328,101 @@ SDValue M6809TargetLowering::LowerFormalArguments(
     SDValue FIN = DAG.getFrameIndex(FI, MVT::i16);
     InVals.push_back(DAG.getLoad(VT, DL, Chain, FIN,
                                  MachinePointerInfo::getFixedStack(MF, FI)));
+  }
+
+  // The variadic arguments start right after the fixed stack arguments.
+  if (IsVarArg) {
+    int FI = MFI.CreateFixedObject(
+        1, CCInfo.getStackSize() + ReturnAddressSize, /*IsImmutable=*/true);
+    MF.getInfo<M6809FunctionInfo>()->setVarArgsFrameIndex(FI);
+  }
+  return Chain;
+}
+
+SDValue M6809TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
+                                       SmallVectorImpl<SDValue> &InVals) const {
+  SelectionDAG &DAG = CLI.DAG;
+  SDLoc &DL = CLI.DL;
+  SDValue Chain = CLI.Chain;
+  SDValue Callee = CLI.Callee;
+  MachineFunction &MF = DAG.getMachineFunction();
+
+  // No tail calls yet.
+  CLI.IsTailCall = false;
+
+  SmallVector<CCValAssign, 16> ArgLocs;
+  CCState CCInfo(CLI.CallConv, CLI.IsVarArg, MF, ArgLocs, *DAG.getContext());
+  CCInfo.AnalyzeCallOperands(CLI.Outs, CC_M6809);
+  unsigned NumBytes = CCInfo.getStackSize();
+
+  Chain = DAG.getCALLSEQ_START(Chain, NumBytes, 0, DL);
+
+  // Stack arguments are stored S-relative into the reserved call frame. JSR
+  // then pushes the return address, so the callee sees them at 2,s and up.
+  SmallVector<std::pair<Register, SDValue>, 2> RegsToPass;
+  SmallVector<SDValue, 8> MemOpChains;
+  SDValue StackPtr;
+  for (unsigned I = 0, E = ArgLocs.size(); I != E; ++I) {
+    const CCValAssign &VA = ArgLocs[I];
+    SDValue Arg = CLI.OutVals[I];
+    if (CLI.Outs[I].Flags.isByVal())
+      report_fatal_error("M6809: byval arguments are not supported yet");
+
+    if (VA.isRegLoc()) {
+      RegsToPass.push_back({VA.getLocReg(), Arg});
+      continue;
+    }
+
+    if (!StackPtr)
+      StackPtr = DAG.getCopyFromReg(Chain, DL, M6809::S, MVT::i16);
+    SDValue Addr = DAG.getNode(ISD::ADD, DL, MVT::i16, StackPtr,
+                               DAG.getIntPtrConstant(VA.getLocMemOffset(), DL));
+    MemOpChains.push_back(
+        DAG.getStore(Chain, DL, Arg, Addr, MachinePointerInfo()));
+  }
+  if (!MemOpChains.empty())
+    Chain = DAG.getNode(ISD::TokenFactor, DL, MVT::Other, MemOpChains);
+
+  SDValue Glue;
+  for (auto &[Reg, Val] : RegsToPass) {
+    Chain = DAG.getCopyToReg(Chain, DL, Reg, Val, Glue);
+    Glue = Chain.getValue(1);
+  }
+
+  if (auto *G = dyn_cast<GlobalAddressSDNode>(Callee))
+    Callee = DAG.getTargetGlobalAddress(G->getGlobal(), DL, MVT::i16,
+                                        G->getOffset());
+  else if (auto *E = dyn_cast<ExternalSymbolSDNode>(Callee))
+    Callee = DAG.getTargetExternalSymbol(E->getSymbol(), MVT::i16);
+  else if (Callee.getOpcode() == M6809ISD::WRAPPER)
+    Callee = Callee.getOperand(0);
+
+  SmallVector<SDValue, 8> Ops = {Chain, Callee};
+  for (auto &[Reg, Val] : RegsToPass)
+    Ops.push_back(DAG.getRegister(Reg, Val.getValueType()));
+  const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
+  Ops.push_back(DAG.getRegisterMask(TRI->getCallPreservedMask(MF,
+                                                              CLI.CallConv)));
+  if (Glue.getNode())
+    Ops.push_back(Glue);
+
+  SDVTList VTs = DAG.getVTList(MVT::Other, MVT::Glue);
+  Chain = DAG.getNode(M6809ISD::CALL, DL, VTs, Ops);
+  Glue = Chain.getValue(1);
+
+  Chain = DAG.getCALLSEQ_END(Chain, NumBytes, 0, Glue, DL);
+  Glue = Chain.getValue(1);
+
+  // Results.
+  SmallVector<CCValAssign, 4> RVLocs;
+  CCState RetInfo(CLI.CallConv, CLI.IsVarArg, MF, RVLocs, *DAG.getContext());
+  RetInfo.AnalyzeCallResult(CLI.Ins, RetCC_M6809);
+  for (const CCValAssign &VA : RVLocs) {
+    SDValue Val = DAG.getCopyFromReg(Chain, DL, VA.getLocReg(),
+                                     VA.getLocVT(), Glue);
+    Chain = Val.getValue(1);
+    Glue = Val.getValue(2);
+    InVals.push_back(Val);
   }
   return Chain;
 }
