@@ -1363,5 +1363,28 @@ M6809TargetLowering::getRegForInlineAsmConstraint(const TargetRegisterInfo *TRI,
       break;
     }
   }
-  return TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+  std::pair<unsigned, const TargetRegisterClass *> R =
+      TargetLowering::getRegForInlineAsmConstraint(TRI, Constraint, VT);
+  // "{reg}": only registers that copy to and from the allocatable ones.
+  // E, F, V, CC, DP and PC are left out, as is W on the 6809; naming them
+  // is an error rather than a copy the backend cannot emit.  Clobbers
+  // (VT Other) of any register stand.
+  if (VT == MVT::Other)
+    return R;
+  switch (R.first) {
+  case M6809::W:
+    if (Subtarget.has6309())
+      break;
+    [[fallthrough]];
+  case M6809::E:
+  case M6809::F:
+  case M6809::V:
+  case M6809::CC:
+  case M6809::DP:
+  case M6809::PC:
+    return {0, nullptr};
+  default:
+    break;
+  }
+  return R;
 }
