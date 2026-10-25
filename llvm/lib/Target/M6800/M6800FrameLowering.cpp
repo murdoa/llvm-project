@@ -225,26 +225,32 @@ void M6800FrameLowering::emitFree(MachineFunction &MF, MachineBasicBlock &MBB,
     Emit(M6800::TXS);
     return;
   }
-  if (StackSize <= 20 || StackSize + 3 > 255) {
-    if (StackSize + 3 > 255)
-      MF.getFunction().getContext().diagnose(DiagnosticInfoUnsupported(
-          MF.getFunction(), "a frame this large with an i32 result"));
+  if (StackSize <= 20) {
     for (int64_t I = 0; I != StackSize; ++I)
       Emit(M6800::INS);
     return;
   }
+  // Push D and X, copy the four bytes up over the frame, move SP up to
+  // them and pull them. The copy reaches at most 255 bytes up, so a larger
+  // frame takes several steps of the same size, each at least 21 bytes.
   Emit(M6800::PSHX).addReg(M6800::X);
   Emit(M6800::PSH8).addReg(M6800::B);
   Emit(M6800::PSH8).addReg(M6800::A);
-  Emit(M6800::TSX);
-  for (int64_t Off : {0, 2}) {
-    Emit(M6800::LD16m).addReg(M6800::D, RegState::Define).addReg(M6800::X)
-        .addImm(Off).addImm(M6800Mem::Auto);
-    Emit(M6800::ST16m).addReg(M6800::D).addReg(M6800::X)
-        .addImm(StackSize + Off).addImm(M6800Mem::Auto);
+  constexpr int64_t MaxStep = 252;
+  int64_t Steps = (StackSize + MaxStep - 1) / MaxStep;
+  for (int64_t Left = StackSize; Steps; --Steps) {
+    int64_t Step = (Left + Steps - 1) / Steps;
+    Left -= Step;
+    Emit(M6800::TSX);
+    for (int64_t Off : {0, 2}) {
+      Emit(M6800::LD16m).addReg(M6800::D, RegState::Define).addReg(M6800::X)
+          .addImm(Off).addImm(M6800Mem::Auto);
+      Emit(M6800::ST16m).addReg(M6800::D).addReg(M6800::X)
+          .addImm(Step + Off).addImm(M6800Mem::Auto);
+    }
+    AddToX(Step);
+    Emit(M6800::TXS);
   }
-  AddToX(StackSize);
-  Emit(M6800::TXS);
   Emit(M6800::PUL8).addReg(M6800::A, RegState::Define);
   Emit(M6800::PUL8).addReg(M6800::B, RegState::Define);
   Emit(M6800::PULX).addReg(M6800::X, RegState::Define);
