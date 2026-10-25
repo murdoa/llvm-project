@@ -31,6 +31,8 @@ public:
 
   EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
                          EVT VT) const override {
+    if (VT.isVector())
+      return VT.changeVectorElementTypeToInteger();
     return MVT::i8;
   }
 
@@ -57,6 +59,9 @@ private:
   SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerRETURNADDR(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerFRAMEADDR(SDValue Op, SelectionDAG &DAG) const;
+  SDValue getReturnAddressFrameIndex(SelectionDAG &DAG) const;
 
   SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
                                bool IsVarArg,

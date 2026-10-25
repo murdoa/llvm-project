@@ -92,6 +92,8 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::STACKSAVE, MVT::Other, Expand);
   setOperationAction(ISD::STACKRESTORE, MVT::Other, Expand);
   setOperationAction(ISD::DYNAMIC_STACKALLOC, MVT::i16, Expand);
+  setOperationAction(ISD::RETURNADDR, MVT::i16, Custom);
+  setOperationAction(ISD::FRAMEADDR, MVT::i16, Custom);
 
   // Multi-word add and subtract use glued carry chains: ADDD/SUBD for the
   // low word, then adcb/adca or sbcb/sbca for each higher one.
@@ -147,6 +149,10 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
     return lowerSELECT_CC(Op, DAG);
   case ISD::VASTART:
     return lowerVASTART(Op, DAG);
+  case ISD::RETURNADDR:
+    return lowerRETURNADDR(Op, DAG);
+  case ISD::FRAMEADDR:
+    return lowerFRAMEADDR(Op, DAG);
   case ISD::SHL:
   case ISD::SRL:
   case ISD::SRA:
@@ -154,6 +160,41 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
   default:
     llvm_unreachable("M6809: unexpected operation to lower");
   }
+}
+
+// The return address JSR pushed, just above the incoming arguments.
+SDValue
+M6809TargetLowering::getReturnAddressFrameIndex(SelectionDAG &DAG) const {
+  MachineFunction &MF = DAG.getMachineFunction();
+  M6809FunctionInfo *FuncInfo = MF.getInfo<M6809FunctionInfo>();
+  int FI = FuncInfo->getReturnAddressFrameIndex();
+  if (!FI) {
+    FI = MF.getFrameInfo().CreateFixedObject(ReturnAddressSize, 0,
+                                             /*IsImmutable=*/true);
+    FuncInfo->setReturnAddressFrameIndex(FI);
+  }
+  return DAG.getFrameIndex(FI, MVT::i16);
+}
+
+// There is no frame chain to walk, so only the current function's return
+// address is known. Outer frames give 0.
+SDValue M6809TargetLowering::lowerRETURNADDR(SDValue Op,
+                                             SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  if (Op.getConstantOperandVal(0) != 0)
+    return DAG.getConstant(0, DL, MVT::i16);
+  return DAG.getLoad(MVT::i16, DL, DAG.getEntryNode(),
+                     getReturnAddressFrameIndex(DAG), MachinePointerInfo());
+}
+
+// The frame address is the S of the caller just before the call: the
+// address of the return address. It is above every local of the function.
+SDValue M6809TargetLowering::lowerFRAMEADDR(SDValue Op,
+                                            SelectionDAG &DAG) const {
+  DAG.getMachineFunction().getFrameInfo().setFrameAddressIsTaken(true);
+  if (Op.getConstantOperandVal(0) != 0)
+    return DAG.getConstant(0, SDLoc(Op), MVT::i16);
+  return getReturnAddressFrameIndex(DAG);
 }
 
 SDValue M6809TargetLowering::lowerGlobalAddress(SDValue Op,
@@ -548,7 +589,8 @@ SDValue M6809TargetLowering::LowerFormalArguments(
     ISD::ArgFlagsTy Flags = Ins[VA.getValNo()].Flags;
     if (Flags.isByVal()) {
       // The caller's copy of the struct; its address is the argument.
-      int FI = MFI.CreateFixedObject(Flags.getByValSize(),
+      // An empty struct still needs an object to point at.
+      int FI = MFI.CreateFixedObject(std::max(1u, Flags.getByValSize()),
                                      VA.getLocMemOffset() + ReturnAddressSize,
                                      /*IsImmutable=*/false);
       InVals.push_back(DAG.getFrameIndex(FI, MVT::i16));

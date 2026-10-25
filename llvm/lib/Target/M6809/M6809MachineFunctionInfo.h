@@ -18,12 +18,16 @@ class M6809FunctionInfo : public MachineFunctionInfo {
 
   /// Fixed stack object at the first variadic argument, for va_start.
   int VarArgsFrameIndex = 0;
+  // Fixed object over the return address, made when something asks for it.
+  int ReturnAddressFrameIndex = 0;
 
 public:
   M6809FunctionInfo(const Function &F, const TargetSubtargetInfo *STI) {}
 
   int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
   void setVarArgsFrameIndex(int FI) { VarArgsFrameIndex = FI; }
+  int getReturnAddressFrameIndex() const { return ReturnAddressFrameIndex; }
+  void setReturnAddressFrameIndex(int FI) { ReturnAddressFrameIndex = FI; }
 
   MachineFunctionInfo *
   clone(BumpPtrAllocator &Allocator, MachineFunction &DestMF,
