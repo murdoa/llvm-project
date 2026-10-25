@@ -9,9 +9,13 @@
 // Many 6800 operations work only on D. If an instruction whose result may be
 // in D or X reads a D-only value as its tied operand, the two-address pass
 // narrows the result to D as well. At -O0 a chain of such operations pins
-// every value to D, and the fast allocator runs out of registers. This pass
-// reads those operands through a COPY into a fresh GR16 register. It does
-// nothing when optimizing.
+// every value to D, and the allocator runs out of registers. This pass
+// reads those operands through a COPY into a fresh GR16 register, at -O0.
+//
+// Values narrowed to X alone (by MachineCSE's copy propagation, say) are
+// read through a GR16 COPY at every level. Otherwise the two-address pass
+// pins the result to X too, and storing it through an address in X has no
+// assignment.
 //
 //===----------------------------------------------------------------------===//
 
@@ -49,11 +53,15 @@ static bool isDClass(const TargetRegisterClass *RC) {
   return RC == &M6800::ACC16RegClass;
 }
 
-// At -O0, read a D-only tied source of an instruction whose result may be
-// in any GR16 through a GR16 copy. Otherwise the two-address pass narrows
-// the result to D as well, and a chain of such operations pins every value
-// to D.
-static bool widenTiedDSources(MachineFunction &MF) {
+static bool isXClass(const TargetRegisterClass *RC) {
+  return RC == &M6800::IDX16RegClass;
+}
+
+// Reads a tied source in a class IsNarrow accepts, of an instruction whose
+// result may be in any GR16, through a GR16 copy. Otherwise the two-address
+// pass narrows the result to the same class.
+static bool widenTiedSources(MachineFunction &MF,
+                             bool (*IsNarrow)(const TargetRegisterClass *)) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
   bool Changed = false;
@@ -66,7 +74,7 @@ static bool widenTiedDSources(MachineFunction &MF) {
         continue;
       for (MachineOperand &MO : MI.explicit_uses()) {
         if (!MO.isReg() || !MO.isTied() || !MO.getReg().isVirtual() ||
-            !isDClass(MRI.getRegClass(MO.getReg())))
+            !IsNarrow(MRI.getRegClass(MO.getReg())))
           continue;
         Register Copy = MRI.createVirtualRegister(&M6800::GR16RegClass);
         BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(TargetOpcode::COPY), Copy)
@@ -81,9 +89,11 @@ static bool widenTiedDSources(MachineFunction &MF) {
 }
 
 bool M6800SplitDOperands::runOnMachineFunction(MachineFunction &MF) {
-  if (MF.getTarget().getOptLevel() != CodeGenOptLevel::None)
-    return false;
-  return widenTiedDSources(MF);
+  bool Changed = widenTiedSources(MF, isXClass);
+  // At -O0 a chain of D-only operations would pin every value to D.
+  if (MF.getTarget().getOptLevel() == CodeGenOptLevel::None)
+    Changed |= widenTiedSources(MF, isDClass);
+  return Changed;
 }
 
 FunctionPass *llvm::createM6800SplitDOperandsPass() {
