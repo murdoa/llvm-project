@@ -55,7 +55,7 @@ public:
 private:
   // Which registers are live just after an instruction.
   struct LiveAfter {
-    bool X, D, B, CC;
+    bool X, D, B, C; // C: the carry flag.
   };
 
   const M6800InstrInfo *TII = nullptr;
@@ -80,15 +80,55 @@ char M6800FrameAccess::ID = 0;
 
 INITIALIZE_PASS(M6800FrameAccess, DEBUG_TYPE, PASS_NAME, false, false)
 
+// Whether MI changes C. Loads, stores and register transfers set N and Z
+// and clear V but leave C alone, so a spill or reload may sit between an
+// instruction that sets C and one that reads it ("asld; std 4,sp; rolb").
+static bool clobbersC(const MachineInstr &MI, const TargetRegisterInfo *TRI) {
+  if (!MI.modifiesRegister(M6800::CC, TRI))
+    return false;
+  switch (MI.getOpcode()) {
+  case M6800::LD8m:
+  case M6800::LD16m:
+  case M6800::ST8m:
+  case M6800::ST16m:
+  case M6800::LD8i:
+  case M6800::LD16i:
+  case M6800::TAB:
+  case M6800::TBA:
+  case M6800::INX:
+  case M6800::DEX:
+    return false;
+  default:
+    return true;
+  }
+}
+
+// Whether C is read at the start of MBB before anything sets it.
+static bool cLiveIn(const MachineBasicBlock &MBB,
+                    const TargetRegisterInfo *TRI) {
+  for (const MachineInstr &MI : MBB) {
+    if (MI.readsRegister(M6800::CC, TRI))
+      return true;
+    if (clobbersC(MI, TRI))
+      return false;
+  }
+  return false;
+}
+
+// CC is reserved, so LivePhysRegs does not track it: C is followed by hand.
 void M6800FrameAccess::computeLiveness(MachineBasicBlock &MBB) {
   const MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
   LivePhysRegs LPR(*TRI);
   LPR.addLiveOuts(MBB);
+  bool CLive = any_of(MBB.successors(), [&](const MachineBasicBlock *Succ) {
+    return cLiveIn(*Succ, TRI);
+  });
   for (MachineInstr &MI : reverse(MBB)) {
     Live[&MI] = {!LPR.available(MRI, M6800::X), !LPR.available(MRI, M6800::D),
-                 !LPR.available(MRI, M6800::B),
-                 !LPR.available(MRI, M6800::CC)};
+                 !LPR.available(MRI, M6800::B), CLive};
     LPR.stepBackward(MI);
+    CLive = (CLive && !clobbersC(MI, TRI)) ||
+            MI.readsRegister(M6800::CC, TRI);
   }
 }
 
@@ -192,12 +232,17 @@ void M6800FrameAccess::rewriteStoreX(MachineInstr &MI, int64_t Off) {
     Off += 2;
   }
   BuildMI(MBB, MI, DL, TII->get(M6800::XGDX));
-  BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
-  if (Off > 255) {
-    // addToX keeps the value in D. The flags it changes are set again by
-    // the store.
-    addToX(MBB, MI, DL, Off, false);
+  if (Off > 255 && LA.C) {
+    // The store leaves C alone, so C must survive the add.
+    addToXKeepFlags(MBB, MI, DL, Off);
     Off = 0;
+  } else {
+    BuildMI(MBB, MI, DL, TII->get(M6800::TSX));
+    if (Off > 255) {
+      // addToX keeps the value in D. The store sets N, Z and V again.
+      addToX(MBB, MI, DL, Off, false);
+      Off = 0;
+    }
   }
   BuildMI(MBB, MI, DL, TII->get(M6800::ST16m))
       .addReg(M6800::D)
@@ -232,7 +277,7 @@ bool M6800FrameAccess::rewrite(MachineInstr &MI, unsigned MemIdx) {
   bool DefsX = MI.modifiesRegister(M6800::X, TRI);
   bool SaveX = LA.X && !DefsX;
   bool NeedsCC = MI.readsRegister(M6800::CC, TRI) ||
-                 (LA.CC && !MI.modifiesRegister(M6800::CC, TRI));
+                 (LA.C && !clobbersC(MI, TRI));
   int64_t Pushed = SaveX ? 2 : 0;
   int64_t XOff = Off + Pushed;
 
