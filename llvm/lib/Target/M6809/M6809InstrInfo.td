@@ -22,6 +22,12 @@ include "M6809InstrFormats.td"
 def M6809RetGlue : SDNode<"M6809ISD::RET_GLUE", SDTNone,
                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
+// Wraps a target address (global, external symbol, block address) so the
+// address-mode selector can recognise it.
+def M6809Wrapper : SDNode<"M6809ISD::WRAPPER",
+                          SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>,
+                                               SDTCisPtrTy<0>]>>;
+
 def SDT_M6809CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i16>,
                                             SDTCisVT<1, i16>]>;
 def SDT_M6809CallSeqEnd : SDCallSeqEnd<[SDTCisVT<0, i16>, SDTCisVT<1, i16>]>;
@@ -38,7 +44,8 @@ def callseq_end : SDNode<"ISD::CALLSEQ_END", SDT_M6809CallSeqEnd,
 def i8imm_op : Operand<i8>;
 def i16imm_op : Operand<i16>;
 
-// Indexed constant-offset addressing: "off,reg", e.g. "2,s" or ",x".
+// Memory operand: base register plus offset. "off,reg" is indexed ("2,s",
+// ",x"). With no base register it is extended addressing ("sym+2", "49152").
 def memidx : Operand<i16> {
   let MIOperandInfo = (ops PTR16:$base, i16imm:$offset);
   let PrintMethod = "printMemIndexedOperand";
@@ -233,3 +240,11 @@ def : Pat<(i16 (zext ACC8:$s)),
 def : Pat<(i16 (sext ACC8:$s)),
           (SEX (INSERT_SUBREG (i16 (IMPLICIT_DEF)), ACC8:$s, sub_lo))>;
 def : Pat<(i8 (trunc GR16:$s)), (EXTRACT_SUBREG GR16:$s, sub_lo)>;
+
+//===----------------------------------------------------------------------===//
+// Addresses
+//===----------------------------------------------------------------------===//
+
+def : Pat<(M6809Wrapper tglobaladdr:$a), (LD16i tglobaladdr:$a)>;
+def : Pat<(M6809Wrapper texternalsym:$a), (LD16i texternalsym:$a)>;
+def : Pat<(M6809Wrapper tblockaddress:$a), (LD16i tblockaddress:$a)>;

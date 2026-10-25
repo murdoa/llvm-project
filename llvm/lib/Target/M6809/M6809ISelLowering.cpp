@@ -54,9 +54,57 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   // SEX covers i8-in-i16; smaller widths become shifts.
   setOperationAction(ISD::SIGN_EXTEND_INREG, MVT::i1, Expand);
 
+  setOperationAction(ISD::GlobalAddress, MVT::i16, Custom);
+  setOperationAction(ISD::ExternalSymbol, MVT::i16, Custom);
+  setOperationAction(ISD::BlockAddress, MVT::i16, Custom);
+
   // TODO: everything not listed here is left Legal and fails instruction
   // selection until it is added. Next up: shifts, compares and branches,
-  // multiply, divide, globals and calls.
+  // multiply, divide and calls.
+}
+
+//===----------------------------------------------------------------------===//
+// Custom lowering
+//===----------------------------------------------------------------------===//
+
+SDValue M6809TargetLowering::LowerOperation(SDValue Op,
+                                            SelectionDAG &DAG) const {
+  switch (Op.getOpcode()) {
+  case ISD::GlobalAddress:
+    return lowerGlobalAddress(Op, DAG);
+  case ISD::ExternalSymbol:
+    return lowerExternalSymbol(Op, DAG);
+  case ISD::BlockAddress:
+    return lowerBlockAddress(Op, DAG);
+  default:
+    llvm_unreachable("M6809: unexpected operation to lower");
+  }
+}
+
+SDValue M6809TargetLowering::lowerGlobalAddress(SDValue Op,
+                                                SelectionDAG &DAG) const {
+  auto *N = cast<GlobalAddressSDNode>(Op);
+  SDLoc DL(Op);
+  SDValue GA = DAG.getTargetGlobalAddress(N->getGlobal(), DL, MVT::i16,
+                                          N->getOffset());
+  return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, GA);
+}
+
+SDValue M6809TargetLowering::lowerExternalSymbol(SDValue Op,
+                                                 SelectionDAG &DAG) const {
+  auto *N = cast<ExternalSymbolSDNode>(Op);
+  SDLoc DL(Op);
+  SDValue Sym = DAG.getTargetExternalSymbol(N->getSymbol(), MVT::i16);
+  return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, Sym);
+}
+
+SDValue M6809TargetLowering::lowerBlockAddress(SDValue Op,
+                                               SelectionDAG &DAG) const {
+  auto *N = cast<BlockAddressSDNode>(Op);
+  SDLoc DL(Op);
+  SDValue BA = DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i16,
+                                         N->getOffset());
+  return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, BA);
 }
 
 //===----------------------------------------------------------------------===//

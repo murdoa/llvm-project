@@ -51,16 +51,41 @@ FunctionPass *llvm::createM6809ISelDag(M6809TargetMachine &TM,
   return new M6809DAGToDAGISelLegacy(TM, OptLevel);
 }
 
-// Indexed addressing with a constant offset: off,X / off,U / off,Y / off,S.
-// Frame indexes become off,S once the frame is laid out.
+// Picks the addressing mode for a load or store:
+//  - frame index (+ constant)    -> off,S once the frame is laid out
+//  - global/symbol (+ constant)  -> extended "sym+off", no base register
+//  - constant address            -> extended "nnnn"
+//  - anything else (+ constant)  -> indexed off,X / off,U / off,Y
 bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
                                    SDValue &Offset) {
   SDLoc DL(Addr);
   int64_t Off = 0;
 
+  if (auto *C = dyn_cast<ConstantSDNode>(Addr)) {
+    Base = CurDAG->getRegister(Register(), MVT::i16);
+    Offset = CurDAG->getTargetConstant(C->getZExtValue() & 0xFFFF, DL,
+                                       MVT::i16);
+    return true;
+  }
+
   if (CurDAG->isBaseWithConstantOffset(Addr)) {
     Off = cast<ConstantSDNode>(Addr.getOperand(1))->getSExtValue();
     Addr = Addr.getOperand(0);
+  }
+
+  if (Addr.getOpcode() == M6809ISD::WRAPPER) {
+    SDValue Sym = Addr.getOperand(0);
+    if (auto *G = dyn_cast<GlobalAddressSDNode>(Sym)) {
+      Base = CurDAG->getRegister(Register(), MVT::i16);
+      Offset = CurDAG->getTargetGlobalAddress(G->getGlobal(), DL, MVT::i16,
+                                              G->getOffset() + Off);
+      return true;
+    }
+    if (auto *E = dyn_cast<ExternalSymbolSDNode>(Sym); E && Off == 0) {
+      Base = CurDAG->getRegister(Register(), MVT::i16);
+      Offset = CurDAG->getTargetExternalSymbol(E->getSymbol(), MVT::i16);
+      return true;
+    }
   }
 
   if (auto *FIN = dyn_cast<FrameIndexSDNode>(Addr))

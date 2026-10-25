@@ -44,17 +44,25 @@ void M6809InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   MAI.printExpr(O, *Op.getExpr());
 }
 
-// Prints "off,reg", leaving out a zero offset (",x").
+// Prints "off,reg" (indexed, zero offset left out as ",x"), or just "off"
+// when there is no base register (extended addressing).
 void M6809InstPrinter::printMemIndexedOperand(const MCInst *MI, unsigned OpNo,
                                               raw_ostream &O) {
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Off = MI->getOperand(OpNo + 1);
+  bool Extended = !Base.getReg();
+
   if (Off.isImm()) {
-    if (Off.getImm() != 0)
+    // An absolute address is unsigned; an index offset is signed.
+    if (Extended)
+      O << static_cast<uint16_t>(Off.getImm());
+    else if (Off.getImm() != 0)
       O << Off.getImm();
   } else {
     MAI.printExpr(O, *Off.getExpr());
   }
+  if (Extended)
+    return;
   O << ',';
   printRegName(O, Base.getReg());
 }

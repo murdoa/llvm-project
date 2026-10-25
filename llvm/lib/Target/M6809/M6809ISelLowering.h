@@ -23,7 +23,13 @@ public:
   explicit M6809TargetLowering(const TargetMachine &TM,
                                const M6809Subtarget &STI);
 
+  SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
+
 private:
+  SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;
+
   SDValue LowerFormalArguments(SDValue Chain, CallingConv::ID CallConv,
                                bool IsVarArg,
                                const SmallVectorImpl<ISD::InputArg> &Ins,
