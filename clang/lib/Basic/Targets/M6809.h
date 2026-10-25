@@ -118,6 +118,9 @@ public:
 
   std::string_view getClobbers() const override { return ""; }
 
+  // __builtin_setjmp and __builtin_longjmp.
+  bool hasSjLjLowering() const override { return true; }
+
   BuiltinVaListKind getBuiltinVaListKind() const override {
     return TargetInfo::CharPtrBuiltinVaList;
   }
