@@ -21,7 +21,10 @@ class M6809Subtarget;
 
 class M6809InstrInfo : public M6809GenInstrInfo {
   const M6809RegisterInfo RI;
+  const M6809Subtarget &STI;
   virtual void anchor();
+
+  bool expand6309(MachineInstr &MI) const;
 
 public:
   explicit M6809InstrInfo(const M6809Subtarget &STI);

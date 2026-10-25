@@ -25,7 +25,7 @@ void M6809InstrInfo::anchor() {}
 M6809InstrInfo::M6809InstrInfo(const M6809Subtarget &STI)
     : M6809GenInstrInfo(STI, RI, M6809::ADJCALLSTACKDOWN,
                         M6809::ADJCALLSTACKUP),
-      RI(STI) {}
+      RI(STI), STI(STI) {}
 
 void M6809InstrInfo::copyPhysReg(MachineBasicBlock &MBB,
                                  MachineBasicBlock::iterator I,
@@ -313,6 +313,11 @@ void M6809InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
   bool EqNe = CC == M6809CC::EQ || CC == M6809CC::NE;
   if (M6809::ACC8RegClass.contains(R)) {
     BuildMI(MBB, MI, DL, get(M6809::TST8)).add(Lhs);
+  } else if (R == M6809::D && STI.has6309() && CC != M6809CC::HI &&
+             CC != M6809CC::LS && CC != M6809CC::HS && CC != M6809CC::LO) {
+    // TSTD leaves C alone, so it serves every condition but the unsigned
+    // ones.
+    BuildMI(MBB, MI, DL, get(M6809::TST16r)).add(Lhs);
   } else if (R == M6809::D) {
     BuildMI(MBB, MI, DL, get(M6809::SUBDi), R).addReg(R).addImm(0);
   } else if (EqNe && (R == M6809::X || R == M6809::Y)) {
@@ -334,10 +339,126 @@ static void addWholeD(MachineInstrBuilder &MIB) {
       .addReg(M6809::D, RegState::ImplicitDefine);
 }
 
+// The HD6309 does in one instruction what the 6809 needs a sequence for:
+// register-register arithmetic, 16-bit logic on memory, and 16-bit shifts,
+// negation and tests of D.
+bool M6809InstrInfo::expand6309(MachineInstr &MI) const {
+  MachineBasicBlock &MBB = *MI.getParent();
+  DebugLoc DL = MI.getDebugLoc();
+  unsigned Opc = MI.getOpcode();
+
+  // "op rhs,dst": dst = dst op rhs.
+  auto RegReg = [&](unsigned RROpc, const MachineOperand &Rhs, Register Dst,
+                    bool Writes = true) {
+    MachineInstrBuilder MIB =
+        BuildMI(MBB, MI, DL, get(RROpc))
+            .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()))
+            .addReg(Dst);
+    if (Writes)
+      MIB.addReg(Dst, RegState::ImplicitDefine);
+    MI.eraseFromParent();
+    return true;
+  };
+  switch (Opc) {
+  case M6809::ADD8rr:
+  case M6809::ADDDrr:
+    return RegReg(M6809::ADDR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::SUB8rr:
+  case M6809::SUBDrr:
+    return RegReg(M6809::SUBR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::AND8rr:
+  case M6809::AND16rr:
+    return RegReg(M6809::ANDR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::OR8rr:
+  case M6809::OR16rr:
+    return RegReg(M6809::ORR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::EOR8rr:
+  case M6809::EOR16rr:
+    return RegReg(M6809::EORR, MI.getOperand(2), MI.getOperand(0).getReg());
+  case M6809::ADC16rr:
+    return RegReg(M6809::ADCR, MI.getOperand(2), M6809::D);
+  case M6809::SBC16rr:
+    return RegReg(M6809::SBCR, MI.getOperand(2), M6809::D);
+  default:
+    break;
+  }
+
+  // 16-bit logic and carry ops on memory: one instruction, not two.
+  unsigned MemOpc = 0;
+  switch (Opc) {
+  case M6809::AND16m: MemOpc = M6809::ANDDm; break;
+  case M6809::OR16m: MemOpc = M6809::ORDm; break;
+  case M6809::EOR16m: MemOpc = M6809::EORDm; break;
+  case M6809::ADC16m: MemOpc = M6809::ADCDm; break;
+  case M6809::SBC16m: MemOpc = M6809::SBCDm; break;
+  default: break;
+  }
+  if (MemOpc) {
+    BuildMI(MBB, MI, DL, get(MemOpc), M6809::D)
+        .addReg(M6809::D)
+        .add(MI.getOperand(2))
+        .add(MI.getOperand(3))
+        .add(MI.getOperand(4))
+        .cloneMemRefs(MI);
+    MI.eraseFromParent();
+    return true;
+  }
+
+  if (Opc == M6809::MUL16i || Opc == M6809::MUL16m || Opc == M6809::MUL16rr) {
+    MachineInstrBuilder Mul;
+    if (Opc == M6809::MUL16i) {
+      Mul = BuildMI(MBB, MI, DL, get(M6809::MULDi)).add(MI.getOperand(2));
+    } else if (Opc == M6809::MUL16m) {
+      Mul = BuildMI(MBB, MI, DL, get(M6809::MULDm))
+                .add(MI.getOperand(2))
+                .add(MI.getOperand(3))
+                .add(MI.getOperand(4))
+                .cloneMemRefs(MI);
+    } else {
+      const MachineOperand &Rhs = MI.getOperand(2);
+      BuildMI(MBB, MI, DL, get(M6809::PSHS16))
+          .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
+      Mul = BuildMI(MBB, MI, DL, get(M6809::MULDm))
+                .addReg(M6809::S)
+                .addImm(0)
+                .addImm(M6809Mem::PostInc2)
+                .addReg(M6809::S, RegState::Implicit)
+                .addReg(M6809::S, RegState::ImplicitDefine);
+    }
+    // tfr w,d
+    BuildMI(MBB, MI, DL, get(M6809::TFRrr))
+        .addReg(M6809::W, RegState::Kill)
+        .addReg(M6809::D, RegState::Undef)
+        .addReg(M6809::D, RegState::ImplicitDefine);
+    MI.eraseFromParent();
+    return true;
+  }
+
+  unsigned InhOpc = 0;
+  switch (Opc) {
+  case M6809::NEG16: InhOpc = M6809::NEG16r; break;
+  case M6809::LSL16: InhOpc = M6809::ASL16r; break;
+  case M6809::LSR16: InhOpc = M6809::LSR16r; break;
+  case M6809::ASR16: InhOpc = M6809::ASR16r; break;
+  case M6809::ROL16: InhOpc = M6809::ROL16r; break;
+  case M6809::ROR16: InhOpc = M6809::ROR16r; break;
+  default: break;
+  }
+  if (InhOpc) {
+    BuildMI(MBB, MI, DL, get(InhOpc), M6809::D).addReg(M6809::D);
+    MI.eraseFromParent();
+    return true;
+  }
+  return false;
+}
+
 bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   MachineBasicBlock &MBB = *MI.getParent();
   DebugLoc DL = MI.getDebugLoc();
   unsigned Opc = MI.getOpcode();
+
+  if (STI.has6309() && expand6309(MI))
+    return true;
 
   if (unsigned PopOpc = getPopOpcode(Opc)) {
     Register Dst = MI.getOperand(0).getReg();
@@ -601,6 +722,13 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       break;
     default: {
       const MachineOperand &Rhs = MI.getOperand(1);
+      if (STI.has6309()) {
+        // "cmpr rhs,lhs" sets the flags for lhs - rhs.
+        BuildMI(MBB, MI, DL, get(M6809::CMPR))
+            .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()))
+            .add(Lhs);
+        break;
+      }
       BuildMI(MBB, MI, DL, get(Is8 ? M6809::PSHS8 : M6809::PSHS16))
           .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
       BuildMI(MBB, MI, DL, get(Is8 ? M6809::CMP8pop : M6809::CMP16pop))
