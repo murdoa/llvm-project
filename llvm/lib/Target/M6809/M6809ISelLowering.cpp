@@ -89,9 +89,10 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
-  // Multiply: i8 uses the 8x8 MUL instruction; wider types call the runtime
-  // library. Divide and remainder always call the runtime library.
-  setOperationAction(ISD::MUL, MVT::i16, LibCall);
+  // Multiply: i8 uses the 8x8 MUL instruction, i16 the HD6309's MULD, and
+  // otherwise the runtime library. Divide and remainder always call the
+  // runtime library.
+  setOperationAction(ISD::MUL, MVT::i16, STI.has6309() ? Legal : LibCall);
   for (MVT VT : {MVT::i8, MVT::i16}) {
     for (unsigned Op : {ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM})
       setOperationAction(Op, VT, VT == MVT::i8 ? Promote : LibCall);

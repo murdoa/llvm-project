@@ -10,6 +10,7 @@
 #include "M6809SelectionDAGInfo.h"
 #include "M6809TargetMachine.h"
 #include "llvm/CodeGen/SelectionDAG.h"
+#include "M6809Subtarget.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 
 using namespace llvm;
@@ -20,10 +21,17 @@ using namespace llvm;
 namespace {
 
 class M6809DAGToDAGISel : public SelectionDAGISel {
+  const M6809Subtarget *Subtarget = nullptr;
+
 public:
   M6809DAGToDAGISel() = delete;
   M6809DAGToDAGISel(M6809TargetMachine &TM, CodeGenOptLevel OptLevel)
       : SelectionDAGISel(TM, OptLevel) {}
+
+  bool runOnMachineFunction(MachineFunction &MF) override {
+    Subtarget = &MF.getSubtarget<M6809Subtarget>();
+    return SelectionDAGISel::runOnMachineFunction(MF);
+  }
 
   void Select(SDNode *N) override;
 

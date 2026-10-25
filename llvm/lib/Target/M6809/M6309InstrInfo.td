@@ -15,6 +15,8 @@
 
 def i32imm_op : Operand<i32>;
 
+def Has6309 : Predicate<"Subtarget->has6309()">;
+
 // Inherent operations on D or W: "negd", "lsrw", ...
 let Constraints = "$src = $dst", Defs = [CC] in {
   def NEG16r : M6809Inst<(outs DW16:$dst), (ins DW16:$src), "neg${dst}", [], 2>;
@@ -149,4 +151,23 @@ let hasSideEffects = 1 in {
   def LDMD : M6809Inst<(outs), (ins i8imm_op:$imm), "ldmd\t#$imm", [], 3>;
   let Defs = [CC] in
   def BITMD : M6809Inst<(outs), (ins i8imm_op:$imm), "bitmd\t#$imm", [], 3>;
+}
+
+//===----------------------------------------------------------------------===//
+// Code generation
+//===----------------------------------------------------------------------===//
+
+// i16 multiply: "muld x; tfr w,d", expanded after register allocation. The
+// low half of the signed 32-bit product is the product for both signs. W
+// is reserved, so it is free to clobber.
+let Predicates = [Has6309], Constraints = "$src = $dst", Defs = [W, CC] in {
+  def MUL16i : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, i16imm_op:$imm),
+                           "", [(set ACC16:$dst, (mul ACC16:$src, imm:$imm))]>;
+  let mayLoad = 1 in
+  def MUL16m : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, memidx:$addr),
+                           "", [(set ACC16:$dst,
+                                     (mul ACC16:$src, (load addr:$addr)))]>;
+  let Uses = [S], Defs = [S, W, CC] in
+  def MUL16rr : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src, IDX16:$rhs),
+                            "", [(set ACC16:$dst, (mul ACC16:$src, IDX16:$rhs))]>;
 }
