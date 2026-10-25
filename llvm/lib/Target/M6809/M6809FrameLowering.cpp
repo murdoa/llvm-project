@@ -97,8 +97,7 @@ MachineBasicBlock::iterator M6809FrameLowering::eliminateCallFramePseudoInstr(
     int64_t Amount = I->getOperand(0).getImm();
     if (Amount) {
       bool Down = I->getOpcode() == M6809::ADJCALLSTACKDOWN;
-      BuildMI(MBB, I, I->getDebugLoc(),
-              STI.getInstrInfo()->get(M6809::LEASi))
+      BuildMI(MBB, I, I->getDebugLoc(), STI.getInstrInfo()->get(M6809::LEASi))
           .addImm(Down ? -Amount : Amount);
     }
   }

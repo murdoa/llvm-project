@@ -59,14 +59,17 @@ public:
 
 static unsigned pageIndex(uint16_t Code) {
   switch (Code >> 8) {
-  case 0x10: return 1;
-  case 0x11: return 2;
-  default: return 0;
+  case 0x10:
+    return 1;
+  case 0x11:
+    return 2;
+  default:
+    return 0;
   }
 }
 
-M6809Disassembler::M6809Disassembler(const MCSubtargetInfo &STI,
-                                     MCContext &Ctx, const MCInstrInfo *MCII)
+M6809Disassembler::M6809Disassembler(const MCSubtargetInfo &STI, MCContext &Ctx,
+                                     const MCInstrInfo *MCII)
     : MCDisassembler(STI, Ctx), MCII(MCII) {
   auto Set = [&](uint16_t Code, const M6809::OpcodeEntry &E, Decoded::Kind K,
                  int Cond = -1) {
@@ -101,13 +104,13 @@ M6809Disassembler::M6809Disassembler(const MCSubtargetInfo &STI,
 
 // The register with a TFR/EXG postbyte code. W, V, E and F are HD6309 only.
 static MCRegister getTransferRegister(unsigned Code, bool Has6309) {
-  static const unsigned Regs[16] = {
-      M6809::D, M6809::X, M6809::Y, M6809::U, M6809::S, M6809::PC,
-      M6809::W, M6809::V, M6809::A, M6809::B, M6809::CC, M6809::DP,
-      0,        0,        M6809::E, M6809::F};
+  static const unsigned Regs[16] = {M6809::D, M6809::X,  M6809::Y,  M6809::U,
+                                    M6809::S, M6809::PC, M6809::W,  M6809::V,
+                                    M6809::A, M6809::B,  M6809::CC, M6809::DP,
+                                    0,        0,         M6809::E,  M6809::F};
   MCRegister R = Regs[Code & 0xF];
-  if (!Has6309 && (R == M6809::W || R == M6809::V || R == M6809::E ||
-                   R == M6809::F))
+  if (!Has6309 &&
+      (R == M6809::W || R == M6809::V || R == M6809::E || R == M6809::F))
     return MCRegister();
   return R;
 }
@@ -249,15 +252,21 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
       bool Ind = (Post & 0x9F) == 0x90;
       Base = M6809::W;
       switch ((Post >> 5) & 3) {
-      case 0: Mode = M6809Mem::Auto; break;
+      case 0:
+        Mode = M6809Mem::Auto;
+        break;
       case 1:
         if (!Avail(2))
           return MCDisassembler::Fail;
         Off = SignExtend64<16>(U16());
         Mode = Off == 0 ? M6809Mem::Off16 : M6809Mem::Auto;
         break;
-      case 2: Mode = M6809Mem::PostInc2; break;
-      default: Mode = M6809Mem::PreDec2; break;
+      case 2:
+        Mode = M6809Mem::PostInc2;
+        break;
+      default:
+        Mode = M6809Mem::PreDec2;
+        break;
       }
       if (Ind)
         Mode |= M6809Mem::Indirect;
@@ -274,12 +283,24 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
           return MCDisassembler::Fail;
         Mode = (Post & 0x0F) == 0 ? M6809Mem::PostInc1 : M6809Mem::PreDec1;
         break;
-      case 0x1: Mode = M6809Mem::PostInc2; break;
-      case 0x3: Mode = M6809Mem::PreDec2; break;
-      case 0x4: Mode = M6809Mem::Auto; break;
-      case 0x5: Mode = M6809Mem::AccB; break;
-      case 0x6: Mode = M6809Mem::AccA; break;
-      case 0xB: Mode = M6809Mem::AccD; break;
+      case 0x1:
+        Mode = M6809Mem::PostInc2;
+        break;
+      case 0x3:
+        Mode = M6809Mem::PreDec2;
+        break;
+      case 0x4:
+        Mode = M6809Mem::Auto;
+        break;
+      case 0x5:
+        Mode = M6809Mem::AccB;
+        break;
+      case 0x6:
+        Mode = M6809Mem::AccA;
+        break;
+      case 0xB:
+        Mode = M6809Mem::AccD;
+        break;
       case 0x7:
       case 0xA:
       case 0xE:
@@ -296,7 +317,7 @@ DecodeStatus M6809Disassembler::getInstruction(MCInst &MI, uint64_t &Size,
         // Auto gives 8 bits only to offsets that do not fit in 5 (or any
         // non-zero offset when indirect).
         Mode = Off != 0 && (Ind || !isInt<5>(Off)) ? M6809Mem::Auto
-                                                    : M6809Mem::Off8;
+                                                   : M6809Mem::Off8;
         break;
       case 0x9:
         if (!Avail(2))

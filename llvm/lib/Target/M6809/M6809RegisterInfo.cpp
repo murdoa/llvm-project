@@ -63,8 +63,8 @@ bool M6809RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
   const MachineFrameInfo &MFI = MI.getMF()->getFrameInfo();
   int FI = MI.getOperand(FIOperandNum).getIndex();
 
-  int64_t Offset = MFI.getObjectOffset(FI) +
-                   MI.getOperand(FIOperandNum + 1).getImm();
+  int64_t Offset =
+      MFI.getObjectOffset(FI) + MI.getOperand(FIOperandNum + 1).getImm();
   Register Base = getFrameRegister(*MI.getMF());
   if (Base == M6809::U)
     Offset += M6809FrameLowering::FPSaveSize;

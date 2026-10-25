@@ -19,8 +19,7 @@
 
 using namespace llvm;
 
-MCOperand
-M6809MCInstLower::lowerSymbolOperand(const MachineOperand &MO) const {
+MCOperand M6809MCInstLower::lowerSymbolOperand(const MachineOperand &MO) const {
   const MCSymbol *Sym;
   int64_t Offset = 0;
 
@@ -53,8 +52,8 @@ M6809MCInstLower::lowerSymbolOperand(const MachineOperand &MO) const {
 
   const MCExpr *Expr = MCSymbolRefExpr::create(Sym, Ctx);
   if (Offset)
-    Expr = MCBinaryExpr::createAdd(Expr, MCConstantExpr::create(Offset, Ctx),
-                                   Ctx);
+    Expr =
+        MCBinaryExpr::createAdd(Expr, MCConstantExpr::create(Offset, Ctx), Ctx);
   return MCOperand::createExpr(Expr);
 }
 

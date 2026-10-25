@@ -25,12 +25,10 @@ class Target;
 
 MCCodeEmitter *createM6809MCCodeEmitter(const MCInstrInfo &MCII,
                                         MCContext &Ctx);
-MCAsmBackend *createM6809AsmBackend(const Target &T,
-                                    const MCSubtargetInfo &STI,
+MCAsmBackend *createM6809AsmBackend(const Target &T, const MCSubtargetInfo &STI,
                                     const MCRegisterInfo &MRI,
                                     const MCTargetOptions &Options);
-std::unique_ptr<MCObjectTargetWriter>
-createM6809ELFObjectWriter(uint8_t OSABI);
+std::unique_ptr<MCObjectTargetWriter> createM6809ELFObjectWriter(uint8_t OSABI);
 
 namespace M6809CC {
 // Branch conditions, in the order of the Bcc opcodes' low nibble from 0x22.
@@ -60,22 +58,30 @@ inline CondCode getOpposite(CondCode CC) {
 // tests (VC, VS, PL, MI) have none; they come back unchanged.
 inline CondCode getSwapped(CondCode CC) {
   switch (CC) {
-  case HI: return LO;
-  case LO: return HI;
-  case LS: return HS;
-  case HS: return LS;
-  case GT: return LT;
-  case LT: return GT;
-  case GE: return LE;
-  case LE: return GE;
-  default: return CC;
+  case HI:
+    return LO;
+  case LO:
+    return HI;
+  case LS:
+    return HS;
+  case HS:
+    return LS;
+  case GT:
+    return LT;
+  case LT:
+    return GT;
+  case GE:
+    return LE;
+  case LE:
+    return GE;
+  default:
+    return CC;
   }
 }
 
 inline const char *getName(CondCode CC) {
-  static const char *const Names[] = {"hi", "ls", "hs", "lo", "ne",
-                                      "eq", "vc", "vs", "pl", "mi",
-                                      "ge", "lt", "gt", "le"};
+  static const char *const Names[] = {"hi", "ls", "hs", "lo", "ne", "eq", "vc",
+                                      "vs", "pl", "mi", "ge", "lt", "gt", "le"};
   return Names[CC];
 }
 } // namespace M6809CC
@@ -125,17 +131,28 @@ namespace M6809 {
 // PSHU/PULU. D is A and B together.
 inline unsigned getPushPullMask(unsigned Reg, bool UStack) {
   switch (Reg) {
-  case M6809::CC: return 0x01;
-  case M6809::A: return 0x02;
-  case M6809::B: return 0x04;
-  case M6809::D: return 0x06;
-  case M6809::DP: return 0x08;
-  case M6809::X: return 0x10;
-  case M6809::Y: return 0x20;
-  case M6809::U: return UStack ? 0 : 0x40;
-  case M6809::S: return UStack ? 0x40 : 0;
-  case M6809::PC: return 0x80;
-  default: return 0;
+  case M6809::CC:
+    return 0x01;
+  case M6809::A:
+    return 0x02;
+  case M6809::B:
+    return 0x04;
+  case M6809::D:
+    return 0x06;
+  case M6809::DP:
+    return 0x08;
+  case M6809::X:
+    return 0x10;
+  case M6809::Y:
+    return 0x20;
+  case M6809::U:
+    return UStack ? 0 : 0x40;
+  case M6809::S:
+    return UStack ? 0x40 : 0;
+  case M6809::PC:
+    return 0x80;
+  default:
+    return 0;
   }
 }
 } // namespace M6809

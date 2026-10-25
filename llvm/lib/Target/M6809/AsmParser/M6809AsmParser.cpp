@@ -77,8 +77,7 @@ class M6809AsmParser : public MCTargetAsmParser {
   AsmLexer &getLexer() { return Parser.getLexer(); }
   const AsmToken &tok() { return Parser.getTok(); }
 
-  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc,
-                     SMLoc &EndLoc) override;
+  bool parseRegister(MCRegister &Reg, SMLoc &StartLoc, SMLoc &EndLoc) override;
   ParseStatus tryParseRegister(MCRegister &Reg, SMLoc &StartLoc,
                                SMLoc &EndLoc) override;
   bool parseInstruction(ParseInstructionInfo &Info, StringRef Name,
@@ -99,8 +98,7 @@ class M6809AsmParser : public MCTargetAsmParser {
   bool parseTfmOperand(MCRegister &Reg, int &Step);
   bool buildInstruction(const SmallVectorImpl<const M6809::OpcodeEntry *> &Rows,
                         int CondCode, SMLoc NameLoc, MCInst &Inst);
-  bool addFixedRegisters(MCInst &Inst, unsigned Count, unsigned Reg,
-                         SMLoc Loc);
+  bool addFixedRegisters(MCInst &Inst, unsigned Count, unsigned Reg, SMLoc Loc);
 
 public:
   M6809AsmParser(const MCSubtargetInfo &STI, MCAsmParser &Parser,
@@ -120,21 +118,21 @@ static bool is6309Register(MCRegister R) {
 // "w" can be a symbol on the 6809.
 MCRegister M6809AsmParser::matchRegister(StringRef Name) const {
   MCRegister R = StringSwitch<MCRegister>(Name.lower())
-      .Case("a", M6809::A)
-      .Case("b", M6809::B)
-      .Case("d", M6809::D)
-      .Case("x", M6809::X)
-      .Case("y", M6809::Y)
-      .Case("u", M6809::U)
-      .Case("s", M6809::S)
-      .Case("pc", M6809::PC)
-      .Cases({"cc", "ccr"}, M6809::CC)
-      .Cases({"dp", "dpr"}, M6809::DP)
-      .Case("e", M6809::E)
-      .Case("f", M6809::F)
-      .Case("w", M6809::W)
-      .Case("v", M6809::V)
-      .Default(MCRegister());
+                     .Case("a", M6809::A)
+                     .Case("b", M6809::B)
+                     .Case("d", M6809::D)
+                     .Case("x", M6809::X)
+                     .Case("y", M6809::Y)
+                     .Case("u", M6809::U)
+                     .Case("s", M6809::S)
+                     .Case("pc", M6809::PC)
+                     .Cases({"cc", "ccr"}, M6809::CC)
+                     .Cases({"dp", "dpr"}, M6809::DP)
+                     .Case("e", M6809::E)
+                     .Case("f", M6809::F)
+                     .Case("w", M6809::W)
+                     .Case("v", M6809::V)
+                     .Default(MCRegister());
   if (is6309Register(R) && !has6309())
     return MCRegister();
   return R;
@@ -456,8 +454,8 @@ bool M6809AsmParser::buildInstruction(
     if (E->Form == M6809::RegList) {
       Start(*E);
       int64_t Mask;
-      if (parseRegList(Mask, E->Opcode == M6809::PSHUr ||
-                                 E->Opcode == M6809::PULUr))
+      if (parseRegList(Mask,
+                       E->Opcode == M6809::PSHUr || E->Opcode == M6809::PULUr))
         return true;
       Inst.addOperand(MCOperand::createImm(Mask));
       return false;
@@ -486,8 +484,8 @@ bool M6809AsmParser::buildInstruction(
     return false;
   }
 
-  if (const M6809::OpcodeEntry *E = Find({M6809::Rel8, M6809::Rel16,
-                                          M6809::Cond8, M6809::Cond16})) {
+  if (const M6809::OpcodeEntry *E =
+          Find({M6809::Rel8, M6809::Rel16, M6809::Cond8, M6809::Cond16})) {
     Start(*E);
     if (E->Form == M6809::Cond8 || E->Form == M6809::Cond16)
       Inst.addOperand(MCOperand::createImm(CondCode));
@@ -559,7 +557,9 @@ bool M6809AsmParser::parseInstruction(ParseInstructionInfo &Info,
   int CondCode = -1;
   if (Rows.empty()) {
     StringRef M = Mnem;
-    StringRef Prefix = M.starts_with("lb") ? "lb" : M.starts_with("b") ? "b" : "";
+    StringRef Prefix = M.starts_with("lb")  ? "lb"
+                       : M.starts_with("b") ? "b"
+                                            : "";
     if (!Prefix.empty())
       CondCode = matchCondition(M.drop_front(Prefix.size()));
     if (CondCode >= 0)

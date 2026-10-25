@@ -69,8 +69,8 @@ void M6809InstrInfo::storeRegToStackSlot(
     bool IsKill, int FrameIndex, const TargetRegisterClass *RC, Register VReg,
     MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc = RC->hasSuperClassEq(&M6809::ACC8RegClass) ? M6809::ST8m
-                                                           : M6809::ST16m;
+  unsigned Opc =
+      RC->hasSuperClassEq(&M6809::ACC8RegClass) ? M6809::ST8m : M6809::ST16m;
   BuildMI(MBB, MI, DL, get(Opc))
       .addReg(SrcReg, getKillRegState(IsKill))
       .addFrameIndex(FrameIndex)
@@ -80,13 +80,15 @@ void M6809InstrInfo::storeRegToStackSlot(
       .setMIFlag(Flags);
 }
 
-void M6809InstrInfo::loadRegFromStackSlot(
-    MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register DestReg,
-    int FrameIndex, const TargetRegisterClass *RC, Register VReg,
-    unsigned SubReg, MachineInstr::MIFlag Flags) const {
+void M6809InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
+                                          MachineBasicBlock::iterator MI,
+                                          Register DestReg, int FrameIndex,
+                                          const TargetRegisterClass *RC,
+                                          Register VReg, unsigned SubReg,
+                                          MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc = RC->hasSuperClassEq(&M6809::ACC8RegClass) ? M6809::LD8m
-                                                           : M6809::LD16m;
+  unsigned Opc =
+      RC->hasSuperClassEq(&M6809::ACC8RegClass) ? M6809::LD8m : M6809::LD16m;
   BuildMI(MBB, MI, DL, get(Opc), DestReg)
       .addFrameIndex(FrameIndex)
       .addImm(0)
@@ -100,24 +102,39 @@ void M6809InstrInfo::loadRegFromStackSlot(
 static unsigned getMemForm(unsigned Opc, unsigned &RhsIdx) {
   RhsIdx = 2;
   switch (Opc) {
-  case M6809::ADD8rr: return M6809::ADD8m;
-  case M6809::SUB8rr: return M6809::SUB8m;
-  case M6809::AND8rr: return M6809::AND8m;
-  case M6809::OR8rr: return M6809::OR8m;
-  case M6809::EOR8rr: return M6809::EOR8m;
-  case M6809::ADDDrr: return M6809::ADDDm;
-  case M6809::SUBDrr: return M6809::SUBDm;
-  case M6809::ADC16rr: return M6809::ADC16m;
-  case M6809::SBC16rr: return M6809::SBC16m;
-  case M6809::AND16rr: return M6809::AND16m;
-  case M6809::OR16rr: return M6809::OR16m;
-  case M6809::EOR16rr: return M6809::EOR16m;
+  case M6809::ADD8rr:
+    return M6809::ADD8m;
+  case M6809::SUB8rr:
+    return M6809::SUB8m;
+  case M6809::AND8rr:
+    return M6809::AND8m;
+  case M6809::OR8rr:
+    return M6809::OR8m;
+  case M6809::EOR8rr:
+    return M6809::EOR8m;
+  case M6809::ADDDrr:
+    return M6809::ADDDm;
+  case M6809::SUBDrr:
+    return M6809::SUBDm;
+  case M6809::ADC16rr:
+    return M6809::ADC16m;
+  case M6809::SBC16rr:
+    return M6809::SBC16m;
+  case M6809::AND16rr:
+    return M6809::AND16m;
+  case M6809::OR16rr:
+    return M6809::OR16m;
+  case M6809::EOR16rr:
+    return M6809::EOR16m;
   }
   RhsIdx = 1;
   switch (Opc) {
-  case M6809::CB8rr: return M6809::CB8rm;
-  case M6809::CB16rr: return M6809::CB16rm;
-  case M6809::SBCBRrr: return M6809::SBCBRm;
+  case M6809::CB8rr:
+    return M6809::CB8rm;
+  case M6809::CB16rr:
+    return M6809::CB16rm;
+  case M6809::SBCBRrr:
+    return M6809::SBCBRm;
   }
   return 0;
 }
@@ -125,10 +142,11 @@ static unsigned getMemForm(unsigned Opc, unsigned &RhsIdx) {
 // A spilled right-hand operand is read from its stack slot: "subd 4,s"
 // instead of "ldx 4,s; pshs x; subd ,s++". A compare whose left-hand
 // operand is spilled swaps its operands.
-MachineInstr *M6809InstrInfo::foldMemoryOperandImpl(
-    MachineFunction &MF, MachineInstr &MI, ArrayRef<unsigned> Ops,
-    int FrameIndex, MachineInstr *&CopyMI, LiveIntervals *LIS,
-    VirtRegMap *VRM) const {
+MachineInstr *
+M6809InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
+                                      ArrayRef<unsigned> Ops, int FrameIndex,
+                                      MachineInstr *&CopyMI, LiveIntervals *LIS,
+                                      VirtRegMap *VRM) const {
   if (Ops.size() != 1)
     return nullptr;
   unsigned RhsIdx;
@@ -158,8 +176,8 @@ MachineInstr *M6809InstrInfo::foldMemoryOperandImpl(
       continue;
     }
     if (Swap && I == 2) { // the condition
-      MIB.addImm(M6809CC::getSwapped(
-          static_cast<M6809CC::CondCode>(MO.getImm())));
+      MIB.addImm(
+          M6809CC::getSwapped(static_cast<M6809CC::CondCode>(MO.getImm())));
       continue;
     }
     MIB.add(MO);
@@ -178,9 +196,9 @@ void M6809InstrInfo::reMaterialize(MachineBasicBlock &MBB,
     TargetInstrInfo::reMaterialize(MBB, I, DestReg, SubIdx, Orig, UsedLanes);
     return;
   }
-  MachineInstr *MI = BuildMI(*MBB.getParent(), Orig.getDebugLoc(),
-                             get(M6809::LD8i), DestReg)
-                         .addImm(0);
+  MachineInstr *MI =
+      BuildMI(*MBB.getParent(), Orig.getDebugLoc(), get(M6809::LD8i), DestReg)
+          .addImm(0);
   MBB.insert(I, MI);
   if (SubIdx)
     MI->getOperand(0).setSubReg(SubIdx);
@@ -193,14 +211,22 @@ void M6809InstrInfo::reMaterialize(MachineBasicBlock &MBB,
 // Register-register pseudo -> the matching ",s+" / ",s++" pop form.
 static unsigned getPopOpcode(unsigned Opc) {
   switch (Opc) {
-  case M6809::ADD8rr: return M6809::ADD8pop;
-  case M6809::SUB8rr: return M6809::SUB8pop;
-  case M6809::AND8rr: return M6809::AND8pop;
-  case M6809::OR8rr: return M6809::OR8pop;
-  case M6809::EOR8rr: return M6809::EOR8pop;
-  case M6809::ADDDrr: return M6809::ADDDpop;
-  case M6809::SUBDrr: return M6809::SUBDpop;
-  default: return 0;
+  case M6809::ADD8rr:
+    return M6809::ADD8pop;
+  case M6809::SUB8rr:
+    return M6809::SUB8pop;
+  case M6809::AND8rr:
+    return M6809::AND8pop;
+  case M6809::OR8rr:
+    return M6809::OR8pop;
+  case M6809::EOR8rr:
+    return M6809::EOR8pop;
+  case M6809::ADDDrr:
+    return M6809::ADDDpop;
+  case M6809::SUBDrr:
+    return M6809::SUBDpop;
+  default:
+    return 0;
   }
 }
 
@@ -216,22 +242,68 @@ struct Logic16Parts {
 
 static bool getLogic16Parts(unsigned Opc, Logic16Parts &P, char &Form) {
   switch (Opc) {
-  case M6809::ADC16i: Form = 'i'; P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true}; return true;
-  case M6809::ADC16m: Form = 'm'; P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true}; return true;
-  case M6809::ADC16rr: Form = 'r'; P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true}; return true;
-  case M6809::SBC16i: Form = 'i'; P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true}; return true;
-  case M6809::SBC16m: Form = 'm'; P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true}; return true;
-  case M6809::SBC16rr: Form = 'r'; P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true}; return true;
-  case M6809::AND16i: Form = 'i'; P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop}; return true;
-  case M6809::AND16m: Form = 'm'; P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop}; return true;
-  case M6809::AND16rr: Form = 'r'; P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop}; return true;
-  case M6809::OR16i: Form = 'i'; P = {M6809::OR8i, M6809::OR8m, M6809::OR8pop}; return true;
-  case M6809::OR16m: Form = 'm'; P = {M6809::OR8i, M6809::OR8m, M6809::OR8pop}; return true;
-  case M6809::OR16rr: Form = 'r'; P = {M6809::OR8i, M6809::OR8m, M6809::OR8pop}; return true;
-  case M6809::EOR16i: Form = 'i'; P = {M6809::EOR8i, M6809::EOR8m, M6809::EOR8pop}; return true;
-  case M6809::EOR16m: Form = 'm'; P = {M6809::EOR8i, M6809::EOR8m, M6809::EOR8pop}; return true;
-  case M6809::EOR16rr: Form = 'r'; P = {M6809::EOR8i, M6809::EOR8m, M6809::EOR8pop}; return true;
-  default: return false;
+  case M6809::ADC16i:
+    Form = 'i';
+    P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true};
+    return true;
+  case M6809::ADC16m:
+    Form = 'm';
+    P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true};
+    return true;
+  case M6809::ADC16rr:
+    Form = 'r';
+    P = {M6809::ADC8i, M6809::ADC8m, M6809::ADC8pop2, true};
+    return true;
+  case M6809::SBC16i:
+    Form = 'i';
+    P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true};
+    return true;
+  case M6809::SBC16m:
+    Form = 'm';
+    P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true};
+    return true;
+  case M6809::SBC16rr:
+    Form = 'r';
+    P = {M6809::SBC8i, M6809::SBC8m, M6809::SBC8pop2, true};
+    return true;
+  case M6809::AND16i:
+    Form = 'i';
+    P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop};
+    return true;
+  case M6809::AND16m:
+    Form = 'm';
+    P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop};
+    return true;
+  case M6809::AND16rr:
+    Form = 'r';
+    P = {M6809::AND8i, M6809::AND8m, M6809::AND8pop};
+    return true;
+  case M6809::OR16i:
+    Form = 'i';
+    P = {M6809::OR8i, M6809::OR8m, M6809::OR8pop};
+    return true;
+  case M6809::OR16m:
+    Form = 'm';
+    P = {M6809::OR8i, M6809::OR8m, M6809::OR8pop};
+    return true;
+  case M6809::OR16rr:
+    Form = 'r';
+    P = {M6809::OR8i, M6809::OR8m, M6809::OR8pop};
+    return true;
+  case M6809::EOR16i:
+    Form = 'i';
+    P = {M6809::EOR8i, M6809::EOR8m, M6809::EOR8pop};
+    return true;
+  case M6809::EOR16m:
+    Form = 'm';
+    P = {M6809::EOR8i, M6809::EOR8m, M6809::EOR8pop};
+    return true;
+  case M6809::EOR16rr:
+    Form = 'r';
+    P = {M6809::EOR8i, M6809::EOR8m, M6809::EOR8pop};
+    return true;
+  default:
+    return false;
   }
 }
 
@@ -411,12 +483,23 @@ bool M6809InstrInfo::expand6309(MachineInstr &MI) const {
   // 16-bit logic and carry ops on memory: one instruction, not two.
   unsigned MemOpc = 0;
   switch (Opc) {
-  case M6809::AND16m: MemOpc = M6809::ANDDm; break;
-  case M6809::OR16m: MemOpc = M6809::ORDm; break;
-  case M6809::EOR16m: MemOpc = M6809::EORDm; break;
-  case M6809::ADC16m: MemOpc = M6809::ADCDm; break;
-  case M6809::SBC16m: MemOpc = M6809::SBCDm; break;
-  default: break;
+  case M6809::AND16m:
+    MemOpc = M6809::ANDDm;
+    break;
+  case M6809::OR16m:
+    MemOpc = M6809::ORDm;
+    break;
+  case M6809::EOR16m:
+    MemOpc = M6809::EORDm;
+    break;
+  case M6809::ADC16m:
+    MemOpc = M6809::ADCDm;
+    break;
+  case M6809::SBC16m:
+    MemOpc = M6809::SBCDm;
+    break;
+  default:
+    break;
   }
   if (MemOpc) {
     BuildMI(MBB, MI, DL, get(MemOpc), M6809::D)
@@ -549,13 +632,26 @@ bool M6809InstrInfo::expand6309(MachineInstr &MI) const {
 
   unsigned InhOpc = 0;
   switch (Opc) {
-  case M6809::NEG16: InhOpc = M6809::NEG16r; break;
-  case M6809::LSL16: InhOpc = M6809::ASL16r; break;
-  case M6809::LSR16: InhOpc = M6809::LSR16r; break;
-  case M6809::ASR16: InhOpc = M6809::ASR16r; break;
-  case M6809::ROL16: InhOpc = M6809::ROL16r; break;
-  case M6809::ROR16: InhOpc = M6809::ROR16r; break;
-  default: break;
+  case M6809::NEG16:
+    InhOpc = M6809::NEG16r;
+    break;
+  case M6809::LSL16:
+    InhOpc = M6809::ASL16r;
+    break;
+  case M6809::LSR16:
+    InhOpc = M6809::LSR16r;
+    break;
+  case M6809::ASR16:
+    InhOpc = M6809::ASR16r;
+    break;
+  case M6809::ROL16:
+    InhOpc = M6809::ROL16r;
+    break;
+  case M6809::ROR16:
+    InhOpc = M6809::ROR16r;
+    break;
+  default:
+    break;
   }
   if (InhOpc) {
     BuildMI(MBB, MI, DL, get(InhOpc), M6809::D).addReg(M6809::D);
@@ -586,8 +682,8 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
   // One-bit rotates (see M6809InstrInfo.td).
   if (Opc == M6809::ROL1_8 || Opc == M6809::ROL1_16) {
-    Register Lo = Opc == M6809::ROL1_8 ? MI.getOperand(0).getReg()
-                                       : Register(M6809::B);
+    Register Lo =
+        Opc == M6809::ROL1_8 ? MI.getOperand(0).getReg() : Register(M6809::B);
     BuildMI(MBB, MI, DL, get(M6809::ASL8), Lo).addReg(Lo);
     if (Opc == M6809::ROL1_16)
       BuildMI(MBB, MI, DL, get(M6809::ROL8), M6809::A).addReg(M6809::A);
@@ -599,8 +695,8 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
   if (Opc == M6809::ROR1_8 || Opc == M6809::ROR1_16) {
-    Register Lo = Opc == M6809::ROR1_8 ? MI.getOperand(0).getReg()
-                                       : Register(M6809::B);
+    Register Lo =
+        Opc == M6809::ROR1_8 ? MI.getOperand(0).getReg() : Register(M6809::B);
     BuildMI(MBB, MI, DL, get(M6809::PSHS8)).addReg(Lo);
     BuildMI(MBB, MI, DL, get(M6809::LSRm))
         .addReg(M6809::S)
@@ -646,8 +742,7 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     FirstOpc = M6809::ROR8;
     break;
   }
-  if (Opc == M6809::SHL16_8 || Opc == M6809::LSR16_8 ||
-      Opc == M6809::ASR16_8) {
+  if (Opc == M6809::SHL16_8 || Opc == M6809::LSR16_8 || Opc == M6809::ASR16_8) {
     bool Left = Opc == M6809::SHL16_8;
     BuildMI(MBB, MI, DL, get(M6809::TFR8), Left ? M6809::A : M6809::B)
         .addReg(Left ? M6809::B : M6809::A);
@@ -812,8 +907,8 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     const MachineOperand &Lhs = MI.getOperand(0);
     int64_t CC = MI.getOperand(N - 2).getImm();
     MachineBasicBlock *Dest = MI.getOperand(N - 1).getMBB();
-    bool Is8 = Opc == M6809::CB8ri || Opc == M6809::CB8rm ||
-               Opc == M6809::CB8rr;
+    bool Is8 =
+        Opc == M6809::CB8ri || Opc == M6809::CB8rm || Opc == M6809::CB8rr;
 
     switch (Opc) {
     case M6809::CB8ri:
@@ -885,8 +980,8 @@ static bool isCondBranch(unsigned Opc) {
 }
 
 // Fills Cond from a conditional branch and returns its target.
-static MachineBasicBlock *parseCondBranch(const MachineInstr &MI,
-                                          SmallVectorImpl<MachineOperand> &Cond) {
+static MachineBasicBlock *
+parseCondBranch(const MachineInstr &MI, SmallVectorImpl<MachineOperand> &Cond) {
   Cond.push_back(MachineOperand::CreateImm(MI.getOpcode()));
   unsigned N = MI.getNumExplicitOperands();
   for (unsigned I = 0; I + 1 < N; ++I) {
@@ -966,12 +1061,9 @@ unsigned M6809InstrInfo::removeBranch(MachineBasicBlock &MBB,
   return Count;
 }
 
-unsigned M6809InstrInfo::insertBranch(MachineBasicBlock &MBB,
-                                      MachineBasicBlock *TBB,
-                                      MachineBasicBlock *FBB,
-                                      ArrayRef<MachineOperand> Cond,
-                                      const DebugLoc &DL,
-                                      int *BytesAdded) const {
+unsigned M6809InstrInfo::insertBranch(
+    MachineBasicBlock &MBB, MachineBasicBlock *TBB, MachineBasicBlock *FBB,
+    ArrayRef<MachineOperand> Cond, const DebugLoc &DL, int *BytesAdded) const {
   assert(TBB && "insertBranch needs a target");
   int Bytes = 0;
 

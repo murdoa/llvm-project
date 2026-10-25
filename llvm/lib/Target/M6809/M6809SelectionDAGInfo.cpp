@@ -23,9 +23,9 @@ M6809SelectionDAGInfo::~M6809SelectionDAGInfo() = default;
 // On the HD6309, TFM copies or fills W bytes in a few bytes of code, for any
 // length: it is used for every copy or fill not inlined as loads and stores.
 SDValue M6809SelectionDAGInfo::EmitTargetCodeForMemcpy(
-    SelectionDAG &DAG, const SDLoc &DL, SDValue Chain, SDValue Dst,
-    SDValue Src, SDValue Size, Align, Align, bool, bool,
-    MachinePointerInfo, MachinePointerInfo) const {
+    SelectionDAG &DAG, const SDLoc &DL, SDValue Chain, SDValue Dst, SDValue Src,
+    SDValue Size, Align, Align, bool, bool, MachinePointerInfo,
+    MachinePointerInfo) const {
   if (!DAG.getSubtarget<M6809Subtarget>().has6309())
     return SDValue();
   Size = DAG.getZExtOrTrunc(Size, DL, MVT::i16);
@@ -33,8 +33,8 @@ SDValue M6809SelectionDAGInfo::EmitTargetCodeForMemcpy(
 }
 
 SDValue M6809SelectionDAGInfo::EmitTargetCodeForMemset(
-    SelectionDAG &DAG, const SDLoc &DL, SDValue Chain, SDValue Dst,
-    SDValue Val, SDValue Size, Align, bool, bool, MachinePointerInfo) const {
+    SelectionDAG &DAG, const SDLoc &DL, SDValue Chain, SDValue Dst, SDValue Val,
+    SDValue Size, Align, bool, bool, MachinePointerInfo) const {
   if (!DAG.getSubtarget<M6809Subtarget>().has6309())
     return SDValue();
   Size = DAG.getZExtOrTrunc(Size, DL, MVT::i16);

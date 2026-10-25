@@ -8,9 +8,9 @@
 
 #include "M6809.h"
 #include "M6809SelectionDAGInfo.h"
+#include "M6809Subtarget.h"
 #include "M6809TargetMachine.h"
 #include "llvm/CodeGen/SelectionDAG.h"
-#include "M6809Subtarget.h"
 #include "llvm/CodeGen/SelectionDAGISel.h"
 
 using namespace llvm;
@@ -36,8 +36,7 @@ public:
   void Select(SDNode *N) override;
 
   SDValue getTargetSymbol(SDValue Sym, int64_t Off);
-  bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
-                  SDValue &Mode);
+  bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset, SDValue &Mode);
   bool SelectInlineAsmMemoryOperand(const SDValue &Op,
                                     InlineAsm::ConstraintCode ConstraintID,
                                     std::vector<SDValue> &OutOps) override;
@@ -89,16 +88,16 @@ SDValue M6809DAGToDAGISel::getTargetSymbol(SDValue Sym, int64_t Off) {
 //  - reg + global/symbol         -> indexed "sym,X"
 //  - constant address            -> extended "nnnn"
 //  - anything else (+ constant)  -> indexed off,X / off,U / off,Y
-bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
-                                   SDValue &Offset, SDValue &Mode) {
+bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
+                                   SDValue &Mode) {
   SDLoc DL(Addr);
   int64_t Off = 0;
   Mode = CurDAG->getTargetConstant(M6809Mem::Auto, DL, MVT::i8);
 
   if (auto *C = dyn_cast<ConstantSDNode>(Addr)) {
     Base = CurDAG->getRegister(Register(), MVT::i16);
-    Offset = CurDAG->getTargetConstant(C->getZExtValue() & 0xFFFF, DL,
-                                       MVT::i16);
+    Offset =
+        CurDAG->getTargetConstant(C->getZExtValue() & 0xFFFF, DL, MVT::i16);
     return true;
   }
 
@@ -195,20 +194,20 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
 
   // HD6309 block copy and fill: the pseudos return the advanced pointers,
   // which nothing uses.
-  if (N->getOpcode() == M6809ISD::TFMCPY || N->getOpcode() == M6809ISD::TFMSET) {
+  if (N->getOpcode() == M6809ISD::TFMCPY ||
+      N->getOpcode() == M6809ISD::TFMSET) {
     SDLoc DL(N);
     bool Cpy = N->getOpcode() == M6809ISD::TFMCPY;
     SDValue Len = N->getOperand(3);
     auto *C = dyn_cast<ConstantSDNode>(Len);
     if (C)
       Len = CurDAG->getTargetConstant(C->getZExtValue(), DL, MVT::i16);
-    SDValue Ops[] = {N->getOperand(1), N->getOperand(2), Len,
-                     N->getOperand(0)};
+    SDValue Ops[] = {N->getOperand(1), N->getOperand(2), Len, N->getOperand(0)};
     MachineSDNode *MN =
-        Cpy ? CurDAG->getMachineNode(C ? M6809::MEMCPY16i : M6809::MEMCPY16,
-                                     DL, MVT::i16, MVT::i16, MVT::Other, Ops)
-            : CurDAG->getMachineNode(C ? M6809::MEMSET16i : M6809::MEMSET16,
-                                     DL, MVT::i16, MVT::Other, Ops);
+        Cpy ? CurDAG->getMachineNode(C ? M6809::MEMCPY16i : M6809::MEMCPY16, DL,
+                                     MVT::i16, MVT::i16, MVT::Other, Ops)
+            : CurDAG->getMachineNode(C ? M6809::MEMSET16i : M6809::MEMSET16, DL,
+                                     MVT::i16, MVT::Other, Ops);
     ReplaceUses(SDValue(N, 0), SDValue(MN, Cpy ? 2 : 1));
     CurDAG->RemoveDeadNode(N);
     return;

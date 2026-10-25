@@ -63,10 +63,14 @@ public:
 
   static unsigned getRelaxedOpcode(unsigned Opcode) {
     switch (Opcode) {
-    case M6809::BRA: return M6809::LBRA;
-    case M6809::Bcc: return M6809::LBcc;
-    case M6809::BSR: return M6809::LBSR;
-    default: return Opcode;
+    case M6809::BRA:
+      return M6809::LBRA;
+    case M6809::Bcc:
+      return M6809::LBcc;
+    case M6809::BSR:
+      return M6809::LBSR;
+    default:
+      return Opcode;
     }
   }
 

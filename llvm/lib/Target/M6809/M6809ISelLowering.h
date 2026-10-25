@@ -47,8 +47,7 @@ public:
                               MachineBasicBlock *MBB) const override;
 
 private:
-  MachineBasicBlock *emitSelect(MachineInstr &MI,
-                                MachineBasicBlock *MBB) const;
+  MachineBasicBlock *emitSelect(MachineInstr &MI, MachineBasicBlock *MBB) const;
   MachineBasicBlock *emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const;
   MachineBasicBlock *emitSelect32(MachineInstr &MI,
                                   MachineBasicBlock *MBB) const;

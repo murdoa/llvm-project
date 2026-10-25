@@ -45,8 +45,7 @@ private:
                  MCFixupKind Kind, SmallVectorImpl<char> &CB,
                  SmallVectorImpl<MCFixup> &Fixups) const;
   void encodeMemory(const MCInst &MI, const M6809::OpcodeEntry &E,
-                    SmallVectorImpl<char> &CB,
-                    SmallVectorImpl<MCFixup> &Fixups,
+                    SmallVectorImpl<char> &CB, SmallVectorImpl<MCFixup> &Fixups,
                     const MCOperand *Imm8 = nullptr) const;
   void error(const MCInst &MI, const Twine &Msg) const {
     Ctx.reportError(MI.getLoc(), Msg);
@@ -103,11 +102,16 @@ void M6809MCCodeEmitter::emitValue(const MCInst &MI, const MCOperand &Op,
 // The rr field of an indexed postbyte.
 static int getIndexBits(MCRegister Reg) {
   switch (Reg.id()) {
-  case M6809::X: return 0x00;
-  case M6809::Y: return 0x20;
-  case M6809::U: return 0x40;
-  case M6809::S: return 0x60;
-  default: return -1;
+  case M6809::X:
+    return 0x00;
+  case M6809::Y:
+    return 0x20;
+  case M6809::U:
+    return 0x40;
+  case M6809::S:
+    return 0x60;
+  default:
+    return -1;
   }
 }
 

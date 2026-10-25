@@ -57,7 +57,6 @@ protected:
                                       VirtRegMap *VRM = nullptr) const override;
 
 public:
-
   void emitCompareWithZero(MachineBasicBlock &MBB,
                            MachineBasicBlock::iterator MI, const DebugLoc &DL,
                            const MachineOperand &Lhs, int64_t CC) const;
@@ -86,8 +85,8 @@ public:
   bool
   reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
 
-  const TargetRegisterClass *
-  getInlineAsmMemoryOperandRegClass(InlineAsm::ConstraintCode C) const override {
+  const TargetRegisterClass *getInlineAsmMemoryOperandRegClass(
+      InlineAsm::ConstraintCode C) const override {
     return &M6809::PTR16RegClass;
   }
 };

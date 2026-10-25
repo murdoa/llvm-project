@@ -97,8 +97,8 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   for (MVT VT : {MVT::i8, MVT::i16}) {
     for (unsigned Op : {ISD::SDIV, ISD::UDIV, ISD::SREM, ISD::UREM})
       setOperationAction(Op, VT, VT == MVT::i8 ? Promote : LibCall);
-    for (unsigned Op : {ISD::MULHS, ISD::MULHU, ISD::SMUL_LOHI,
-                        ISD::UMUL_LOHI, ISD::SDIVREM, ISD::UDIVREM})
+    for (unsigned Op : {ISD::MULHS, ISD::MULHU, ISD::SMUL_LOHI, ISD::UMUL_LOHI,
+                        ISD::SDIVREM, ISD::UDIVREM})
       setOperationAction(Op, VT, Expand);
   }
   // MUL gives the whole 16-bit product of two bytes.
@@ -144,9 +144,9 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
     for (unsigned Op : {ISD::ROTL, ISD::ROTR})
       setOperationAction(Op, VT, Custom);
     for (unsigned Op :
-         {ISD::FSHL, ISD::FSHR, ISD::SHL_PARTS,
-          ISD::SRL_PARTS, ISD::SRA_PARTS, ISD::BSWAP, ISD::CTPOP, ISD::CTLZ,
-          ISD::CTTZ, ISD::ABS, ISD::SMIN, ISD::SMAX, ISD::UMIN, ISD::UMAX})
+         {ISD::FSHL, ISD::FSHR, ISD::SHL_PARTS, ISD::SRL_PARTS, ISD::SRA_PARTS,
+          ISD::BSWAP, ISD::CTPOP, ISD::CTLZ, ISD::CTTZ, ISD::ABS, ISD::SMIN,
+          ISD::SMAX, ISD::UMIN, ISD::UMAX})
       setOperationAction(Op, VT, Expand);
   }
 
@@ -154,8 +154,7 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   // selection until it is added.
 }
 
-MVT M6809TargetLowering::getScalarShiftAmountTy(const DataLayout &,
-                                                EVT) const {
+MVT M6809TargetLowering::getScalarShiftAmountTy(const DataLayout &, EVT) const {
   return MVT::i8;
 }
 
@@ -171,10 +170,10 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
     SDLoc DL(Op);
     SDValue P = DAG.getNode(M6809ISD::UMUL8, DL, MVT::i16, Op.getOperand(0),
                             Op.getOperand(1));
-    SDValue Hi = DAG.getNode(
-        ISD::TRUNCATE, DL, MVT::i8,
-        DAG.getNode(ISD::SRL, DL, MVT::i16, P,
-                    DAG.getShiftAmountConstant(8, MVT::i16, DL)));
+    SDValue Hi =
+        DAG.getNode(ISD::TRUNCATE, DL, MVT::i8,
+                    DAG.getNode(ISD::SRL, DL, MVT::i16, P,
+                                DAG.getShiftAmountConstant(8, MVT::i16, DL)));
     if (Op.getOpcode() == ISD::MULHU)
       return Hi;
     SDValue Lo = DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, P);
@@ -190,10 +189,9 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
   case ISD::BlockAddress:
     return lowerBlockAddress(Op, DAG);
   case ISD::JumpTable:
-    return DAG.getNode(
-        M6809ISD::WRAPPER, SDLoc(Op), MVT::i16,
-        DAG.getTargetJumpTable(cast<JumpTableSDNode>(Op)->getIndex(),
-                               MVT::i16));
+    return DAG.getNode(M6809ISD::WRAPPER, SDLoc(Op), MVT::i16,
+                       DAG.getTargetJumpTable(
+                           cast<JumpTableSDNode>(Op)->getIndex(), MVT::i16));
   case ISD::BR_CC:
     return lowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:
@@ -221,8 +219,7 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
 
 // HD6309 unsigned i16 divide and remainder: DIVQ when the divisor's top
 // bit is known clear, otherwise the runtime library.
-SDValue M6809TargetLowering::lowerUDivRem(SDValue Op,
-                                          SelectionDAG &DAG) const {
+SDValue M6809TargetLowering::lowerUDivRem(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
   bool IsRem = Op.getOpcode() == ISD::UREM;
   if (DAG.SignBitIsZero(Op.getOperand(1)))
@@ -274,8 +271,8 @@ SDValue M6809TargetLowering::lowerGlobalAddress(SDValue Op,
                                                 SelectionDAG &DAG) const {
   auto *N = cast<GlobalAddressSDNode>(Op);
   SDLoc DL(Op);
-  SDValue GA = DAG.getTargetGlobalAddress(N->getGlobal(), DL, MVT::i16,
-                                          N->getOffset());
+  SDValue GA =
+      DAG.getTargetGlobalAddress(N->getGlobal(), DL, MVT::i16, N->getOffset());
   return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, GA);
 }
 
@@ -291,8 +288,8 @@ SDValue M6809TargetLowering::lowerBlockAddress(SDValue Op,
                                                SelectionDAG &DAG) const {
   auto *N = cast<BlockAddressSDNode>(Op);
   SDLoc DL(Op);
-  SDValue BA = DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i16,
-                                         N->getOffset());
+  SDValue BA =
+      DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i16, N->getOffset());
   return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, BA);
 }
 
@@ -432,8 +429,8 @@ void M6809TargetLowering::ReplaceNodeResults(SDNode *N,
       Lo = DAG.getNode(M6809ISD::LSL_C, DL, VTs, Lo);
       Hi = DAG.getNode(M6809ISD::ROL_C, DL, VTs, Hi, Lo.getValue(1));
     } else {
-      Hi = DAG.getNode(Opc == ISD::SRL ? M6809ISD::LSR_C : M6809ISD::ASR_C,
-                       DL, VTs, Hi);
+      Hi = DAG.getNode(Opc == ISD::SRL ? M6809ISD::LSR_C : M6809ISD::ASR_C, DL,
+                       VTs, Hi);
       Lo = DAG.getNode(M6809ISD::ROR_C, DL, VTs, Lo, Hi.getValue(1));
     }
   }
@@ -449,16 +446,26 @@ static M6809CC::CondCode prepareCompare(SDValue &LHS, SDValue &RHS,
     CC = ISD::getSetCCSwappedOperands(CC);
   }
   switch (CC) {
-  case ISD::SETEQ: return M6809CC::EQ;
-  case ISD::SETNE: return M6809CC::NE;
-  case ISD::SETUGT: return M6809CC::HI;
-  case ISD::SETUGE: return M6809CC::HS;
-  case ISD::SETULT: return M6809CC::LO;
-  case ISD::SETULE: return M6809CC::LS;
-  case ISD::SETGT: return M6809CC::GT;
-  case ISD::SETGE: return M6809CC::GE;
-  case ISD::SETLT: return M6809CC::LT;
-  case ISD::SETLE: return M6809CC::LE;
+  case ISD::SETEQ:
+    return M6809CC::EQ;
+  case ISD::SETNE:
+    return M6809CC::NE;
+  case ISD::SETUGT:
+    return M6809CC::HI;
+  case ISD::SETUGE:
+    return M6809CC::HS;
+  case ISD::SETULT:
+    return M6809CC::LO;
+  case ISD::SETULE:
+    return M6809CC::LS;
+  case ISD::SETGT:
+    return M6809CC::GT;
+  case ISD::SETGE:
+    return M6809CC::GE;
+  case ISD::SETLT:
+    return M6809CC::LT;
+  case ISD::SETLE:
+    return M6809CC::LE;
   default:
     llvm_unreachable("M6809: unsupported integer condition");
   }
@@ -562,10 +569,14 @@ static M6809CC::CondCode prepareCompare32(SDValue &LHS, SDValue &RHS,
     break;
   }
   switch (CC) {
-  case ISD::SETLT: return M6809CC::LT;
-  case ISD::SETGE: return M6809CC::GE;
-  case ISD::SETULT: return M6809CC::LO;
-  case ISD::SETUGE: return M6809CC::HS;
+  case ISD::SETLT:
+    return M6809CC::LT;
+  case ISD::SETGE:
+    return M6809CC::GE;
+  case ISD::SETULT:
+    return M6809CC::LO;
+  case ISD::SETUGE:
+    return M6809CC::HS;
   default:
     llvm_unreachable("M6809: unexpected i32 condition");
   }
@@ -579,8 +590,7 @@ static bool isOrderedCompare32(SDValue Cond) {
   return CC != ISD::SETEQ && CC != ISD::SETNE;
 }
 
-SDValue M6809TargetLowering::lowerBR_CC32(SDValue Op,
-                                          SelectionDAG &DAG) const {
+SDValue M6809TargetLowering::lowerBR_CC32(SDValue Op, SelectionDAG &DAG) const {
   SDValue Chain = Op.getOperand(0);
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(1))->get();
   SDValue LHS = Op.getOperand(2);
@@ -625,10 +635,10 @@ static SDValue combineSelect32(SDNode *N, SelectionDAG &DAG) {
     std::tie(TLo, THi) = DAG.SplitScalar(T, DL, MVT::i16, MVT::i16);
     std::tie(FLo, FHi) = DAG.SplitScalar(F, DL, MVT::i16, MVT::i16);
   }
-  SDValue R = DAG.getNode(M6809ISD::SELECT32, DL,
-                          DAG.getVTList(MVT::i16, MVT::i16),
-                          {TLo, THi, FLo, FHi, LHSLo, LHSHi, RHSLo, RHSHi,
-                           DAG.getTargetConstant(MCC, DL, MVT::i8)});
+  SDValue R =
+      DAG.getNode(M6809ISD::SELECT32, DL, DAG.getVTList(MVT::i16, MVT::i16),
+                  {TLo, THi, FLo, FHi, LHSLo, LHSHi, RHSLo, RHSHi,
+                   DAG.getTargetConstant(MCC, DL, MVT::i8)});
   if (VT == MVT::i16)
     return R;
   return DAG.getNode(ISD::BUILD_PAIR, DL, MVT::i32, R, R.getValue(1));
@@ -806,16 +816,46 @@ M6809TargetLowering::emitShiftLoop(MachineInstr &MI,
   unsigned ShiftOpc;
   const TargetRegisterClass *RC;
   switch (MI.getOpcode()) {
-  case M6809::LSLV_8:  ShiftOpc = M6809::ASL8;  RC = &M6809::ACC8RegClass;  break;
-  case M6809::LSRV_8:  ShiftOpc = M6809::LSR8;  RC = &M6809::ACC8RegClass;  break;
-  case M6809::ASRV_8:  ShiftOpc = M6809::ASR8;  RC = &M6809::ACC8RegClass;  break;
-  case M6809::LSLV_16: ShiftOpc = M6809::LSL16; RC = &M6809::ACC16RegClass; break;
-  case M6809::LSRV_16: ShiftOpc = M6809::LSR16; RC = &M6809::ACC16RegClass; break;
-  case M6809::ASRV_16: ShiftOpc = M6809::ASR16; RC = &M6809::ACC16RegClass; break;
-  case M6809::ROLV_8:  ShiftOpc = M6809::ROL1_8;  RC = &M6809::ACC8RegClass;  break;
-  case M6809::ROLV_16: ShiftOpc = M6809::ROL1_16; RC = &M6809::ACC16RegClass; break;
-  case M6809::RORV_8:  ShiftOpc = M6809::ROR1_8;  RC = &M6809::ACC8RegClass;  break;
-  case M6809::RORV_16: ShiftOpc = M6809::ROR1_16; RC = &M6809::ACC16RegClass; break;
+  case M6809::LSLV_8:
+    ShiftOpc = M6809::ASL8;
+    RC = &M6809::ACC8RegClass;
+    break;
+  case M6809::LSRV_8:
+    ShiftOpc = M6809::LSR8;
+    RC = &M6809::ACC8RegClass;
+    break;
+  case M6809::ASRV_8:
+    ShiftOpc = M6809::ASR8;
+    RC = &M6809::ACC8RegClass;
+    break;
+  case M6809::LSLV_16:
+    ShiftOpc = M6809::LSL16;
+    RC = &M6809::ACC16RegClass;
+    break;
+  case M6809::LSRV_16:
+    ShiftOpc = M6809::LSR16;
+    RC = &M6809::ACC16RegClass;
+    break;
+  case M6809::ASRV_16:
+    ShiftOpc = M6809::ASR16;
+    RC = &M6809::ACC16RegClass;
+    break;
+  case M6809::ROLV_8:
+    ShiftOpc = M6809::ROL1_8;
+    RC = &M6809::ACC8RegClass;
+    break;
+  case M6809::ROLV_16:
+    ShiftOpc = M6809::ROL1_16;
+    RC = &M6809::ACC16RegClass;
+    break;
+  case M6809::RORV_8:
+    ShiftOpc = M6809::ROR1_8;
+    RC = &M6809::ACC8RegClass;
+    break;
+  case M6809::RORV_16:
+    ShiftOpc = M6809::ROR1_16;
+    RC = &M6809::ACC16RegClass;
+    break;
   default:
     llvm_unreachable("M6809: not a shift loop");
   }
@@ -888,8 +928,8 @@ M6809TargetLowering::emitShiftLoop(MachineInstr &MI,
 
 // MUL8 and UMUL8: copy the operands into A and B, MUL, and take the low
 // byte (B) or the whole product (D).
-MachineBasicBlock *
-M6809TargetLowering::emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const {
+MachineBasicBlock *M6809TargetLowering::emitMul8(MachineInstr &MI,
+                                                 MachineBasicBlock *MBB) const {
   const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
   DebugLoc DL = MI.getDebugLoc();
   BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY), M6809::A)
@@ -897,8 +937,7 @@ M6809TargetLowering::emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const {
   BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY), M6809::B)
       .add(MI.getOperand(2));
   BuildMI(*MBB, MI, DL, TII.get(M6809::MUL));
-  BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY),
-          MI.getOperand(0).getReg())
+  BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY), MI.getOperand(0).getReg())
       .addReg(MI.getOpcode() == M6809::UMUL8 ? M6809::D : M6809::B);
   MI.eraseFromParent();
   return MBB;
@@ -1031,7 +1070,8 @@ M6809TargetLowering::emitSelect32(MachineInstr &MI,
       BuildMI(MBB, DL, TII.get(M6809::SUBDrr), Dead).addReg(A).addReg(RL);
     }
     Register H = CopyTo(&M6809::ACC16RegClass, LHi);
-    Register RH = Imm ? Register() : CopyTo(&M6809::IDX16RegClass, RHi.getReg());
+    Register RH =
+        Imm ? Register() : CopyTo(&M6809::IDX16RegClass, RHi.getReg());
     MachineInstrBuilder Br =
         BuildMI(MBB, DL, TII.get(Imm ? M6809::SBCBRi : M6809::SBCBRrr))
             .addReg(H);
@@ -1103,8 +1143,8 @@ SDValue M6809TargetLowering::LowerFormalArguments(
 
   // The variadic arguments start right after the fixed stack arguments.
   if (IsVarArg) {
-    int FI = MFI.CreateFixedObject(
-        1, CCInfo.getStackSize() + ReturnAddressSize, /*IsImmutable=*/true);
+    int FI = MFI.CreateFixedObject(1, CCInfo.getStackSize() + ReturnAddressSize,
+                                   /*IsImmutable=*/true);
     MF.getInfo<M6809FunctionInfo>()->setVarArgsFrameIndex(FI);
   }
   return Chain;
@@ -1181,8 +1221,8 @@ SDValue M6809TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   for (auto &[Reg, Val] : RegsToPass)
     Ops.push_back(DAG.getRegister(Reg, Val.getValueType()));
   const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
-  Ops.push_back(DAG.getRegisterMask(TRI->getCallPreservedMask(MF,
-                                                              CLI.CallConv)));
+  Ops.push_back(
+      DAG.getRegisterMask(TRI->getCallPreservedMask(MF, CLI.CallConv)));
   if (Glue.getNode())
     Ops.push_back(Glue);
 
@@ -1198,8 +1238,8 @@ SDValue M6809TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   CCState RetInfo(CLI.CallConv, CLI.IsVarArg, MF, RVLocs, *DAG.getContext());
   RetInfo.AnalyzeCallResult(CLI.Ins, RetCC_M6809);
   for (const CCValAssign &VA : RVLocs) {
-    SDValue Val = DAG.getCopyFromReg(Chain, DL, VA.getLocReg(),
-                                     VA.getLocVT(), Glue);
+    SDValue Val =
+        DAG.getCopyFromReg(Chain, DL, VA.getLocReg(), VA.getLocVT(), Glue);
     Chain = Val.getValue(1);
     Glue = Val.getValue(2);
     InVals.push_back(Val);

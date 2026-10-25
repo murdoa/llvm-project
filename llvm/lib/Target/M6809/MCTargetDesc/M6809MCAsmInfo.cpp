@@ -12,8 +12,7 @@ using namespace llvm;
 
 void M6809MCAsmInfo::anchor() {}
 
-M6809MCAsmInfo::M6809MCAsmInfo(const Triple &TT,
-                               const MCTargetOptions &Options)
+M6809MCAsmInfo::M6809MCAsmInfo(const Triple &TT, const MCTargetOptions &Options)
     : MCAsmInfoELF(Options) {
   IsLittleEndian = false;
   CodePointerSize = 2;

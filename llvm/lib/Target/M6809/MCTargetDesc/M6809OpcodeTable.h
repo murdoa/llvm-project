@@ -73,8 +73,7 @@ const OpcodeEntry *findOpcodeEntry(unsigned Opcode, unsigned Reg);
 // or when that is NoRegister the only member of the operand's class (D for
 // SEX and ADDD). Returns false if an operand is not such a register.
 bool addFixedRegisters(MCInst &Inst, const MCInstrInfo &MII,
-                       const MCRegisterInfo &MRI, unsigned Count,
-                       unsigned Reg);
+                       const MCRegisterInfo &MRI, unsigned Count, unsigned Reg);
 
 } // namespace M6809
 } // namespace llvm
