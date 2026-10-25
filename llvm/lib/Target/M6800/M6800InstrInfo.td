@@ -486,6 +486,13 @@ let isBranch = 1, isTerminator = 1 in {
                                   brtarget:$dst), "",
                              [(M6800CmpBr GR16:$lhs, (i16 imm:$rhs), timm:$cc,
                                           bb:$dst)]>;
+    // A byte in memory against zero: "tst mem", which needs no register.
+    // TST sets the flags as a compare with zero would.
+    let mayLoad = 1, AddedComplexity = 1 in
+    def CB8m0 : M6800Pseudo<(outs),
+                            (ins memidx:$addr, ccode:$cc, brtarget:$dst), "",
+                            [(M6800CmpBr (i8 (load addr:$addr)), (i8 0),
+                                         timm:$cc, bb:$dst)]>;
     let mayLoad = 1, Uses = [SP], Defs = [SP, CC] in {
       def CB8rm : M6800Pseudo<(outs),
                               (ins ACC8:$lhs, memidx:$rhs, ccode:$cc,

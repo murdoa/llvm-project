@@ -675,6 +675,12 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     Register L = Lhs.getReg();
 
     switch (Opc) {
+    case M6800::CB8m0: {
+      MachineInstrBuilder Tst = BuildMI(MBB, MI, DL, get(M6800::TSTm));
+      addMem(Tst, MI, 0);
+      Tst.cloneMemRefs(MI);
+      break;
+    }
     case M6800::CB8ri:
       if (MI.getOperand(1).getImm() == 0)
         emitCompareWithZero(MBB, MI, DL, Lhs, CC);
@@ -789,6 +795,7 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
 bool M6800InstrInfo::isCompareAndBranch(unsigned Opc) {
   switch (Opc) {
+  case M6800::CB8m0:
   case M6800::CB8ri:
   case M6800::CB8rm:
   case M6800::CB8rr:

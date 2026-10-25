@@ -5,7 +5,7 @@
 ; RUN: llvm-objdump -s %t.exe | FileCheck %s
 ; RUN: llvm-readelf -h %t.exe | FileCheck --check-prefix=HDR %s
 
-;; The 6800 relocations: R_M6800_16 for "jsr far", "ldab zp" and the
+;; The 6800 relocations: R_M6800_16 for "jsr far", "tst zp" and the
 ;; address in .data, and R_M6800_PCREL8 for the loop branch, which counts
 ;; from the end of the instruction.
 
@@ -28,8 +28,8 @@ done:
   ret void
 }
 
-;; jsr $1100; ldab $0040; beq -8 (to $1000); rts
+;; jsr $1100; tst $0040; beq -8 (to $1000); rts
 ; CHECK:      Contents of section .text:
-; CHECK-NEXT: 1000 bd1100f6 004027f8 39
+; CHECK-NEXT: 1000 bd11007d 004027f8 39
 ; CHECK:      Contents of section .data:
 ; CHECK-NEXT: 2000 1000
