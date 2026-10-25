@@ -732,7 +732,12 @@ M6809TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
 
   SDValue Glue;
   SmallVector<SDValue, 4> RetOps(1, Chain);
-  for (unsigned I = 0, E = RVLocs.size(); I != E; ++I) {
+  // At O0, copy into D last. The other half of an i32 may be computed in D,
+  // and the fast register allocator cannot move it out of D's way once D
+  // holds its own half. The greedy allocator does better with D first.
+  bool DLast = getTargetMachine().getOptLevel() == CodeGenOptLevel::None;
+  for (unsigned N = RVLocs.size(), J = 0; J != N; ++J) {
+    unsigned I = DLast ? N - 1 - J : J;
     const CCValAssign &VA = RVLocs[I];
     assert(VA.isRegLoc() && "M6809 returns values in registers only");
     Chain = DAG.getCopyToReg(Chain, DL, VA.getLocReg(), OutVals[I], Glue);

@@ -10,22 +10,28 @@
 define void @cmp_sext(i16 %n) {
 ; CHECK-LABEL: cmp_sext:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx g
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd g
-; CHECK-NEXT:    pshs y
+; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd g
+; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    eora ,s+
 ; CHECK-NEXT:    eorb ,s+
 ; CHECK-NEXT:    sex
-; CHECK-NEXT:    pshs a,b
-; CHECK-NEXT:    cmpx ,s++
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    pshs x
+; CHECK-NEXT:    cmpd ,s++
 ; CHECK-NEXT:    lbeq .LBB0_2
 ; CHECK-NEXT:    lbra .LBB0_1
 ; CHECK-NEXT:  .LBB0_1: ; %yes
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    std g
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
 ; CHECK-NEXT:  .LBB0_2: ; %no
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %a = load volatile i16, ptr @g
   %b = load volatile i16, ptr @g

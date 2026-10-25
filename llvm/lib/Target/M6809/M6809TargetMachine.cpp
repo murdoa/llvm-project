@@ -43,6 +43,10 @@ M6809TargetMachine::M6809TargetMachine(const Target &T, const Triple &TT,
       TLOF(std::make_unique<TargetLoweringObjectFileELF>()),
       Subtarget(TT, std::string(defaultCPU(CPU)), std::string(FS), *this) {
   initAsmInfo();
+  // With two 8-bit and one 16-bit accumulator, a tied operand that stays
+  // live often has no register to be copied into. TwoAddressInstruction
+  // inserts the copy instead, which the fast allocator can spill around.
+  setEnableTiedFastRegAlloc(false);
 }
 
 M6809TargetMachine::~M6809TargetMachine() = default;
