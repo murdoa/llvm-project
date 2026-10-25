@@ -5308,9 +5308,12 @@ RValue CodeGenFunction::EmitBuiltinExpr(const GlobalDecl GD, unsigned BuiltinID,
     Address StackSaveSlot = Builder.CreateConstInBoundsGEP(Buf, 2);
     Builder.CreateStore(StackAddr, StackSaveSlot);
 
-    // Call LLVM's EH setjmp, which is lightweight.
+    // Call LLVM's EH setjmp, which is lightweight. It gives an i32, which
+    // may be wider than int.
     Function *F = CGM.getIntrinsic(Intrinsic::eh_sjlj_setjmp);
-    return RValue::get(Builder.CreateCall(F, Buf.emitRawPointer(*this)));
+    Value *Result = Builder.CreateCall(F, Buf.emitRawPointer(*this));
+    return RValue::get(Builder.CreateIntCast(
+        Result, ConvertType(E->getType()), /*isSigned=*/true));
   }
   case Builtin::BI__builtin_longjmp: {
     Value *Buf = EmitScalarExpr(E->getArg(0));
