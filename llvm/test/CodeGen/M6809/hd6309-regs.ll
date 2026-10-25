@@ -116,22 +116,21 @@ define i64 @add64_imm(i64 %a) {
 ; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd #1
-; CHECK-NEXT:    ldy #0
 ; CHECK-NEXT:    addd 12,s
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    adcd 10,s
 ; CHECK-NEXT:    tfr d, w
-; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    adcd 8,s
+; CHECK-NEXT:    ldd #0
+; CHECK-NEXT:    adcd 10,s
 ; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    ldd #0
+; CHECK-NEXT:    adcd 8,s
+; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:    adcd 6,s
 ; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    stw 6,x
+; CHECK-NEXT:    stu 4,x
 ; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    std 6,x
-; CHECK-NEXT:    stw 4,x
-; CHECK-NEXT:    stu 2,x
+; CHECK-NEXT:    std 2,x
 ; CHECK-NEXT:    sty ,x
 ; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    leas 4,s

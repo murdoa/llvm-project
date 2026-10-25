@@ -76,7 +76,7 @@ define i16 @call_mixed(i8 %c) {
 ; CHECK-NEXT:    ldx #1
 ; CHECK-NEXT:    stx 1,s
 ; CHECK-NEXT:    stb ,s
-; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    jsr vf
 ; CHECK-NEXT:    leas 5,s
 ; CHECK-NEXT:    rts

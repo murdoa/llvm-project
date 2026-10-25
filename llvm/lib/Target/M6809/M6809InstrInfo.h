@@ -65,6 +65,10 @@ public:
                            MachineBasicBlock::iterator MI, const DebugLoc &DL,
                            const MachineOperand &Lhs, int64_t CC) const;
 
+  bool isReMaterializableImpl(const MachineInstr &MI) const override;
+  // Whether the carry is read from I on, before anything changes it.
+  static bool isCarryReadFrom(const MachineBasicBlock &MBB,
+                              MachineBasicBlock::const_iterator I);
   void reMaterialize(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                      Register DestReg, unsigned SubIdx,
                      const MachineInstr &Orig,

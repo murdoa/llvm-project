@@ -30,10 +30,9 @@ define i32 @i32_second(i16 %a, i32 %b) {
 ; CHECK-LABEL: i32_second:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    ldd #1
-; CHECK-NEXT:    ldy #0
 ; CHECK-NEXT:    addd 4,s
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:    adcb 3,s
 ; CHECK-NEXT:    adca 2,s
 ; CHECK-NEXT:    rts

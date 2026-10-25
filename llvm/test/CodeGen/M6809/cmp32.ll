@@ -150,24 +150,25 @@ define i16 @sel16(i32 %a, i16 %x, i16 %y) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -1,s
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    clra
 ; CHECK-NEXT:    ldb #1
 ; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    lda #1
 ; CHECK-NEXT:    cmpy #4
 ; CHECK-NEXT:    bhi .LBB6_2
 ; CHECK-NEXT:  ; %bb.1:
-; CHECK-NEXT:    tfr a, b
+; CHECK-NEXT:    clra
 ; CHECK-NEXT:  .LBB6_2:
 ; CHECK-NEXT:    ldx 3,s
 ; CHECK-NEXT:    cmpx #-27681
 ; CHECK-NEXT:    bhi .LBB6_4
 ; CHECK-NEXT:  ; %bb.3:
-; CHECK-NEXT:    sta ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB6_4:
 ; CHECK-NEXT:    cmpy #4
 ; CHECK-NEXT:    beq .LBB6_6
 ; CHECK-NEXT:  ; %bb.5:
-; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    sta ,s ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB6_6:
 ; CHECK-NEXT:    leay 7,s
 ; CHECK-NEXT:    leax 5,s

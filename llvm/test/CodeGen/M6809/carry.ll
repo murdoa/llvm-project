@@ -132,19 +132,14 @@ define i32 @shl32_1(i32 %a) {
 define i32 @neg32(i32 %a) {
 ; CHECK-LABEL: neg32:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldu #0
-; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    subd 4,s
+; CHECK-NEXT:    ldd #0
+; CHECK-NEXT:    subd 2,s
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:    pshs y
 ; CHECK-NEXT:    sbcb 1,s
 ; CHECK-NEXT:    sbca ,s++
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %r = sub i32 0, %a
   ret i32 %r

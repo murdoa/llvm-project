@@ -187,20 +187,70 @@ M6809InstrInfo::foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,
   return MIB;
 }
 
+// Constant loads define CC, which the generic check treats as a reason not
+// to rematerialize. The only flag live between instructions before register
+// allocation is the borrow that SBCBR* reads, and LD #imm leaves C alone.
+bool M6809InstrInfo::isReMaterializableImpl(const MachineInstr &MI) const {
+  switch (MI.getOpcode()) {
+  case M6809::LD8i:
+  case M6809::CLR8:
+    return true;
+  case M6809::LD16i:
+    // Three or four bytes against two for a reload from the frame.
+    return !MI.getMF()->getFunction().hasOptSize();
+  }
+  return TargetInstrInfo::isReMaterializableImpl(MI);
+}
+
+// Instructions that keep C although they are modelled as writing CC: the
+// loads, stores and moves the register allocator inserts, which can land
+// inside a carry chain. Their CC defs are marked dead even when C flows
+// through them.
+static bool keepsCarry(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  case M6809::LD8i:
+  case M6809::LD16i:
+  case M6809::LD8m:
+  case M6809::LD16m:
+  case M6809::ST8m:
+  case M6809::ST16m:
+  case M6809::LEA16:
+    return true;
+  default:
+    return false;
+  }
+}
+
+bool M6809InstrInfo::isCarryReadFrom(const MachineBasicBlock &MBB,
+                                     MachineBasicBlock::const_iterator I) {
+  for (MachineBasicBlock::const_iterator E = MBB.end(); I != E; ++I) {
+    if (I->readsRegister(M6809::CC, /*TRI=*/nullptr))
+      return true;
+    if (I->definesRegister(M6809::CC, /*TRI=*/nullptr) && !keepsCarry(*I))
+      return false;
+  }
+  for (const MachineBasicBlock *Succ : MBB.successors())
+    if (Succ->isLiveIn(M6809::CC))
+      return true;
+  return false;
+}
+
 // CLR clears C, so a rematerialized zero could break a carry chain that the
-// allocator placed it inside. LD #0 leaves C alone and is always safe.
+// allocator placed it inside. LD #0 leaves C alone: use it unless CC is
+// known to be dead.
 void M6809InstrInfo::reMaterialize(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator I,
                                    Register DestReg, unsigned SubIdx,
                                    const MachineInstr &Orig,
                                    LaneBitmask UsedLanes) const {
-  if (Orig.getOpcode() != M6809::CLR8) {
+  if (Orig.getOpcode() != M6809::CLR8 || !isCarryReadFrom(MBB, I)) {
     TargetInstrInfo::reMaterialize(MBB, I, DestReg, SubIdx, Orig, UsedLanes);
     return;
   }
   MachineInstr *MI =
       BuildMI(*MBB.getParent(), Orig.getDebugLoc(), get(M6809::LD8i), DestReg)
           .addImm(0);
+  MI->getOperand(MI->getNumOperands() - 1).setIsDead(); // the CC def
   MBB.insert(I, MI);
   if (SubIdx)
     MI->getOperand(0).setSubReg(SubIdx);

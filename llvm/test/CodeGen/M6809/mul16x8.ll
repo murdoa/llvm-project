@@ -60,23 +60,22 @@ define i16 @mul8x16(i8 %a, i16 %b) {
 define i16 @mul_const(i16 %a) {
 ; CHECK-LABEL: mul_const:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -3,s
+; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    ldb #-55
-; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
 ; CHECK-NEXT:    mul
-; CHECK-NEXT:    std 1,s ; 2-byte Folded Spill
+; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    ; kill: def $a killed $a killed $d
-; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
+; CHECK-NEXT:    ldb #-55
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tfr b, a
 ; CHECK-NEXT:    clrb
-; CHECK-NEXT:    ldx 1,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    leax d,x
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    leas 3,s
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %r = mul i16 %a, 201
   ret i16 %r
