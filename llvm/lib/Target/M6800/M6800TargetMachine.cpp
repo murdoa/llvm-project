@@ -68,6 +68,7 @@ public:
   bool addInstSelector() override;
   void addPreRegAlloc() override;
   void addFastRegAlloc() override;
+  FunctionPass *createTargetRegisterAllocator(bool Optimized) override;
   void addPreSched2() override;
 };
 
@@ -87,13 +88,14 @@ bool M6800PassConfig::addInstSelector() {
   return false;
 }
 
-// Zero and sign extension insert B into an IMPLICIT_DEF of D. The fast
-// allocator can only give B to the inserted value if the rest of D is known
-// to be undefined, which ProcessImplicitDefs records, as the optimizing
-// pipeline does.
-void M6800PassConfig::addFastRegAlloc() {
-  addPass(&ProcessImplicitDefsID);
-  TargetPassConfig::addFastRegAlloc();
+// Every register class but GR16 has a single register, which the fast
+// allocator cannot work with: an operand that needs X while X still holds a
+// value about to be copied out runs it out of registers. -O0 uses the
+// optimizing pipeline's allocator too.
+void M6800PassConfig::addFastRegAlloc() { addOptimizedRegAlloc(); }
+
+FunctionPass *M6800PassConfig::createTargetRegisterAllocator(bool) {
+  return createGreedyRegisterAllocator();
 }
 
 void M6800PassConfig::addPreRegAlloc() {
