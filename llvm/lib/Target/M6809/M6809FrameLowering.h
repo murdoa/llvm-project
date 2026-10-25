@@ -23,7 +23,10 @@ public:
   static constexpr int FPSaveSize = 2;
 
   explicit M6809FrameLowering(const M6809Subtarget &STI)
-      : TargetFrameLowering(StackGrowsDown, Align(1), /*LocalAreaOffset=*/0),
+      // The stack is never realigned, so stack objects get at most byte
+      // alignment whatever the IR asks for.
+      : TargetFrameLowering(StackGrowsDown, Align(1), /*LocalAreaOffset=*/0,
+                            Align(1), /*StackRealignable=*/false),
         STI(STI) {}
 
   void emitPrologue(MachineFunction &MF, MachineBasicBlock &MBB) const override;
