@@ -52,6 +52,8 @@ public:
     return &InstrInfo.getRegisterInfo();
   }
   const SelectionDAGTargetInfo *getSelectionDAGInfo() const override;
+  RegisterScheduler::FunctionPassCtor
+  getDAGScheduler(CodeGenOptLevel OptLevel) const override;
 
 private:
   M6800Subtarget &initializeSubtargetDependencies(StringRef CPU, StringRef FS);

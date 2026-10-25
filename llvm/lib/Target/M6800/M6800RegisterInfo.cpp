@@ -72,3 +72,14 @@ bool M6800RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 Register M6800RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return getFrameLowering(MF)->hasFP(MF) ? M6800::FP : M6800::SP;
 }
+
+// Region splitting gives a value a register in some blocks and a stack slot
+// in others. With only D and X, and the long ranges of source order (see
+// M6800Subtarget::getDAGScheduler), the copies it adds compete with the
+// values around them: one put between a constant and its store once left
+// no register at all. Size-optimized functions do without it.
+bool M6800RegisterInfo::shouldRegionSplitForVirtReg(
+    const MachineFunction &MF, const LiveInterval &VirtReg) const {
+  return !MF.getFunction().hasOptSize() &&
+         TargetRegisterInfo::shouldRegionSplitForVirtReg(MF, VirtReg);
+}

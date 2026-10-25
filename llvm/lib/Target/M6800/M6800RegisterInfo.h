@@ -46,6 +46,9 @@ public:
     return NewRC != &M6800::ACC16RegClass || (SrcRC == NewRC && DstRC == NewRC);
   }
 
+  bool shouldRegionSplitForVirtReg(const MachineFunction &MF,
+                                   const LiveInterval &VirtReg) const override;
+
   const TargetRegisterClass *
   getLargestLegalSuperClass(const TargetRegisterClass *RC,
                             const MachineFunction &) const override {

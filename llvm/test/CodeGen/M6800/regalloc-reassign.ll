@@ -8,42 +8,57 @@
 
 @u = external global [31 x i8]
 
-; CHECK-LABEL: main:
 define i16 @main() minsize {
 ; CHECK-LABEL: main:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    subd #10
+; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    txs
 ; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
 ; CHECK-NEXT:  .LBB0_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    staa 0
-; CHECK-NEXT:    ldx 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    addd #u
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    stab 0
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    std 4,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 2,x
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 0,x
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 6,x ; 2-byte Folded Reload
-; CHECK-NEXT:    ldx 4,x ; 2-byte Folded Reload
-; CHECK-NEXT:    jsr 0,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    addd #u
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    jsr 0,x
 ; CHECK-NEXT:    ldab #1
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldx 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    stab 0,x
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 2,x
@@ -55,7 +70,7 @@ define i16 @main() minsize {
 ; CHECK-NEXT:    pulb
 ; CHECK-NEXT:    jsr 0,x
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 6,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    addd #1
 ; CHECK-NEXT:    bra .LBB0_1
 entry:
