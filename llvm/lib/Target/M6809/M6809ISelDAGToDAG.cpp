@@ -100,7 +100,7 @@ bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
     Base = Addr;
   }
 
-  Offset = CurDAG->getTargetConstant(Off, DL, MVT::i16);
+  Offset = CurDAG->getSignedTargetConstant(Off, DL, MVT::i16);
   return true;
 }
 
