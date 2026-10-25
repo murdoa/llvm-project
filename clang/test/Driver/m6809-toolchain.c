@@ -20,3 +20,16 @@
 // MACROS: #define __M6809__ 1
 // MACROS: #define __SIZEOF_INT__ 2
 // MACROS: #define __SIZEOF_POINTER__ 2
+
+// C++ has no exceptions or RTTI by default, but both can be turned on.
+// RUN: %clang -### --target=m6809 -x c++ %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CXX %s
+// CXX: "-cc1"
+// CXX-NOT: "-fcxx-exceptions"
+// CXX-NOT: "-fexceptions"
+// CXX-SAME: "-fno-rtti"
+// RUN: %clang -### --target=m6809 -x c++ -fexceptions -frtti %s 2>&1 \
+// RUN:   | FileCheck --check-prefix=CXX-ON %s
+// CXX-ON: "-cc1"
+// CXX-ON-NOT: "-fno-rtti"
+// CXX-ON-SAME: "-fcxx-exceptions" "-fexceptions"

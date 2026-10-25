@@ -180,8 +180,11 @@ static bool addExceptionArgs(const ArgList &Args, types::ID InputType,
   }
 
   if (types::isCXX(InputType)) {
-    // Disable C++ EH by default on XCore, PS4/PS5 and GPU targets.
+    // Disable C++ EH by default on XCore, PS4/PS5, GPU targets, the 6800 and
+    // the 6809.
     bool CXXExceptionsEnabled = Triple.getArch() != llvm::Triple::xcore &&
+                                Triple.getArch() != llvm::Triple::m6800 &&
+                                Triple.getArch() != llvm::Triple::m6809 &&
                                 !Triple.isPS() && !Triple.isDriverKit() &&
                                 !(Triple.isGPU() && !IsDeviceOffloadAction);
     Arg *ExceptionArg = Args.getLastArg(
