@@ -1821,6 +1821,16 @@ void RegAllocFastImpl::allocateInstruction(MachineInstr &MI) {
   // times to ensure no operand is missed.
   bool HasUndefUse = false;
   bool TiedOnly = HasTiedDef;
+  // Uses whose class has a single register go before the others, which
+  // could otherwise take that register first.
+  auto IsSingleReg = [&](Register Reg) {
+    return RegClassInfo.getNumAllocatableRegs(MRI->getRegClass(Reg)) == 1;
+  };
+  bool HasSingleRegUse = any_of(MI.all_uses(), [&](const MachineOperand &MO) {
+    return MO.getReg().isVirtual() && shouldAllocateRegister(MO.getReg()) &&
+           IsSingleReg(MO.getReg());
+  });
+  bool SingleRegOnly = !TiedOnly && HasSingleRegUse;
   bool ReArrangedImplicitMOs = true;
   while (ReArrangedImplicitMOs) {
     ReArrangedImplicitMOs = false;
@@ -1829,7 +1839,7 @@ void RegAllocFastImpl::allocateInstruction(MachineInstr &MI) {
         continue;
       Register Reg = MO.getReg();
       if (!Reg.isVirtual() || !shouldAllocateRegister(Reg) ||
-          (TiedOnly && !MO.isTied()))
+          (TiedOnly && !MO.isTied()) || (SingleRegOnly && !IsSingleReg(Reg)))
         continue;
 
       if (MO.isUndef()) {
@@ -1852,6 +1862,10 @@ void RegAllocFastImpl::allocateInstruction(MachineInstr &MI) {
     // register and the tied use would need a copy.
     if (TiedOnly && !ReArrangedImplicitMOs) {
       TiedOnly = false;
+      SingleRegOnly = HasSingleRegUse;
+      ReArrangedImplicitMOs = true;
+    } else if (SingleRegOnly && !ReArrangedImplicitMOs) {
+      SingleRegOnly = false;
       ReArrangedImplicitMOs = true;
     }
   }
