@@ -136,3 +136,20 @@ void M6809InstPrinter::printCondCode(const MCInst *MI, unsigned OpNo,
   O << M6809CC::getName(
       static_cast<M6809CC::CondCode>(MI->getOperand(OpNo).getImm()));
 }
+
+// A PSHS/PULS/PSHU/PULU postbyte, printed in push order: "cc,a,b,dp,x,y,u,pc".
+void M6809InstPrinter::printRegList(const MCInst *MI, unsigned OpNo,
+                                    raw_ostream &O, bool UStack) {
+  static const char *const Names[] = {"cc", "a", "b", "dp",
+                                      "x",  "y", "u", "pc"};
+  unsigned Mask = MI->getOperand(OpNo).getImm();
+  bool First = true;
+  for (unsigned Bit = 0; Bit != 8; ++Bit) {
+    if (!(Mask & (1u << Bit)))
+      continue;
+    if (!First)
+      O << ',';
+    First = false;
+    O << (Bit == 6 && UStack ? "s" : Names[Bit]);
+  }
+}

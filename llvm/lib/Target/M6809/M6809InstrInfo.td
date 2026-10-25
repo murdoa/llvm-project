@@ -106,7 +106,7 @@ def RTS : M6809Inst<(outs), (ins), "rts", [(M6809RetGlue)], 1>;
 
 // Calls. The register mask operand added by call lowering says which
 // registers the callee may clobber.
-let isCall = 1, Uses = [S], Defs = [CC] in {
+let isCall = 1, Uses = [S], Defs = [CC], isCodeGenOnly = 1 in {
   def JSRe : M6809Inst<(outs), (ins i16imm_op:$dst), "jsr\t$dst", [], 3>;
   def JSRr : M6809Inst<(outs), (ins IDX16:$r), "jsr\t,$r",
                        [(M6809Call IDX16:$r)], 2>;
@@ -138,7 +138,7 @@ def CLR8 : M6809Inst<(outs ACC8:$dst), (ins), "clr${dst}",
 
 // Register to register. TFR leaves the flags alone unless CC is the
 // destination.
-let isMoveReg = 1 in {
+let isMoveReg = 1, isCodeGenOnly = 1 in {
   def TFR8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src),
                        "tfr\t$src, $dst", [], 2>;
   def TFR16 : M6809Inst<(outs XFER16:$dst), (ins XFER16:$src),
@@ -168,7 +168,7 @@ let Defs = [CC] in {
 
 // Stack pointer adjustment for the prologue and epilogue. LEAS leaves the
 // flags alone.
-let Defs = [S], Uses = [S] in
+let Defs = [S], Uses = [S], isCodeGenOnly = 1 in
 def LEASi : M6809Inst<(outs), (ins i16imm_op:$off), "leas\t$off,s", [], 2>;
 
 //===----------------------------------------------------------------------===//
@@ -177,7 +177,7 @@ def LEASi : M6809Inst<(outs), (ins i16imm_op:$off), "leas\t$off,s", [], 2>;
 
 // PSHS/PULS leave the flags alone. They are what makes register-register
 // arithmetic possible: "pshs x" then "addd ,s++".
-let Defs = [S], Uses = [S] in {
+let Defs = [S], Uses = [S], isCodeGenOnly = 1 in {
   let mayStore = 1 in {
     def PSHS8 : M6809Inst<(outs), (ins ACC8:$r), "pshs\t$r", [], 2>;
     def PSHS16 : M6809Inst<(outs), (ins GR16:$r), "pshs\t$r", [], 2>;
@@ -208,7 +208,7 @@ multiclass ALU8<string mnem, SDNode node> {
                       2> {
       let mayLoad = 1;
     }
-    let Uses = [S], Defs = [S, CC], mayLoad = 1 in
+    let Uses = [S], Defs = [S, CC], mayLoad = 1, isCodeGenOnly = 1 in
     def pop : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src),
                         mnem # "${dst}\t,s+", [], 2>;
     let Uses = [S], Defs = [S, CC] in
@@ -233,7 +233,7 @@ multiclass ALU8C<string mnem> {
     let mayLoad = 1 in
     def m : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src, memidx:$addr),
                       mnem # "${dst}\t$addr", [], 2>;
-    let Uses = [S, CC], Defs = [S, CC], mayLoad = 1 in
+    let Uses = [S, CC], Defs = [S, CC], mayLoad = 1, isCodeGenOnly = 1 in
     def pop2 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src),
                          mnem # "${dst}\t,s++", [], 2>;
   }
@@ -255,7 +255,7 @@ multiclass ALU16D<string mnem, SDNode node> {
                       2> {
       let mayLoad = 1;
     }
-    let Uses = [S], Defs = [S, CC], mayLoad = 1 in
+    let Uses = [S], Defs = [S, CC], mayLoad = 1, isCodeGenOnly = 1 in
     def pop : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src),
                         mnem # "\t,s++", [], 2>;
     let Uses = [S], Defs = [S, CC] in
@@ -335,7 +335,8 @@ let Constraints = "$src = $dst", Defs = [CC] in {
   // SEX: sign-extend B into A.
   def SEX : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src), "sex",
                       [(set ACC16:$dst, (sext_inreg ACC16:$src, i8))], 1>;
-  // CLRA: zero the high byte of D.
+  // CLRA: zero the high byte of D. Emitted as CLR8 A.
+  let isCodeGenOnly = 1 in
   def CLRA : M6809Inst<(outs ACC16:$dst), (ins ACC16:$src), "clra",
                        [(set ACC16:$dst, (and ACC16:$src, 255))], 1>;
 }
@@ -376,7 +377,7 @@ let Defs = [CC] in {
                           "cmp${lhs}\t$addr", [], 2>;
     def CMP16m : M6809Inst<(outs), (ins GR16:$lhs, memidx:$addr),
                            "cmp${lhs}\t$addr", [], 3>;
-    let Uses = [S], Defs = [S, CC] in {
+    let Uses = [S], Defs = [S, CC], isCodeGenOnly = 1 in {
       def CMP8pop : M6809Inst<(outs), (ins ACC8:$lhs), "cmp${lhs}\t,s+", [],
                               2>;
       def CMP16pop : M6809Inst<(outs), (ins GR16:$lhs), "cmp${lhs}\t,s++", [],
@@ -535,6 +536,25 @@ let Constraints = "$src = $dst", Defs = [CC] in {
                           [(set ACC16:$dst, (M6809Asr ACC16:$src))]>;
 }
 
+// nega/negb, coma/comb, inca/incb, deca/decb. INC and DEC leave C alone.
+let Constraints = "$src = $dst", Defs = [CC] in {
+  def NEG8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "neg${dst}",
+                       [(set ACC8:$dst, (ineg ACC8:$src))], 1>;
+  def COM8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "com${dst}",
+                       [(set ACC8:$dst, (not ACC8:$src))], 1>;
+  let AddedComplexity = 1 in {
+    def INC8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "inc${dst}",
+                         [(set ACC8:$dst, (add ACC8:$src, 1))], 1>;
+    def DEC8 : M6809Inst<(outs ACC8:$dst), (ins ACC8:$src), "dec${dst}",
+                         [(set ACC8:$dst, (add ACC8:$src, -1))], 1>;
+  }
+}
+
+// Negate D: "nega; negb; sbca #0", expanded after register allocation.
+let Constraints = "$src = $dst", Defs = [CC] in
+def NEG16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                        [(set ACC16:$dst, (ineg ACC16:$src))]>;
+
 // Carry-linked one-bit shifts for multi-word values. The first node shifts
 // one word and leaves the bit that fell out in C; the second rotates C into
 // the next word.
@@ -590,3 +610,118 @@ multiclass SHIFTLOOP<SDNode node> {
 defm LSLV : SHIFTLOOP<M6809LslLoop>;
 defm LSRV : SHIFTLOOP<M6809LsrLoop>;
 defm ASRV : SHIFTLOOP<M6809AsrLoop>;
+
+//===----------------------------------------------------------------------===//
+// Instructions only the assembler uses (for now)
+//===----------------------------------------------------------------------===//
+
+// bita/bitb: AND without keeping the result.
+let Defs = [CC] in {
+  def BIT8i : M6809Inst<(outs), (ins ACC8:$r, i8imm_op:$imm),
+                        "bit${r}\t#$imm", [], 2>;
+  let mayLoad = 1 in
+  def BIT8m : M6809Inst<(outs), (ins ACC8:$r, memidx:$addr),
+                        "bit${r}\t$addr", [], 2>;
+}
+
+// Read-modify-write on memory: "inc 3,x", "clr <$40", "asl counter".
+multiclass RMW<string mnem> {
+  let Defs = [CC], mayLoad = 1, mayStore = 1 in
+  def m : M6809Inst<(outs), (ins memidx:$addr), mnem # "\t$addr", [], 2>;
+}
+defm NEG : RMW<"neg">;
+defm COM : RMW<"com">;
+defm LSR : RMW<"lsr">;
+defm ASR : RMW<"asr">;
+defm ASL : RMW<"asl">;
+defm DEC : RMW<"dec">;
+defm INC : RMW<"inc">;
+defm CLR : RMW<"clr">;
+let Uses = [CC] in {
+  defm ROR : RMW<"ror">;
+  defm ROL : RMW<"rol">;
+}
+let Defs = [CC], mayLoad = 1 in
+def TSTm : M6809Inst<(outs), (ins memidx:$addr), "tst\t$addr", [], 2>;
+
+// Jumps and calls through any addressing mode.
+let isBranch = 1, isIndirectBranch = 1, isTerminator = 1, isBarrier = 1 in
+def JMPm : M6809Inst<(outs), (ins memidx:$addr), "jmp\t$addr", [], 2>;
+let isCall = 1, Uses = [S], Defs = [S] in
+def JSRm : M6809Inst<(outs), (ins memidx:$addr), "jsr\t$addr", [], 2>;
+
+// The stack pointer as a plain register.
+let Defs = [S, CC] in {
+  def LDSi : M6809Inst<(outs), (ins i16imm_op:$imm), "lds\t#$imm", [], 4>;
+  let mayLoad = 1 in
+  def LDSm : M6809Inst<(outs), (ins memidx:$addr), "lds\t$addr", [], 3>;
+}
+let Uses = [S], Defs = [CC] in {
+  let mayStore = 1 in
+  def STSm : M6809Inst<(outs), (ins memidx:$addr), "sts\t$addr", [], 3>;
+  def CMPSi : M6809Inst<(outs), (ins i16imm_op:$imm), "cmps\t#$imm", [], 4>;
+  let mayLoad = 1 in
+  def CMPSm : M6809Inst<(outs), (ins memidx:$addr), "cmps\t$addr", [], 3>;
+}
+let Defs = [S], Uses = [S] in
+def LEASm : M6809Inst<(outs), (ins memidx:$addr), "leas\t$addr", [], 2>;
+
+// Register transfer and exchange, with any pair TFR/EXG can name.
+def TFRrr : M6809Inst<(outs), (ins TFRREG:$src, TFRREG:$dst),
+                      "tfr\t$src, $dst", [], 2>;
+def EXGrr : M6809Inst<(outs), (ins TFRREG:$a, TFRREG:$b), "exg\t$a, $b", [],
+                      2>;
+
+// Push and pull a register list: "pshs a,b,x". The operand is the postbyte
+// mask (bit 0 = CC ... bit 7 = PC).
+def reglist : Operand<i8> {
+  let PrintMethod = "printRegList";
+}
+def reglist_u : Operand<i8> {
+  let PrintMethod = "printRegListU";
+}
+let Uses = [S], Defs = [S] in {
+  def PSHSr : M6809Inst<(outs), (ins reglist:$regs), "pshs\t$regs", [], 2>;
+  def PULSr : M6809Inst<(outs), (ins reglist:$regs), "puls\t$regs", [], 2>;
+}
+let Uses = [U], Defs = [U] in {
+  def PSHUr : M6809Inst<(outs), (ins reglist_u:$regs), "pshu\t$regs", [], 2>;
+  def PULUr : M6809Inst<(outs), (ins reglist_u:$regs), "pulu\t$regs", [], 2>;
+}
+
+// Short branches, and the never-taken branches.
+let isBranch = 1, isTerminator = 1 in {
+  let isBarrier = 1 in
+  def BRA : M6809Inst<(outs), (ins brtarget:$dst), "bra\t$dst", [], 2>;
+  let Uses = [CC] in
+  def Bcc : M6809Inst<(outs), (ins ccode:$cc, brtarget:$dst), "b${cc}\t$dst",
+                      [], 2>;
+}
+def BRN : M6809Inst<(outs), (ins brtarget:$dst), "brn\t$dst", [], 2>;
+def LBRN : M6809Inst<(outs), (ins brtarget:$dst), "lbrn\t$dst", [], 4>;
+let isCall = 1, Uses = [S], Defs = [S] in {
+  def BSR : M6809Inst<(outs), (ins brtarget:$dst), "bsr\t$dst", [], 2>;
+  def LBSR : M6809Inst<(outs), (ins brtarget:$dst), "lbsr\t$dst", [], 3>;
+}
+
+// Inherent instructions with no operands.
+class Inherent<string mnem, int size = 1>
+    : M6809Inst<(outs), (ins), mnem, [], size>;
+def NOP : Inherent<"nop">;
+def SYNC : Inherent<"sync">;
+let Uses = [A, CC], Defs = [A, CC] in
+def DAA : Inherent<"daa">;
+let Uses = [X, B], Defs = [X] in
+def ABX : Inherent<"abx">;
+let isReturn = 1, isTerminator = 1, isBarrier = 1 in
+def RTI : Inherent<"rti">;
+def SWI : Inherent<"swi">;
+def SWI2 : Inherent<"swi2", 2>;
+def SWI3 : Inherent<"swi3", 2>;
+
+// Condition code operations with an immediate mask.
+let Uses = [CC], Defs = [CC] in {
+  def ORCC : M6809Inst<(outs), (ins i8imm_op:$imm), "orcc\t#$imm", [], 2>;
+  def ANDCC : M6809Inst<(outs), (ins i8imm_op:$imm), "andcc\t#$imm", [], 2>;
+  def CWAI : M6809Inst<(outs), (ins i8imm_op:$imm), "cwai\t#$imm", [], 2>;
+}

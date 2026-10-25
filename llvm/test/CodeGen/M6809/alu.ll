@@ -146,3 +146,91 @@ define i16 @mask_low_byte(i16 %a) {
   %r = and i16 %a, 255
   ret i16 %r
 }
+
+; One-instruction forms: inc, dec, neg, com.
+define i8 @inc8(i8 %a) {
+; CHECK-LABEL: inc8:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    incb
+; CHECK-NEXT:    rts
+  %r = add i8 %a, 1
+  ret i8 %r
+}
+
+define i8 @dec8(i8 %a) {
+; CHECK-LABEL: dec8:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    decb
+; CHECK-NEXT:    rts
+  %r = add i8 %a, -1
+  ret i8 %r
+}
+
+define i8 @neg8(i8 %a) {
+; CHECK-LABEL: neg8:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    negb
+; CHECK-NEXT:    rts
+  %r = sub i8 0, %a
+  ret i8 %r
+}
+
+define i8 @not8(i8 %a) {
+; CHECK-LABEL: not8:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    comb
+; CHECK-NEXT:    rts
+  %r = xor i8 %a, -1
+  ret i8 %r
+}
+
+define i16 @neg16(i16 %a) {
+; CHECK-LABEL: neg16:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    nega
+; CHECK-NEXT:    negb
+; CHECK-NEXT:    sbca #0
+; CHECK-NEXT:    rts
+  %r = sub i16 0, %a
+  ret i16 %r
+}
+
+define i16 @not16(i16 %a) {
+; CHECK-LABEL: not16:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    coma
+; CHECK-NEXT:    comb
+; CHECK-NEXT:    rts
+  %r = xor i16 %a, -1
+  ret i16 %r
+}
+
+; 16-bit logic where a byte of the constant needs no instruction, or only a
+; clear or load.
+define i16 @and16_hi(i16 %a) {
+; CHECK-LABEL: and16_hi:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    rts
+  %r = and i16 %a, 65280
+  ret i16 %r
+}
+
+define i16 @or16_hi(i16 %a) {
+; CHECK-LABEL: or16_hi:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    lda #255
+; CHECK-NEXT:    orb #3
+; CHECK-NEXT:    rts
+  %r = or i16 %a, 65283
+  ret i16 %r
+}
+
+define i16 @xor16_lo(i16 %a) {
+; CHECK-LABEL: xor16_lo:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    eorb #18
+; CHECK-NEXT:    rts
+  %r = xor i16 %a, 18
+  ret i16 %r
+}

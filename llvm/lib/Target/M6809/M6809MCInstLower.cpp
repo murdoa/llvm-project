@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "M6809MCInstLower.h"
+#include "MCTargetDesc/M6809MCTargetDesc.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineInstr.h"
@@ -56,6 +57,91 @@ M6809MCInstLower::lowerSymbolOperand(const MachineOperand &MO) const {
   return MCOperand::createExpr(Expr);
 }
 
+// Codegen-only forms that read their operand from the stack, and the plain
+// instruction with a ",s+" or ",s++" memory operand that replaces them.
+static bool getPopForm(unsigned Opc, unsigned &MemOpc, unsigned &Mode) {
+  switch (Opc) {
+#define POP(From, To, M)                                                       \
+  case M6809::From:                                                            \
+    MemOpc = M6809::To;                                                        \
+    Mode = M6809Mem::M;                                                        \
+    return true;
+    POP(ADD8pop, ADD8m, PostInc1)
+    POP(SUB8pop, SUB8m, PostInc1)
+    POP(AND8pop, AND8m, PostInc1)
+    POP(OR8pop, OR8m, PostInc1)
+    POP(EOR8pop, EOR8m, PostInc1)
+    POP(CMP8pop, CMP8m, PostInc1)
+    POP(ADC8pop2, ADC8m, PostInc2)
+    POP(SBC8pop2, SBC8m, PostInc2)
+    POP(ADDDpop, ADDDm, PostInc2)
+    POP(SUBDpop, SUBDm, PostInc2)
+    POP(CMP16pop, CMP16m, PostInc2)
+#undef POP
+  default:
+    return false;
+  }
+}
+
+static void addMem(MCInst &MI, MCRegister Base, MCOperand Off,
+                   unsigned Mode = M6809Mem::Auto) {
+  MI.addOperand(MCOperand::createReg(Base));
+  MI.addOperand(Off);
+  MI.addOperand(MCOperand::createImm(Mode));
+}
+
+// Turn codegen-only forms into the instructions the assembler and encoder
+// know.
+static void toRealInstruction(MCInst &MI) {
+  MCInst Out;
+  unsigned Opc = MI.getOpcode(), MemOpc, Mode;
+  if (getPopForm(Opc, MemOpc, Mode)) {
+    Out.setOpcode(MemOpc);
+    for (const MCOperand &Op : MI)
+      Out.addOperand(Op);
+    addMem(Out, M6809::S, MCOperand::createImm(0), Mode);
+    MI = Out;
+    return;
+  }
+  switch (Opc) {
+  default:
+    return;
+  case M6809::JSRe: // jsr sym
+    Out.setOpcode(M6809::JSRm);
+    addMem(Out, MCRegister(), MI.getOperand(0));
+    break;
+  case M6809::JSRr: // jsr ,r
+    Out.setOpcode(M6809::JSRm);
+    addMem(Out, MI.getOperand(0).getReg(), MCOperand::createImm(0));
+    break;
+  case M6809::LEASi: // leas n,s
+    Out.setOpcode(M6809::LEASm);
+    addMem(Out, M6809::S, MI.getOperand(0));
+    break;
+  case M6809::PSHS8:
+  case M6809::PSHS16:
+  case M6809::PULS8:
+  case M6809::PULS16: {
+    bool Push = Opc == M6809::PSHS8 || Opc == M6809::PSHS16;
+    Out.setOpcode(Push ? M6809::PSHSr : M6809::PULSr);
+    Out.addOperand(MCOperand::createImm(
+        M6809::getPushPullMask(MI.getOperand(0).getReg(), false)));
+    break;
+  }
+  case M6809::CLRA: // the high byte of D
+    Out.setOpcode(M6809::CLR8);
+    Out.addOperand(MCOperand::createReg(M6809::A));
+    break;
+  case M6809::TFR8:
+  case M6809::TFR16: // (dst, src) -> tfr src, dst
+    Out.setOpcode(M6809::TFRrr);
+    Out.addOperand(MI.getOperand(1));
+    Out.addOperand(MI.getOperand(0));
+    break;
+  }
+  MI = Out;
+}
+
 void M6809MCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
   OutMI.setOpcode(MI->getOpcode());
 
@@ -76,4 +162,5 @@ void M6809MCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
       break;
     }
   }
+  toRealInstruction(OutMI);
 }

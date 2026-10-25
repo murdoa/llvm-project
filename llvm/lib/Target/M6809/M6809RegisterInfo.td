@@ -72,3 +72,9 @@ def CCR : RegisterClass<"M6809", [i8], 8, (add CC)> {
   let CopyCost = -1;
   let isAllocatable = 0;
 }
+
+// Every register TFR and EXG can name. Only the assembler uses it.
+def TFRREG : RegisterClass<"M6809", [i16], 8,
+                           (add D, X, Y, U, S, PC, A, B, CC, DP)> {
+  let isAllocatable = 0;
+}

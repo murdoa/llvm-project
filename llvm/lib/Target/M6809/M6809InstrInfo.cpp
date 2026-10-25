@@ -206,7 +206,11 @@ static bool flagsAlreadySet(MachineBasicBlock &MBB,
   case M6809::EOR8i:
   case M6809::EOR8m:
   case M6809::EOR8pop:
+  case M6809::COM8:
     return VClear; // N and Z from the result, V cleared.
+  case M6809::INC8:
+  case M6809::DEC8:
+  case M6809::NEG8:
   case M6809::ADD8i:
   case M6809::ADD8m:
   case M6809::ADD8pop:
@@ -324,9 +328,20 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       switch (Form) {
       case 'i': {
         int64_t Imm = MI.getOperand(2).getImm();
-        MIB = BuildMI(MBB, MI, DL, get(P.Imm), R)
-                  .addReg(R)
-                  .addImm(High ? (Imm >> 8) & 0xFF : Imm & 0xFF);
+        unsigned Byte = High ? (Imm >> 8) & 0xFF : Imm & 0xFF;
+        // Bytes that leave the half alone, clear it, set it or flip it.
+        if (!P.Carry) {
+          bool IsAnd = P.Imm == M6809::AND8i, IsOr = P.Imm == M6809::OR8i;
+          if ((IsAnd && Byte == 0xFF) || (!IsAnd && Byte == 0))
+            return MIB;
+          if (IsAnd && Byte == 0)
+            return BuildMI(MBB, MI, DL, get(M6809::CLR8), R);
+          if (IsOr && Byte == 0xFF)
+            return BuildMI(MBB, MI, DL, get(M6809::LD8i), R).addImm(0xFF);
+          if (!IsAnd && !IsOr && Byte == 0xFF)
+            return BuildMI(MBB, MI, DL, get(M6809::COM8), R).addReg(R);
+        }
+        MIB = BuildMI(MBB, MI, DL, get(P.Imm), R).addReg(R).addImm(Byte);
         break;
       }
       case 'm': {
@@ -359,9 +374,25 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
       BuildMI(MBB, MI, DL, get(M6809::PSHS16))
           .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
     }
-    EmitHalf(!P.Carry);
+    MachineInstrBuilder First = EmitHalf(!P.Carry);
     MachineInstrBuilder Last = EmitHalf(P.Carry);
-    Last.addReg(M6809::D, RegState::ImplicitDefine);
+    if (!Last)
+      Last = First;
+    if (Last)
+      Last.addReg(M6809::D, RegState::ImplicitDefine);
+    MI.eraseFromParent();
+    return true;
+  }
+
+  if (Opc == M6809::NEG16) {
+    // nega; negb; sbca #0. NEGB sets C when B was not zero, which borrows
+    // from the high byte.
+    BuildMI(MBB, MI, DL, get(M6809::NEG8), M6809::A).addReg(M6809::A);
+    BuildMI(MBB, MI, DL, get(M6809::NEG8), M6809::B).addReg(M6809::B);
+    BuildMI(MBB, MI, DL, get(M6809::SBC8i), M6809::A)
+        .addReg(M6809::A)
+        .addImm(0)
+        .addReg(M6809::D, RegState::ImplicitDefine);
     MI.eraseFromParent();
     return true;
   }

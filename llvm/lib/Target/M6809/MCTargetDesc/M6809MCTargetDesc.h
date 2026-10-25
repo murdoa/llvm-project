@@ -81,4 +81,27 @@ enum Mode {
 #define GET_SUBTARGETINFO_ENUM
 #include "M6809GenSubtargetInfo.inc"
 
+namespace llvm {
+namespace M6809 {
+// The PSHS/PULS/PSHU/PULU postbyte bit for a register, or 0 if it cannot be
+// pushed. Bit 6 names the other stack pointer: U for PSHS/PULS, S for
+// PSHU/PULU. D is A and B together.
+inline unsigned getPushPullMask(unsigned Reg, bool UStack) {
+  switch (Reg) {
+  case M6809::CC: return 0x01;
+  case M6809::A: return 0x02;
+  case M6809::B: return 0x04;
+  case M6809::D: return 0x06;
+  case M6809::DP: return 0x08;
+  case M6809::X: return 0x10;
+  case M6809::Y: return 0x20;
+  case M6809::U: return UStack ? 0 : 0x40;
+  case M6809::S: return UStack ? 0x40 : 0;
+  case M6809::PC: return 0x80;
+  default: return 0;
+  }
+}
+} // namespace M6809
+} // namespace llvm
+
 #endif // LLVM_LIB_TARGET_M6809_MCTARGETDESC_M6809MCTARGETDESC_H

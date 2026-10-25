@@ -32,6 +32,11 @@ public:
   void printOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printMemIndexedOperand(const MCInst *MI, unsigned OpNo, raw_ostream &O);
   void printCondCode(const MCInst *MI, unsigned OpNo, raw_ostream &O);
+  void printRegList(const MCInst *MI, unsigned OpNo, raw_ostream &O,
+                    bool UStack = false);
+  void printRegListU(const MCInst *MI, unsigned OpNo, raw_ostream &O) {
+    printRegList(MI, OpNo, O, /*UStack=*/true);
+  }
 };
 
 } // namespace llvm
