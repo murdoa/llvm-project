@@ -37,6 +37,7 @@ public:
 
   SDValue getTargetSymbol(SDValue Sym, int64_t Off);
   bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset, SDValue &Mode);
+  SDValue findNearBase(SDValue X, int64_t Off);
   bool SelectInlineAsmMemoryOperand(const SDValue &Op,
                                     InlineAsm::ConstraintCode ConstraintID,
                                     std::vector<SDValue> &OutOps) override;
@@ -80,6 +81,25 @@ SDValue M6800DAGToDAGISel::getTargetSymbol(SDValue Sym, int64_t Off) {
   if (auto *J = dyn_cast<JumpTableSDNode>(Sym))
     return CurDAG->getTargetJumpTable(J->getIndex(), MVT::i16);
   return SDValue();
+}
+
+// Indexed offsets are unsigned bytes, so x + Off with Off outside 0..255
+// needs its own sum. Another sum x + C with C <= Off < C + 256 can be the
+// base instead: the lowest such C, so that one sum serves every access.
+SDValue M6800DAGToDAGISel::findNearBase(SDValue X, int64_t Off) {
+  SDValue Best;
+  int64_t BestC = 0;
+  for (SDNode *U : X->users()) {
+    if (U->getOpcode() != ISD::ADD || U->getOperand(0) != X ||
+        !isa<ConstantSDNode>(U->getOperand(1)))
+      continue;
+    int64_t C = cast<ConstantSDNode>(U->getOperand(1))->getSExtValue();
+    if (C <= Off && Off - C <= 255 && (!Best || C < BestC)) {
+      Best = SDValue(U, 0);
+      BestC = C;
+    }
+  }
+  return Best;
 }
 
 // Picks the addressing mode for a load or store:
@@ -127,6 +147,11 @@ bool M6800DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
   } else if (Off >= 0 && Off <= 255) {
     // The indexed offset is an unsigned byte.
     Base = Addr;
+  } else if (SDValue Near = findNearBase(Addr, Off)) {
+    // x - 1 next to x - 2: "1,x" from the other address rather than a
+    // second sum.
+    Off -= cast<ConstantSDNode>(Near.getOperand(1))->getSExtValue();
+    Base = Near;
   } else {
     Base = Whole;
     Off = 0;
