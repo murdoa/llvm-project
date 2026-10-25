@@ -46,6 +46,10 @@ public:
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
+  void emitCompareWithZero(MachineBasicBlock &MBB,
+                           MachineBasicBlock::iterator MI, const DebugLoc &DL,
+                           const MachineOperand &Lhs, int64_t CC) const;
+
   void reMaterialize(MachineBasicBlock &MBB, MachineBasicBlock::iterator MI,
                      Register DestReg, unsigned SubIdx,
                      const MachineInstr &Orig,

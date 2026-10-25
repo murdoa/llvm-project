@@ -104,11 +104,9 @@ define i16 @max_u16(i16 %a, i16 %b) {
 define i8 @setcc_eq(i16 %a) {
 ; CHECK-LABEL: setcc_eq:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx #0
+; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldb #1
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    cmpy ,s++
+; CHECK-NEXT:    leax ,x
 ; CHECK-NEXT:    lbeq .LBB5_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    clrb
@@ -128,7 +126,7 @@ define i16 @count_down(i16 %n) {
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    addd #3
-; CHECK-NEXT:    cmpx #0
+; CHECK-NEXT:    leax ,x
 ; CHECK-NEXT:    lbne .LBB6_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts
@@ -143,4 +141,122 @@ loop:
   br i1 %done, label %exit, label %loop
 exit:
   ret i16 %sum
+}
+
+; Compares with zero use tst, or reuse the flags of the instruction before.
+define i8 @select_neg(i8 %a, i8 %b, i8 %c) {
+; CHECK-LABEL: select_neg:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leay 3,s
+; CHECK-NEXT:    leax 2,s
+; CHECK-NEXT:    tstb
+; CHECK-NEXT:    lblt .LBB7_2
+; CHECK-NEXT:  ; %bb.1:
+; CHECK-NEXT:    tfr y, x
+; CHECK-NEXT:  .LBB7_2:
+; CHECK-NEXT:    ldb ,x
+; CHECK-NEXT:    rts
+  %n = icmp slt i8 %a, 0
+  %r = select i1 %n, i8 %b, i8 %c
+  ret i8 %r
+}
+
+define i16 @select_imm16(i16 %a, i16 %b, i16 %c) {
+; CHECK-LABEL: select_imm16:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leay 4,s
+; CHECK-NEXT:    leax 2,s
+; CHECK-NEXT:    cmpd #100
+; CHECK-NEXT:    lbhi .LBB8_2
+; CHECK-NEXT:  ; %bb.1:
+; CHECK-NEXT:    tfr y, x
+; CHECK-NEXT:  .LBB8_2:
+; CHECK-NEXT:    ldd ,x
+; CHECK-NEXT:    rts
+  %n = icmp ugt i16 %a, 100
+  %r = select i1 %n, i16 %b, i16 %c
+  ret i16 %r
+}
+
+define i16 @list_sum(ptr %n) {
+; CHECK-LABEL: list_sum:
+; CHECK:       ; %bb.0: ; %entry
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    leax ,x
+; CHECK-NEXT:    lbeq .LBB9_1
+; CHECK-NEXT:  ; %bb.2: ; %loop.preheader
+; CHECK-NEXT:    ldd #0
+; CHECK-NEXT:  .LBB9_3: ; %loop
+; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    addd 2,x
+; CHECK-NEXT:    ldx ,x
+; CHECK-NEXT:    lbne .LBB9_3
+; CHECK-NEXT:  ; %bb.4: ; %done
+; CHECK-NEXT:    rts
+; CHECK-NEXT:  .LBB9_1:
+; CHECK-NEXT:    ldd #0
+; CHECK-NEXT:    rts
+entry:
+  %z = icmp eq ptr %n, null
+  br i1 %z, label %done, label %loop
+loop:
+  %p = phi ptr [ %next, %loop ], [ %n, %entry ]
+  %s = phi i16 [ %s2, %loop ], [ 0, %entry ]
+  %vp = getelementptr inbounds i8, ptr %p, i16 2
+  %v = load i16, ptr %vp
+  %s2 = add i16 %s, %v
+  %next = load ptr, ptr %p
+  %e = icmp eq ptr %next, null
+  br i1 %e, label %done, label %loop
+done:
+  %r = phi i16 [ 0, %entry ], [ %s2, %loop ]
+  ret i16 %r
+}
+
+define void @clear_bytes(ptr %p, i16 %n) {
+; CHECK-LABEL: clear_bytes:
+; CHECK:       ; %bb.0: ; %entry
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    lbeq .LBB10_3
+; CHECK-NEXT:  ; %bb.1: ; %loop.preheader
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:  .LBB10_2: ; %loop
+; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
+; CHECK-NEXT:    stb ,y
+; CHECK-NEXT:    leax -1,x
+; CHECK-NEXT:    leay 1,y
+; CHECK-NEXT:    leax ,x
+; CHECK-NEXT:    lbne .LBB10_2
+; CHECK-NEXT:  .LBB10_3: ; %done
+; CHECK-NEXT:    rts
+entry:
+  %z = icmp eq i16 %n, 0
+  br i1 %z, label %done, label %loop
+loop:
+  %i = phi i16 [ %i2, %loop ], [ %n, %entry ]
+  %q = phi ptr [ %q2, %loop ], [ %p, %entry ]
+  store i8 0, ptr %q
+  %q2 = getelementptr inbounds i8, ptr %q, i16 1
+  %i2 = add i16 %i, -1
+  %e = icmp eq i16 %i2, 0
+  br i1 %e, label %done, label %loop
+done:
+  ret void
+}
+
+define i8 @test_d_zero(i16 %a) {
+; CHECK-LABEL: test_d_zero:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldb #1
+; CHECK-NEXT:    leax ,x
+; CHECK-NEXT:    lbeq .LBB11_2
+; CHECK-NEXT:  ; %bb.1:
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:  .LBB11_2:
+; CHECK-NEXT:    rts
+  %z = icmp eq i16 %a, 0
+  %r = zext i1 %z to i8
+  ret i8 %r
 }

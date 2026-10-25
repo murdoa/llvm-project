@@ -161,6 +161,88 @@ static void addOffset(MachineInstrBuilder &MIB, const MachineOperand &MO,
   MIB.add(Copy);
 }
 
+// Sets the flags for "Lhs cc 0" in fewer bytes than "cmp #0". TST and
+// "subd #0" set all four flags as a compare with zero would (V and C come
+// out clear). LEAX/LEAY set only Z, so they serve only EQ and NE.
+//
+// Often the instruction just before has already set the flags from R, and
+// no test is needed at all.
+static bool flagsAlreadySet(MachineBasicBlock &MBB,
+                            MachineBasicBlock::iterator MI, Register R,
+                            int64_t CC) {
+  if (MI == MBB.begin())
+    return false;
+  MachineBasicBlock::iterator Prev = std::prev(MI);
+  while (Prev->isDebugInstr() || Prev->isKill()) {
+    if (Prev == MBB.begin())
+      return false;
+    --Prev;
+  }
+  if (Prev->getNumExplicitDefs() != 1 || !Prev->getOperand(0).isReg() ||
+      Prev->getOperand(0).getReg() != R)
+    return false;
+
+  bool EqNe = CC == M6809CC::EQ || CC == M6809CC::NE;
+  bool Sign = EqNe || CC == M6809CC::MI || CC == M6809CC::PL;
+  // Signed orderings also work after instructions that clear V.
+  bool VClear = Sign || CC == M6809CC::LT || CC == M6809CC::GE ||
+                CC == M6809CC::GT || CC == M6809CC::LE;
+  switch (Prev->getOpcode()) {
+  case M6809::LEA16:
+    // LEAX/LEAY set Z; LEAU does not.
+    return EqNe && (R == M6809::X || R == M6809::Y);
+  case M6809::LD8i:
+  case M6809::LD8m:
+  case M6809::LD16i:
+  case M6809::LD16m:
+  case M6809::AND8i:
+  case M6809::AND8m:
+  case M6809::AND8pop:
+  case M6809::OR8i:
+  case M6809::OR8m:
+  case M6809::OR8pop:
+  case M6809::EOR8i:
+  case M6809::EOR8m:
+  case M6809::EOR8pop:
+    return VClear; // N and Z from the result, V cleared.
+  case M6809::ADD8i:
+  case M6809::ADD8m:
+  case M6809::ADD8pop:
+  case M6809::SUB8i:
+  case M6809::SUB8m:
+  case M6809::SUB8pop:
+  case M6809::ADDDi:
+  case M6809::ADDDm:
+  case M6809::ADDDpop:
+  case M6809::SUBDi:
+  case M6809::SUBDm:
+  case M6809::SUBDpop:
+    return Sign; // N and Z from the result; V is a real overflow.
+  default:
+    return false;
+  }
+}
+
+void M6809InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
+                                         MachineBasicBlock::iterator MI,
+                                         const DebugLoc &DL,
+                                         const MachineOperand &Lhs,
+                                         int64_t CC) const {
+  Register R = Lhs.getReg();
+  if (flagsAlreadySet(MBB, MI, R, CC))
+    return;
+  bool EqNe = CC == M6809CC::EQ || CC == M6809CC::NE;
+  if (M6809::ACC8RegClass.contains(R)) {
+    BuildMI(MBB, MI, DL, get(M6809::TST8)).add(Lhs);
+  } else if (R == M6809::D) {
+    BuildMI(MBB, MI, DL, get(M6809::SUBDi), R).addReg(R).addImm(0);
+  } else if (EqNe && (R == M6809::X || R == M6809::Y)) {
+    BuildMI(MBB, MI, DL, get(M6809::LEA16), R).addReg(R).addImm(0);
+  } else {
+    BuildMI(MBB, MI, DL, get(M6809::CMP16i)).add(Lhs).addImm(0);
+  }
+}
+
 bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
   MachineBasicBlock &MBB = *MI.getParent();
   DebugLoc DL = MI.getDebugLoc();
@@ -299,6 +381,10 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     switch (Opc) {
     case M6809::CB8ri:
     case M6809::CB16ri:
+      if (MI.getOperand(1).getImm() == 0) {
+        emitCompareWithZero(MBB, MI, DL, Lhs, CC);
+        break;
+      }
       BuildMI(MBB, MI, DL, get(Is8 ? M6809::CMP8i : M6809::CMP16i))
           .add(Lhs)
           .add(MI.getOperand(1));

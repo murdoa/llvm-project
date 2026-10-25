@@ -462,6 +462,14 @@ M6809TargetLowering::emitSelect(MachineInstr &MI,
   case M6809::SELECT16_c16:
     CBOpc = M6809::CB16rr;
     break;
+  case M6809::SELECT8_c8i:
+  case M6809::SELECT16_c8i:
+    CBOpc = M6809::CB8ri;
+    break;
+  case M6809::SELECT8_c16i:
+  case M6809::SELECT16_c16i:
+    CBOpc = M6809::CB16ri;
+    break;
   default:
     llvm_unreachable("M6809: unexpected instruction for custom inserter");
   }
@@ -487,7 +495,7 @@ M6809TargetLowering::emitSelect(MachineInstr &MI,
 
   BuildMI(MBB, DL, TII.get(CBOpc))
       .addReg(MI.getOperand(3).getReg())
-      .addReg(MI.getOperand(4).getReg())
+      .add(MI.getOperand(4)) // Register or immediate.
       .addImm(MI.getOperand(5).getImm())
       .addMBB(SinkMBB);
 

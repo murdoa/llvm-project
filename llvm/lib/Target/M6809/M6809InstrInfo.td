@@ -358,6 +358,10 @@ def : Pat<(M6809Wrapper tblockaddress:$a), (LD16i tblockaddress:$a)>;
 // Compares and branches
 //===----------------------------------------------------------------------===//
 
+// tsta/tstb: compare with zero.
+let Defs = [CC] in
+def TST8 : M6809Inst<(outs), (ins ACC8:$r), "tst${r}", [], 1>;
+
 // Real compares, used after the CB* pseudos below are expanded.
 // cmpa/cmpb, and cmpd/cmpx/cmpy/cmpu.
 let Defs = [CC] in {
@@ -447,8 +451,28 @@ multiclass SELECT<RegisterClass ValRC> {
   }
 }
 
-defm SELECT8 : SELECT<ACC8>;
-defm SELECT16 : SELECT<GR16>;
+// The same with an immediate right-hand side: "x < 0 ? a : b".
+multiclass SELECTI<RegisterClass ValRC> {
+  let usesCustomInserter = 1 in {
+    def _c8i : M6809Pseudo<(outs ValRC:$dst),
+                           (ins ValRC:$t, ValRC:$f, ACC8:$l, i8imm_op:$r,
+                                i8imm_op:$cc), "",
+                           [(set ValRC:$dst,
+                                 (M6809SelectCC ValRC:$t, ValRC:$f,
+                                                (i8 ACC8:$l), (i8 imm:$r),
+                                                timm:$cc))]>;
+    def _c16i : M6809Pseudo<(outs ValRC:$dst),
+                            (ins ValRC:$t, ValRC:$f, GR16:$l, i16imm_op:$r,
+                                 i8imm_op:$cc), "",
+                            [(set ValRC:$dst,
+                                  (M6809SelectCC ValRC:$t, ValRC:$f,
+                                                 (i16 GR16:$l), (i16 imm:$r),
+                                                 timm:$cc))]>;
+  }
+}
+
+defm SELECT8 : SELECT<ACC8>, SELECTI<ACC8>;
+defm SELECT16 : SELECT<GR16>, SELECTI<GR16>;
 
 //===----------------------------------------------------------------------===//
 // Multiply
