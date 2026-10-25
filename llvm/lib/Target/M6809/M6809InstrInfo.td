@@ -721,6 +721,39 @@ defm LSLV : SHIFTLOOP<M6809LslLoop>;
 defm LSRV : SHIFTLOOP<M6809LsrLoop>;
 defm ASRV : SHIFTLOOP<M6809AsrLoop>;
 
+// Rotates. The 6809 only rotates through carry, so a one-bit rotate puts the
+// bit that falls out back in by hand:
+//
+//   left:  aslb; rola; adcb #0          (8 bits: aslb; adcb #0)
+//   right: pshs b; lsr ,s+; rora; rorb  (8 bits: pshs b; lsr ,s+; rorb)
+//
+// The right rotate copies the low bit into C through a byte pushed and
+// popped in one go. SWAPB is "exg a,b", a rotate of D by 8.
+def M6809Rol1 : SDNode<"M6809ISD::ROL1", SDT_M6809Shift1>;
+def M6809Ror1 : SDNode<"M6809ISD::ROR1", SDT_M6809Shift1>;
+def M6809SwapB : SDNode<"M6809ISD::SWAPB", SDT_M6809Shift1C>;
+def M6809RolLoop : SDNode<"M6809ISD::ROL_LOOP", SDT_M6809ShiftLoop>;
+def M6809RorLoop : SDNode<"M6809ISD::ROR_LOOP", SDT_M6809ShiftLoop>;
+
+let Constraints = "$src = $dst", Defs = [CC] in {
+  def ROL1_8 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src), "",
+                           [(set ACC8:$dst, (M6809Rol1 ACC8:$src))]>;
+  def ROL1_16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                            [(set ACC16:$dst, (M6809Rol1 ACC16:$src))]>;
+  let Uses = [S], Defs = [S, CC] in {
+    def ROR1_8 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src), "",
+                             [(set ACC8:$dst, (M6809Ror1 ACC8:$src))]>;
+    def ROR1_16 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                              [(set ACC16:$dst, (M6809Ror1 ACC16:$src))]>;
+  }
+}
+let Constraints = "$src = $dst" in
+def SWAPB : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                        [(set ACC16:$dst, (M6809SwapB ACC16:$src))]>;
+
+defm ROLV : SHIFTLOOP<M6809RolLoop>;
+defm RORV : SHIFTLOOP<M6809RorLoop>;
+
 //===----------------------------------------------------------------------===//
 // Instructions only the assembler uses (for now)
 //===----------------------------------------------------------------------===//

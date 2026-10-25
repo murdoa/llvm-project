@@ -129,8 +129,10 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   for (MVT VT : {MVT::i8, MVT::i16}) {
     for (unsigned Op : {ISD::SHL, ISD::SRL, ISD::SRA})
       setOperationAction(Op, VT, Custom);
+    for (unsigned Op : {ISD::ROTL, ISD::ROTR})
+      setOperationAction(Op, VT, Custom);
     for (unsigned Op :
-         {ISD::ROTL, ISD::ROTR, ISD::FSHL, ISD::FSHR, ISD::SHL_PARTS,
+         {ISD::FSHL, ISD::FSHR, ISD::SHL_PARTS,
           ISD::SRL_PARTS, ISD::SRA_PARTS, ISD::BSWAP, ISD::CTPOP, ISD::CTLZ,
           ISD::CTTZ, ISD::ABS, ISD::SMIN, ISD::SMAX, ISD::UMIN, ISD::UMAX})
       setOperationAction(Op, VT, Expand);
@@ -180,6 +182,9 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
   case ISD::SRL:
   case ISD::SRA:
     return lowerShift(Op, DAG);
+  case ISD::ROTL:
+  case ISD::ROTR:
+    return lowerRotate(Op, DAG);
   default:
     llvm_unreachable("M6809: unexpected operation to lower");
   }
@@ -244,6 +249,58 @@ SDValue M6809TargetLowering::lowerBlockAddress(SDValue Op,
   SDValue BA = DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i16,
                                          N->getOffset());
   return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, BA);
+}
+
+// Rotates. A constant amount becomes the cheapest chain of one-bit rotates
+// either way, on i16 with or without a byte swap first. A variable amount
+// becomes a loop; it rotates once per count, which is right modulo the width.
+SDValue M6809TargetLowering::lowerRotate(SDValue Op, SelectionDAG &DAG) const {
+  SDLoc DL(Op);
+  EVT VT = Op.getValueType();
+  bool Left = Op.getOpcode() == ISD::ROTL;
+  SDValue Val = Op.getOperand(0);
+  SDValue Amt = Op.getOperand(1);
+  unsigned Bits = VT.getSizeInBits();
+
+  auto *C = dyn_cast<ConstantSDNode>(Amt);
+  if (!C) {
+    SDValue Cnt = DAG.getZExtOrTrunc(Amt, DL, MVT::i16);
+    return DAG.getNode(Left ? M6809ISD::ROL_LOOP : M6809ISD::ROR_LOOP, DL, VT,
+                       Val, Cnt);
+  }
+
+  // Bytes per one-bit rotate, from the expansions in M6809InstrInfo.cpp.
+  const unsigned RolCost = Bits == 16 ? 4 : 3, RorCost = Bits == 16 ? 6 : 5;
+  const unsigned SwapCost = 2;
+  unsigned L = C->getZExtValue() % Bits; // as a left rotate
+  if (!Left)
+    L = (Bits - L) % Bits;
+  if (L == 0)
+    return Val;
+
+  // Candidates: {swap first, one-bit rotates left, count}.
+  struct Plan {
+    bool Swap;
+    bool RotLeft;
+    unsigned N;
+  };
+  SmallVector<Plan, 4> Plans = {{false, true, L}, {false, false, Bits - L}};
+  if (Bits == 16)
+    Plans.append({L >= 8 ? Plan{true, true, L - 8} : Plan{true, false, 8 - L}});
+  auto Cost = [&](const Plan &P) {
+    return (P.Swap ? SwapCost : 0) + P.N * (P.RotLeft ? RolCost : RorCost);
+  };
+  Plan Best = Plans[0];
+  for (const Plan &P : Plans)
+    if (Cost(P) < Cost(Best))
+      Best = P;
+
+  SDValue V = Val;
+  if (Best.Swap)
+    V = DAG.getNode(M6809ISD::SWAPB, DL, VT, V);
+  for (unsigned I = 0; I != Best.N; ++I)
+    V = DAG.getNode(Best.RotLeft ? M6809ISD::ROL1 : M6809ISD::ROR1, DL, VT, V);
+  return V;
 }
 
 // Shifts. A constant amount becomes a chain of one-bit shifts. On i16,
@@ -558,6 +615,10 @@ M6809TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
   case M6809::LSRV_16:
   case M6809::ASRV_8:
   case M6809::ASRV_16:
+  case M6809::ROLV_8:
+  case M6809::ROLV_16:
+  case M6809::RORV_8:
+  case M6809::RORV_16:
     return emitShiftLoop(MI, MBB);
   case M6809::SJLJ_SETJMP:
     return emitSjLjSetjmp(MI, MBB);
@@ -667,7 +728,7 @@ M6809TargetLowering::emitSjLjLongjmp(MachineInstr &MI,
   return MBB;
 }
 
-// Variable shifts become a count-down loop:
+// Variable shifts and rotates become a count-down loop:
 //
 //   ThisMBB: CB16ri cnt, 0, EQ, DoneMBB
 //   LoopMBB: v  = PHI [src, ThisMBB], [v2, LoopMBB]
@@ -688,6 +749,10 @@ M6809TargetLowering::emitShiftLoop(MachineInstr &MI,
   case M6809::LSLV_16: ShiftOpc = M6809::LSL16; RC = &M6809::ACC16RegClass; break;
   case M6809::LSRV_16: ShiftOpc = M6809::LSR16; RC = &M6809::ACC16RegClass; break;
   case M6809::ASRV_16: ShiftOpc = M6809::ASR16; RC = &M6809::ACC16RegClass; break;
+  case M6809::ROLV_8:  ShiftOpc = M6809::ROL1_8;  RC = &M6809::ACC8RegClass;  break;
+  case M6809::ROLV_16: ShiftOpc = M6809::ROL1_16; RC = &M6809::ACC16RegClass; break;
+  case M6809::RORV_8:  ShiftOpc = M6809::ROR1_8;  RC = &M6809::ACC8RegClass;  break;
+  case M6809::RORV_16: ShiftOpc = M6809::ROR1_16; RC = &M6809::ACC16RegClass; break;
   default:
     llvm_unreachable("M6809: not a shift loop");
   }

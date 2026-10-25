@@ -350,6 +350,48 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
+  // One-bit rotates (see M6809InstrInfo.td).
+  if (Opc == M6809::ROL1_8 || Opc == M6809::ROL1_16) {
+    Register Lo = Opc == M6809::ROL1_8 ? MI.getOperand(0).getReg()
+                                       : Register(M6809::B);
+    BuildMI(MBB, MI, DL, get(M6809::ASL8), Lo).addReg(Lo);
+    if (Opc == M6809::ROL1_16)
+      BuildMI(MBB, MI, DL, get(M6809::ROL8), M6809::A).addReg(M6809::A);
+    MachineInstrBuilder Adc =
+        BuildMI(MBB, MI, DL, get(M6809::ADC8i), Lo).addReg(Lo).addImm(0);
+    if (Opc == M6809::ROL1_16)
+      addWholeD(Adc);
+    MI.eraseFromParent();
+    return true;
+  }
+  if (Opc == M6809::ROR1_8 || Opc == M6809::ROR1_16) {
+    Register Lo = Opc == M6809::ROR1_8 ? MI.getOperand(0).getReg()
+                                       : Register(M6809::B);
+    BuildMI(MBB, MI, DL, get(M6809::PSHS8)).addReg(Lo);
+    BuildMI(MBB, MI, DL, get(M6809::LSRm))
+        .addReg(M6809::S)
+        .addImm(0)
+        .addImm(M6809Mem::PostInc1)
+        .addReg(M6809::S, RegState::Implicit)
+        .addReg(M6809::S, RegState::ImplicitDefine);
+    if (Opc == M6809::ROR1_16)
+      BuildMI(MBB, MI, DL, get(M6809::ROR8), M6809::A).addReg(M6809::A);
+    MachineInstrBuilder Ror =
+        BuildMI(MBB, MI, DL, get(M6809::ROR8), Lo).addReg(Lo);
+    if (Opc == M6809::ROR1_16)
+      addWholeD(Ror);
+    MI.eraseFromParent();
+    return true;
+  }
+  if (Opc == M6809::SWAPB) {
+    MachineInstrBuilder Exg = BuildMI(MBB, MI, DL, get(M6809::EXGrr))
+                                  .addReg(M6809::A)
+                                  .addReg(M6809::B);
+    addWholeD(Exg);
+    MI.eraseFromParent();
+    return true;
+  }
+
   // One-bit shifts of D: shift one byte, then rotate the carry into the
   // other. Left shifts start with the low byte (B), right shifts with A.
   unsigned FirstOpc = 0;

@@ -225,16 +225,7 @@ define i16 @ashr16_var(i16 %a, i16 %n) {
 define i16 @bswap16(i16 %a) {
 ; CHECK-LABEL: bswap16:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    tfr b, a
-; CHECK-NEXT:    clrb
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    ora ,s+
-; CHECK-NEXT:    orb ,s+
+; CHECK-NEXT:    exg a, b
 ; CHECK-NEXT:    rts
   %r = call i16 @llvm.bswap.i16(i16 %a)
   ret i16 %r
@@ -243,27 +234,15 @@ define i16 @bswap16(i16 %a) {
 define i16 @rotl16_3(i16 %a) {
 ; CHECK-LABEL: rotl16_3:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr a, b
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    lsrb
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
+; CHECK-NEXT:    adcb #0
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
+; CHECK-NEXT:    adcb #0
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
-; CHECK-NEXT:    tfr y, x
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    ora ,s+
-; CHECK-NEXT:    orb ,s+
+; CHECK-NEXT:    adcb #0
 ; CHECK-NEXT:    rts
   %r = call i16 @llvm.fshl.i16(i16 %a, i16 %a, i16 3)
   ret i16 %r
