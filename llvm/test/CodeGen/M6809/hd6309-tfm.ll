@@ -74,3 +74,48 @@ define void @move40(ptr %d, ptr %s) {
   call void @llvm.memmove.p0.p0.i16(ptr %d, ptr %s, i16 40, i1 false)
   ret void
 }
+
+; A struct passed by value is copied into the outgoing argument area with
+; TFM too, from the pointer to S.
+%struct.big = type { [10 x i16] }
+declare void @take_big(ptr byval(%struct.big))
+
+define void @pass_byval(ptr %p) {
+; CHECK-LABEL: pass_byval:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -20,s
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr s, x
+; CHECK-NEXT:    ldw #20
+; CHECK-NEXT:    tfm y+, x+
+; CHECK-NEXT:    jsr take_big
+; CHECK-NEXT:    leas 20,s
+; CHECK-NEXT:    rts
+  call void @take_big(ptr byval(%struct.big) %p)
+  ret void
+}
+
+; Filling a local array: the destination is computed from S before the
+; fill byte is pushed.
+declare void @use(ptr)
+
+define void @fill_local() {
+; CHECK-LABEL: fill_local:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -64,s
+; CHECK-NEXT:    ldb #1
+; CHECK-NEXT:    leay ,s
+; CHECK-NEXT:    tfr y, x
+; CHECK-NEXT:    pshs b
+; CHECK-NEXT:    ldw #64
+; CHECK-NEXT:    tfm s, x+
+; CHECK-NEXT:    leas 1,s
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    jsr use
+; CHECK-NEXT:    leas 64,s
+; CHECK-NEXT:    rts
+  %a = alloca [64 x i8]
+  call void @llvm.memset.p0.i16(ptr %a, i8 1, i16 64, i1 false)
+  call void @use(ptr %a)
+  ret void
+}
