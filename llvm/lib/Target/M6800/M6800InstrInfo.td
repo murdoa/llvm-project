@@ -633,6 +633,16 @@ let usesCustomInserter = 1 in
 def MUL8 : M6800Pseudo<(outs ACC8:$dst), (ins ACC8:$a, ACC8:$b), "",
                        [(set ACC8:$dst, (mul ACC8:$a, ACC8:$b))]>;
 
+// The whole 16-bit product of two unsigned bytes, for i16 multiplies whose
+// operands fit in a byte and for the i8 halves of wider ones.
+def M6800UMul8 : SDNode<"M6800ISD::UMUL8",
+                       SDTypeProfile<1, 2, [SDTCisVT<0, i16>, SDTCisVT<1, i8>,
+                                            SDTCisVT<2, i8>]>,
+                       [SDNPCommutative]>;
+let usesCustomInserter = 1 in
+def UMUL8 : M6800Pseudo<(outs ACC16:$dst), (ins ACC8:$a, ACC8:$b), "",
+                       [(set ACC16:$dst, (M6800UMul8 ACC8:$a, ACC8:$b))]>;
+
 //===----------------------------------------------------------------------===//
 // Shifts
 //===----------------------------------------------------------------------===//

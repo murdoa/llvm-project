@@ -28,25 +28,14 @@ define i8 @mul8_imm(i8 %a) {
   ret i8 %r
 }
 
-; 8x8 -> 16 unsigned could be one mul, but is not recognised yet: it is
-; promoted to an i16 multiply and calls __mulhi3.
+; 8x8 -> 16 unsigned is one mul.
 define i16 @umul8x8(i8 %a, i8 %b) {
 ; CHECK-LABEL: umul8x8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    des
+; CHECK-NEXT:    tba
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
-; CHECK-NEXT:    ldab 5,x
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    std 0,x
-; CHECK-NEXT:    ldab 2,x ; 1-byte Folded Reload
-; CHECK-NEXT:    ; kill: def $b killed $b def $d
-; CHECK-NEXT:    clra
-; CHECK-NEXT:    jsr __mulhi3
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    ins
+; CHECK-NEXT:    ldab 2,x
+; CHECK-NEXT:    mul
 ; CHECK-NEXT:    rts
   %x = zext i8 %a to i16
   %y = zext i8 %b to i16

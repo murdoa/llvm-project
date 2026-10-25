@@ -85,7 +85,7 @@ M6800TargetLowering::M6800TargetLowering(const TargetMachine &TM,
   // The generic combine only makes BR_CC for legal types, so
   // PerformDAGCombine makes the i32 ones.
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
-  setTargetDAGCombine({ISD::BRCOND, ISD::SELECT});
+  setTargetDAGCombine({ISD::BRCOND, ISD::SELECT, ISD::MUL});
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
@@ -99,6 +99,8 @@ M6800TargetLowering::M6800TargetLowering(const TargetMachine &TM,
                         ISD::UMUL_LOHI, ISD::SDIVREM, ISD::UDIVREM})
       setOperationAction(Op, VT, Expand);
   }
+  // MUL gives the whole 16-bit product of two bytes.
+  setOperationAction({ISD::UMUL_LOHI, ISD::MULHU}, MVT::i8, Custom);
 
   // Varargs: va_list is a plain pointer into the caller's argument area.
   setOperationAction(ISD::VASTART, MVT::Other, Custom);
@@ -116,8 +118,12 @@ M6800TargetLowering::M6800TargetLowering(const TargetMachine &TM,
 
   // Multi-word add and subtract use glued carry chains: ADDD/SUBD for the
   // low word, then adcb/adca or sbcb/sbca for each higher one.
-  for (unsigned Op : {ISD::ADDC, ISD::ADDE, ISD::SUBC, ISD::SUBE})
+  for (unsigned Op : {ISD::ADDC, ISD::ADDE, ISD::SUBC, ISD::SUBE}) {
     setOperationAction(Op, MVT::i16, Legal);
+    // There are no i8 patterns. The i16 MULHU expansion would otherwise
+    // build an i8 carry chain that fails selection.
+    setOperationAction(Op, MVT::i8, Expand);
+  }
 
   // i32 shifts by a small constant are carry chains; see ReplaceNodeResults.
   for (unsigned Op : {ISD::SHL, ISD::SRL, ISD::SRA})
@@ -151,6 +157,20 @@ MVT M6800TargetLowering::getScalarShiftAmountTy(const DataLayout &,
 SDValue M6800TargetLowering::LowerOperation(SDValue Op,
                                             SelectionDAG &DAG) const {
   switch (Op.getOpcode()) {
+  case ISD::UMUL_LOHI:
+  case ISD::MULHU: {
+    SDLoc DL(Op);
+    SDValue P = DAG.getNode(M6800ISD::UMUL8, DL, MVT::i16, Op.getOperand(0),
+                            Op.getOperand(1));
+    SDValue Hi = DAG.getNode(
+        ISD::TRUNCATE, DL, MVT::i8,
+        DAG.getNode(ISD::SRL, DL, MVT::i16, P,
+                    DAG.getShiftAmountConstant(8, MVT::i16, DL)));
+    if (Op.getOpcode() == ISD::MULHU)
+      return Hi;
+    SDValue Lo = DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, P);
+    return DAG.getMergeValues({Lo, Hi}, DL);
+  }
   case ISD::GlobalAddress:
     return lowerGlobalAddress(Op, DAG);
   case ISD::ExternalSymbol:
@@ -394,10 +414,27 @@ SDValue M6800TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
 static bool isOrderedCompare32(SDValue Cond);
 static SDValue combineSelect32(SDNode *N, SelectionDAG &DAG);
 
+// mul a, b -> UMUL8 (trunc a), (trunc b), for i16 a and b that fit in a
+// byte.
+static SDValue combineMul8(SDNode *N, SelectionDAG &DAG) {
+  if (N->getValueType(0) != MVT::i16)
+    return SDValue();
+  SDValue A = N->getOperand(0), B = N->getOperand(1);
+  APInt High = APInt::getHighBitsSet(16, 8);
+  if (!DAG.MaskedValueIsZero(A, High) || !DAG.MaskedValueIsZero(B, High))
+    return SDValue();
+  SDLoc DL(N);
+  return DAG.getNode(M6800ISD::UMUL8, DL, MVT::i16,
+                     DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, A),
+                     DAG.getNode(ISD::TRUNCATE, DL, MVT::i8, B));
+}
+
 SDValue M6800TargetLowering::PerformDAGCombine(SDNode *N,
                                                DAGCombinerInfo &DCI) const {
   if (!DCI.isBeforeLegalize())
     return SDValue();
+  if (N->getOpcode() == ISD::MUL)
+    return combineMul8(N, DCI.DAG);
   if (N->getOpcode() == ISD::SELECT)
     return combineSelect32(N, DCI.DAG);
   // brcond (setcc a, b, cc), dest -> br_cc cc, a, b, dest, for i32 a and b.
@@ -565,6 +602,7 @@ M6800TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
                                                  MachineBasicBlock *MBB) const {
   switch (MI.getOpcode()) {
   case M6800::MUL8:
+  case M6800::UMUL8:
     return emitMul8(MI, MBB);
   case M6800::LSLV_8:
   case M6800::LSLV_16:
@@ -722,6 +760,10 @@ M6800TargetLowering::emitShiftLoop(MachineInstr &MI,
   MachineBasicBlock *DoneMBB = MF->CreateMachineBasicBlock(BB);
   MF->insert(It, LoopMBB);
   MF->insert(It, DoneMBB);
+  // The pseudo may sit inside a call sequence.
+  unsigned CallFrameSize = TII.getCallFrameSizeAt(MI);
+  LoopMBB->setCallFrameSize(CallFrameSize);
+  DoneMBB->setCallFrameSize(CallFrameSize);
 
   DoneMBB->splice(DoneMBB->begin(), MBB,
                   std::next(MachineBasicBlock::iterator(MI)), MBB->end());
@@ -773,7 +815,8 @@ M6800TargetLowering::emitShiftLoop(MachineInstr &MI,
   return DoneMBB;
 }
 
-// MUL8: copy the operands into A and B, MUL, and take the low byte (B).
+// MUL8 and UMUL8: copy the operands into A and B, MUL, and take the low
+// byte (B) or the whole product (D).
 MachineBasicBlock *
 M6800TargetLowering::emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const {
   const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
@@ -785,7 +828,7 @@ M6800TargetLowering::emitMul8(MachineInstr &MI, MachineBasicBlock *MBB) const {
   BuildMI(*MBB, MI, DL, TII.get(M6800::MUL));
   BuildMI(*MBB, MI, DL, TII.get(TargetOpcode::COPY),
           MI.getOperand(0).getReg())
-      .addReg(M6800::B);
+      .addReg(MI.getOpcode() == M6800::UMUL8 ? M6800::D : M6800::B);
   MI.eraseFromParent();
   return MBB;
 }
@@ -825,6 +868,10 @@ M6800TargetLowering::emitSelect(MachineInstr &MI,
   MachineBasicBlock *SinkMBB = MF->CreateMachineBasicBlock(BB);
   MF->insert(It, FalseMBB);
   MF->insert(It, SinkMBB);
+  // The pseudo may sit inside a call sequence.
+  unsigned CallFrameSize = TII.getCallFrameSizeAt(MI);
+  FalseMBB->setCallFrameSize(CallFrameSize);
+  SinkMBB->setCallFrameSize(CallFrameSize);
 
   // Everything after the select moves to SinkMBB.
   SinkMBB->splice(SinkMBB->begin(), MBB,
@@ -877,6 +924,10 @@ M6800TargetLowering::emitSelect32(MachineInstr &MI,
   MachineBasicBlock *SinkMBB = MF->CreateMachineBasicBlock(BB);
   MF->insert(It, FalseMBB);
   MF->insert(It, SinkMBB);
+  // The pseudo may sit inside a call sequence.
+  unsigned CallFrameSize = TII.getCallFrameSizeAt(MI);
+  FalseMBB->setCallFrameSize(CallFrameSize);
+  SinkMBB->setCallFrameSize(CallFrameSize);
   SinkMBB->splice(SinkMBB->begin(), MBB,
                   std::next(MachineBasicBlock::iterator(MI)), MBB->end());
   SinkMBB->transferSuccessorsAndUpdatePHIs(MBB);
