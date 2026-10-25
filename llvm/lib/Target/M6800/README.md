@@ -35,9 +35,30 @@ backend is built around reaching the stack through X:
 
 ## ABI
 
-- `char` is 8 bits, `int` 16, `long` 32, pointers 16. Big-endian, byte
-  alignment.
-- The first argument goes in B (8-bit) or D (16-bit); the rest go on the
-  stack, above the return address.
-- Results come back in B (8-bit), D (16-bit) or D:X (32-bit, D high).
-- Every register is caller-saved.
+The same C calling convention as the M6809 backend; only the registers,
+the frame pointer and the stack differ.
+
+- **Types.** `char` is 8 bits and signed, `short` and `int` 16, `long`
+  32, `long long` 64, pointers and `size_t` 16. `float` is IEEE single
+  and `double` and `long double` IEEE double, in software. Big-endian,
+  and every type is byte-aligned.
+- **Arguments.** The first argument goes in B if it is 8 bits or D if it
+  is 16, and the first half of a 32-bit one (its high word) in D. Everything
+  else goes on the stack, the first argument at the lowest address, just
+  above the return address. The area is packed: there is no padding.
+  Variadic arguments always go on the stack. An 8-bit argument is not
+  widened: it takes B or a single stack byte.
+- **Aggregates.** A struct or union passed by value is copied into the
+  argument area, whatever its size. One returned by value goes through a
+  hidden pointer, which is the first argument (so it is in D). Empty
+  structs take no space.
+- **Results.** 8-bit values return in B, 16-bit ones in D, and 32-bit ones
+  (`long`, `float`) with the high word in D and the low word in X.
+  Anything larger, such as `long long` and `double`, is returned through a
+  hidden pointer, as aggregates are.
+- **Registers.** A, B and X are all caller-saved.
+- **Frame pointer.** A function with variable-sized objects keeps its frame
+  pointer in the word `__m6800_fp` (from the runtime). It saves the word on
+  entry and restores it on return, so the word is in effect callee-saved.
+- **Stack.** SP points to the next free byte, as the CPU pushes. The caller
+  allocates and frees the outgoing argument area.

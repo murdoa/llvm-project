@@ -23,15 +23,27 @@ Missing on the HD6309 so far: E and F as 8-bit registers, and `tfm` for
 
 ## ABI
 
-This ABI is provisional; `M6809CallingConv.td` is the source of truth.
+The two backends share one C calling convention; clang's M6809ABIInfo and
+`M6809CallingConv.td` define it.
 
-- **Arguments.** The first scalar argument goes in B (8 bits) or D
-  (16 bits). Everything else goes on the stack, the first argument at the
-  lowest address, just above the return address. Variadic arguments always
-  go on the stack. Structs passed by value are copied into the argument
-  area, which is packed: there is no alignment padding.
-- **Results.** 8-bit values return in B and 16-bit values in D. A 32-bit
-  value returns its high half in D and its low half in X.
+- **Types.** `char` is 8 bits and signed, `short` and `int` 16, `long`
+  32, `long long` 64, pointers and `size_t` 16. `float` is IEEE single
+  and `double` and `long double` IEEE double, in software. Big-endian,
+  and every type is byte-aligned.
+- **Arguments.** The first argument goes in B if it is 8 bits or D if it
+  is 16, and the first half of a 32-bit one (its high word) in D. Everything
+  else goes on the stack, the first argument at the lowest address, just
+  above the return address. The area is packed: there is no padding.
+  Variadic arguments always go on the stack. An 8-bit argument is not
+  widened: it takes B or a single stack byte.
+- **Aggregates.** A struct or union passed by value is copied into the
+  argument area, whatever its size. One returned by value goes through a
+  hidden pointer, which is the first argument (so it is in D). Empty
+  structs take no space.
+- **Results.** 8-bit values return in B, 16-bit ones in D, and 32-bit ones
+  (`long`, `float`) with the high word in D and the low word in X.
+  Anything larger, such as `long long` and `double`, is returned through a
+  hidden pointer, as aggregates are.
 - **Registers.** U is callee-saved and is the frame pointer when the
   function needs one. A, B, X and Y are caller-saved. CC and DP are never
   allocated.

@@ -6,16 +6,16 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// PROVISIONAL ABI, expected to change:
-//   - The first scalar argument goes in B (i8) or D (i16). Because B is part
-//     of D, using one makes the other unavailable. Variadic arguments always
-//     go on the stack.
+// The C calling convention; the README describes it in full.
+//   - The first argument goes in B (i8) or D (i16). Because B is part of D,
+//     using one makes the other unavailable. Variadic arguments always go
+//     on the stack.
 //   - All other arguments go on the stack, first argument at the lowest
 //     address (just above the return address).
 //   - i8 results return in B, i16 in D, and the two halves of an i32 in D
-//     then X.
-//   - U is callee-saved and reserved as a future frame pointer. Everything
-//     else is caller-saved.
+//     then X. Wider results are returned through a hidden pointer.
+//   - U is callee-saved and is the frame pointer when a function needs one.
+//     Everything else is caller-saved.
 //
 //===----------------------------------------------------------------------===//
 
