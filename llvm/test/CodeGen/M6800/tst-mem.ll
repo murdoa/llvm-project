@@ -48,3 +48,66 @@ t:
 e:
   ret void
 }
+
+; In page zero, with A or B free, "ldaa <n" (3 cycles, 2 bytes) does what
+; "tst n" (6 cycles, 3 bytes) does for the conditions that do not read C.
+
+define void @page0_eq() {
+; CHECK-LABEL: page0_eq:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ldaa 125
+; CHECK-NEXT:    beq .LBB2_1
+; CHECK-NEXT:  ; %bb.2: ; %e
+; CHECK-NEXT:    rts
+; CHECK-NEXT:  .LBB2_1: ; %t
+; CHECK-NEXT:    jsr f
+; CHECK-NEXT:    rts
+  %v = load volatile i8, ptr inttoptr (i16 125 to ptr)
+  %c = icmp eq i8 %v, 0
+  br i1 %c, label %t, label %e
+t:
+  call void @f()
+  ret void
+e:
+  ret void
+}
+
+define void @page0_slt() {
+; CHECK-LABEL: page0_slt:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ldaa 125
+; CHECK-NEXT:    blt .LBB3_1
+; CHECK-NEXT:  ; %bb.2: ; %e
+; CHECK-NEXT:    rts
+; CHECK-NEXT:  .LBB3_1: ; %t
+; CHECK-NEXT:    jsr f
+; CHECK-NEXT:    rts
+  %v = load volatile i8, ptr inttoptr (i16 125 to ptr)
+  %c = icmp slt i8 %v, 0
+  br i1 %c, label %t, label %e
+t:
+  call void @f()
+  ret void
+e:
+  ret void
+}
+
+; B holds the argument across the test: A is used.
+define i8 @page0_b_live(i8 %x) {
+; CHECK-LABEL: page0_b_live:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ldaa 125
+; CHECK-NEXT:    beq .LBB4_1
+; CHECK-NEXT:  ; %bb.2: ; %e
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    rts
+; CHECK-NEXT:  .LBB4_1: ; %t
+; CHECK-NEXT:    rts
+  %v = load volatile i8, ptr inttoptr (i16 125 to ptr)
+  %c = icmp eq i8 %v, 0
+  br i1 %c, label %t, label %e
+t:
+  ret i8 %x
+e:
+  ret i8 0
+}

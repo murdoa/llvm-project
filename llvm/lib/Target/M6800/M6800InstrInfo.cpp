@@ -769,7 +769,27 @@ bool M6800InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
     switch (Opc) {
     case M6800::CB8m0: {
-      MachineInstrBuilder Tst = BuildMI(MBB, MI, DL, get(M6800::TSTm));
+      // TST has no direct mode: in page zero "ldaa <n" (3 cycles, 2 bytes)
+      // beats "tst >n" (6, 3) when A or B is free. LDA leaves C alone where
+      // TST clears it, so only for conditions that do not read C.
+      const MachineOperand &Base = MI.getOperand(0), &Off = MI.getOperand(1);
+      bool PageZero =
+          !(Base.isReg() && Base.getReg()) &&
+          (MI.getOperand(2).getImm() == M6800Mem::Direct ||
+           (MI.getOperand(2).getImm() == M6800Mem::Auto && Off.isImm() &&
+            isUInt<8>(Off.getImm())));
+      bool UsesC = CC == M6800CC::HI || CC == M6800CC::LS ||
+                   CC == M6800CC::HS || CC == M6800CC::LO;
+      Register Free;
+      if (PageZero && !UsesC) {
+        if (!isLiveAfter(MI, M6800::A))
+          Free = M6800::A;
+        else if (!isLiveAfter(MI, M6800::B))
+          Free = M6800::B;
+      }
+      MachineInstrBuilder Tst =
+          Free ? BuildMI(MBB, MI, DL, get(M6800::LD8m), Free)
+               : BuildMI(MBB, MI, DL, get(M6800::TSTm));
       addMem(Tst, MI, 0);
       Tst.cloneMemRefs(MI);
       break;
