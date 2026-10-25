@@ -146,7 +146,7 @@ define i16 @counter_in_w(ptr %a, ptr %b, ptr %c, ptr %d, i16 %n) {
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    leas -6,s
 ; CHECK-NEXT:    stu 4,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    clrd
 ; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldw 14,s
@@ -155,17 +155,17 @@ define i16 @counter_in_w(ptr %a, ptr %b, ptr %c, ptr %d, i16 %n) {
 ; CHECK-NEXT:    ldy 8,s
 ; CHECK-NEXT:  .LBB5_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    ldd ,x
+; CHECK-NEXT:    ldd ,u
 ; CHECK-NEXT:    addd ,y
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    std ,u++
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr x, u
-; CHECK-NEXT:    ldx 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leax d,x
-; CHECK-NEXT:    stx 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldx ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    std ,x++
+; CHECK-NEXT:    stx ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr u, x
-; CHECK-NEXT:    leax 2,x
+; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leau d,u
+; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    tfr x, u
+; CHECK-NEXT:    leau 2,u
 ; CHECK-NEXT:    leay 2,y
 ; CHECK-NEXT:    addw #-1
 ; CHECK-NEXT:    cmpw #0

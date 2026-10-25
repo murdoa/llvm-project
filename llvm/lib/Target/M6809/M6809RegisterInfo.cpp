@@ -56,6 +56,40 @@ BitVector M6809RegisterInfo::getReservedRegs(const MachineFunction &MF) const {
 // Frame objects are addressed off,S, or off,U when there is a frame pointer.
 // Object offsets are relative to S on entry; the prologue moves S down by
 // the frame size, and points U two bytes below S on entry.
+// A value that is tested against zero for EQ or NE, such as a loop
+// counter, should not be in U: LEAX, LEAY and ADDD set Z, so "leax -1,x"
+// needs no test after it, where "leau -1,u" needs a "cmpu #0".
+static bool isZeroTested(Register Reg, const MachineRegisterInfo &MRI) {
+  for (const MachineInstr &MI : MRI.use_nodbg_instructions(Reg)) {
+    if (MI.getOpcode() != M6809::CB16ri || MI.getOperand(0).getReg() != Reg ||
+        MI.getOperand(1).getImm() != 0)
+      continue;
+    int64_t CC = MI.getOperand(2).getImm();
+    if (CC == M6809CC::EQ || CC == M6809CC::NE)
+      return true;
+  }
+  return false;
+}
+
+bool M6809RegisterInfo::getRegAllocationHints(
+    Register VirtReg, ArrayRef<MCPhysReg> Order,
+    SmallSetVector<MCPhysReg, 16> &Hints, const MachineFunction &MF,
+    const VirtRegMap *VRM, const LiveRegMatrix *Matrix) const {
+  bool Hard = TargetRegisterInfo::getRegAllocationHints(VirtReg, Order, Hints,
+                                                        MF, VRM, Matrix);
+  const MachineRegisterInfo &MRI = MF.getRegInfo();
+  if (Hard || !isZeroTested(VirtReg, MRI))
+    return Hard;
+  // The copy hints stay first, unless they name U; then X and Y.
+  bool HintsU = Hints.remove(M6809::U);
+  for (MCPhysReg R : {M6809::X, M6809::Y})
+    if (is_contained(Order, R))
+      Hints.insert(R);
+  if (HintsU)
+    Hints.insert(M6809::U);
+  return false;
+}
+
 bool M6809RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
                                             int SPAdj, unsigned FIOperandNum,
                                             RegScavenger *RS) const {

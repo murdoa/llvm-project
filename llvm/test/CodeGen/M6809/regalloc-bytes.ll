@@ -8,8 +8,8 @@
 define i16 @run_machine(ptr %events, i16 %count) {
 ; CHECK-LABEL: run_machine:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldy 2,s
 ; CHECK-NEXT:    beq .LBB0_1
 ; CHECK-NEXT:  ; %bb.4: ; %for.body.preheader
 ; CHECK-NEXT:    clrb
@@ -18,11 +18,11 @@ define i16 @run_machine(ptr %events, i16 %count) {
 ; CHECK-NEXT:    ldb #2
 ; CHECK-NEXT:  .LBB0_13: ; %_ZN7Machine8dispatchE5Event.exit
 ; CHECK-NEXT:    ; in Loop: Header=BB0_5 Depth=1
-; CHECK-NEXT:    leax -1,x
+; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    beq .LBB0_2
 ; CHECK-NEXT:  .LBB0_5: ; %for.body
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    lda ,y+
+; CHECK-NEXT:    lda ,x+
 ; CHECK-NEXT:    cmpb #2
 ; CHECK-NEXT:    beq .LBB0_11
 ; CHECK-NEXT:  ; %bb.6: ; %for.body

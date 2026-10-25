@@ -32,15 +32,15 @@ exit:
 define i8 @sum_bytes(ptr %p, i16 %n) {
 ; CHECK-LABEL: sum_bytes:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    clrb
-; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    ldy 2,s
 ; CHECK-NEXT:  .LBB1_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    addb ,y
-; CHECK-NEXT:    leax -1,x
-; CHECK-NEXT:    leay 1,y
-; CHECK-NEXT:    leax ,x
+; CHECK-NEXT:    addb ,x
+; CHECK-NEXT:    leay -1,y
+; CHECK-NEXT:    leax 1,x
+; CHECK-NEXT:    leay ,y
 ; CHECK-NEXT:    bne .LBB1_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts

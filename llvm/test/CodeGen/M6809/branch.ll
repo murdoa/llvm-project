@@ -216,15 +216,15 @@ done:
 define void @clear_bytes(ptr %p, i16 %n) {
 ; CHECK-LABEL: clear_bytes:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldy 2,s
 ; CHECK-NEXT:    beq .LBB10_3
 ; CHECK-NEXT:  ; %bb.1: ; %loop.preheader
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB10_2: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    stb ,y+
-; CHECK-NEXT:    leax -1,x
+; CHECK-NEXT:    stb ,x+
+; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB10_2
 ; CHECK-NEXT:  .LBB10_3: ; %done
 ; CHECK-NEXT:    rts

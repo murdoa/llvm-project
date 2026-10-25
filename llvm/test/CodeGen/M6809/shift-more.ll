@@ -377,28 +377,27 @@ define void @loop_in_call(i16 %a, i16 %b, i16 %n) {
 ; M6809:       ; %bb.0:
 ; M6809-NEXT:    leas -6,s
 ; M6809-NEXT:    stu 4,s ; 2-byte Folded Spill
-; M6809-NEXT:    tfr d, y
+; M6809-NEXT:    tfr d, u
 ; M6809-NEXT:    ldd 10,s
 ; M6809-NEXT:    std 2,s
 ; M6809-NEXT:    clra
 ; M6809-NEXT:    ldx 8,s
-; M6809-NEXT:    tfr x, u
-; M6809-NEXT:    tfr d, x
-; M6809-NEXT:    leax ,x
+; M6809-NEXT:    tfr d, y
+; M6809-NEXT:    leay ,y
 ; M6809-NEXT:    beq .LBB10_1
 ; M6809-NEXT:  ; %bb.2:
-; M6809-NEXT:    tfr u, d
+; M6809-NEXT:    tfr x, d
 ; M6809-NEXT:  .LBB10_3: ; =>This Inner Loop Header: Depth=1
 ; M6809-NEXT:    aslb
 ; M6809-NEXT:    rola
-; M6809-NEXT:    leax -1,x
+; M6809-NEXT:    leay -1,y
 ; M6809-NEXT:    bne .LBB10_3
 ; M6809-NEXT:    bra .LBB10_4
 ; M6809-NEXT:  .LBB10_1:
-; M6809-NEXT:    tfr u, d
+; M6809-NEXT:    tfr x, d
 ; M6809-NEXT:  .LBB10_4:
 ; M6809-NEXT:    std ,s
-; M6809-NEXT:    tfr y, d
+; M6809-NEXT:    tfr u, d
 ; M6809-NEXT:    jsr use3
 ; M6809-NEXT:    ldu 4,s ; 2-byte Folded Reload
 ; M6809-NEXT:    leas 6,s
@@ -407,27 +406,26 @@ define void @loop_in_call(i16 %a, i16 %b, i16 %n) {
 ; H6309-LABEL: loop_in_call:
 ; H6309:       ; %bb.0:
 ; H6309-NEXT:    leas -4,s
-; H6309-NEXT:    tfr d, y
+; H6309-NEXT:    tfr d, w
 ; H6309-NEXT:    ldd 8,s
 ; H6309-NEXT:    std 2,s
 ; H6309-NEXT:    clra
 ; H6309-NEXT:    ldx 6,s
-; H6309-NEXT:    tfr x, w
-; H6309-NEXT:    tfr d, x
-; H6309-NEXT:    leax ,x
+; H6309-NEXT:    tfr d, y
+; H6309-NEXT:    leay ,y
 ; H6309-NEXT:    beq .LBB10_1
 ; H6309-NEXT:  ; %bb.2:
-; H6309-NEXT:    tfr w, d
+; H6309-NEXT:    tfr x, d
 ; H6309-NEXT:  .LBB10_3: ; =>This Inner Loop Header: Depth=1
 ; H6309-NEXT:    asld
-; H6309-NEXT:    leax -1,x
+; H6309-NEXT:    leay -1,y
 ; H6309-NEXT:    bne .LBB10_3
 ; H6309-NEXT:    bra .LBB10_4
 ; H6309-NEXT:  .LBB10_1:
-; H6309-NEXT:    tfr w, d
+; H6309-NEXT:    tfr x, d
 ; H6309-NEXT:  .LBB10_4:
 ; H6309-NEXT:    std ,s
-; H6309-NEXT:    tfr y, d
+; H6309-NEXT:    tfr w, d
 ; H6309-NEXT:    jsr use3
 ; H6309-NEXT:    leas 4,s
 ; H6309-NEXT:    rts

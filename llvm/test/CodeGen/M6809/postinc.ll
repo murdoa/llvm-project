@@ -6,16 +6,16 @@
 define i8 @sum(ptr %p, i16 %n) {
 ; CHECK-LABEL: sum:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldy 2,s
 ; CHECK-NEXT:    beq .LBB0_1
 ; CHECK-NEXT:  ; %bb.2: ; %loop.preheader
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:  .LBB0_3: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    addb ,y
-; CHECK-NEXT:    leay 1,y
-; CHECK-NEXT:    leax -1,x
+; CHECK-NEXT:    addb ,x
+; CHECK-NEXT:    leax 1,x
+; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB0_3
 ; CHECK-NEXT:  ; %bb.4: ; %done
 ; CHECK-NEXT:    rts
@@ -44,16 +44,16 @@ define void @copy16(ptr %d, ptr %s, i16 %n) {
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldd 6,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldy 6,s
 ; CHECK-NEXT:    beq .LBB1_3
 ; CHECK-NEXT:  ; %bb.1: ; %loop.preheader
-; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:    ldu 4,s
 ; CHECK-NEXT:  .LBB1_2: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    ldu ,x++
-; CHECK-NEXT:    stu ,y++
-; CHECK-NEXT:    addd #-1
+; CHECK-NEXT:    ldd ,u++
+; CHECK-NEXT:    std ,x++
+; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB1_2
 ; CHECK-NEXT:  .LBB1_3: ; %done
 ; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
@@ -205,17 +205,16 @@ define void @copy_down(ptr %d, ptr %s, i16 %n) {
 ; CHECK:       ; %bb.0: ; %entry
 ; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldu 6,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldy 6,s
 ; CHECK-NEXT:    beq .LBB6_3
 ; CHECK-NEXT:  ; %bb.1: ; %loop.preheader
-; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:    ldu 4,s
 ; CHECK-NEXT:  .LBB6_2: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    ldb ,-x
-; CHECK-NEXT:    stb ,-y
-; CHECK-NEXT:    leau -1,u
-; CHECK-NEXT:    cmpu #0
+; CHECK-NEXT:    ldb ,-u
+; CHECK-NEXT:    stb ,-x
+; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB6_2
 ; CHECK-NEXT:  .LBB6_3: ; %done
 ; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload

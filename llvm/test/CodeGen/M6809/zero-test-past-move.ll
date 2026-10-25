@@ -1,12 +1,12 @@
 ; RUN: llc -mtriple=m6809 -O2 < %s | FileCheck %s
 
-; The loop counter is decremented by LEAX, which sets Z. A register move
+; The loop counter is decremented by LEAX or LEAY, which set Z. A register move
 ; scheduled between it and the branch leaves the flags alone, so no test of
 ; X is needed.
 
 define i8 @sum(ptr %p) {
 ; CHECK-LABEL: sum:
-; CHECK:       leax -1,x
+; CHECK:       lea[[R:[xy]]] -1,[[R]]
 ; CHECK-NEXT:  tfr b, a
 ; CHECK-NEXT:  bne
 entry:

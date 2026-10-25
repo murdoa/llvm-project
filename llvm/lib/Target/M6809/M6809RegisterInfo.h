@@ -34,6 +34,12 @@ public:
 
   Register getFrameRegister(const MachineFunction &MF) const override;
 
+  bool getRegAllocationHints(Register VirtReg, ArrayRef<MCPhysReg> Order,
+                             SmallSetVector<MCPhysReg, 16> &Hints,
+                             const MachineFunction &MF,
+                             const VirtRegMap *VRM,
+                             const LiveRegMatrix *Matrix) const override;
+
   // Values that an instruction forces into D (or X/Y/U) may live in any
   // 16-bit register between uses. Letting the allocator widen split ranges
   // is what makes "D op D" (both sides computed in D) allocatable.
