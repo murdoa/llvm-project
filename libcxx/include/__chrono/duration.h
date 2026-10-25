@@ -292,10 +292,17 @@ typedef duration<long long > seconds;
 typedef duration<long, ratio<60> > minutes;
 typedef duration<long, ratio<60 * 60> > hours;
 #if _LIBCPP_STD_VER >= 20
-typedef duration<int, ratio<60 * 60 * 24>> days;
-typedef duration<int, ratio<60 * 60 * 24 * 7>> weeks;
-typedef duration<int, ratio<31556952>> years; // 365.2425 * 60 * 60 * 24
-typedef duration<int, ratio<2629746>> months; // years / 12
+// The standard needs at least 25 bits for days and 17 for years, so use long
+// where int is narrower, as on 16-bit targets.
+#  if __SIZEOF_INT__ < 4
+using __calendar_rep _LIBCPP_NODEBUG = long;
+#  else
+using __calendar_rep _LIBCPP_NODEBUG = int;
+#  endif
+typedef duration<__calendar_rep, ratio<86400>> days;
+typedef duration<__calendar_rep, ratio<604800>> weeks;
+typedef duration<__calendar_rep, ratio<31556952>> years; // 365.2425 * 60 * 60 * 24
+typedef duration<__calendar_rep, ratio<2629746>> months; // years / 12
 #endif
 // Duration ==
 
