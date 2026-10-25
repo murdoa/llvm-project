@@ -27,7 +27,8 @@ public:
 
   void Select(SDNode *N) override;
 
-  bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset);
+  bool SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
+                  SDValue &Mode);
 
 #include "M6809GenDAGISel.inc"
 };
@@ -57,9 +58,10 @@ FunctionPass *llvm::createM6809ISelDag(M6809TargetMachine &TM,
 //  - constant address            -> extended "nnnn"
 //  - anything else (+ constant)  -> indexed off,X / off,U / off,Y
 bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
-                                   SDValue &Offset) {
+                                   SDValue &Offset, SDValue &Mode) {
   SDLoc DL(Addr);
   int64_t Off = 0;
+  Mode = CurDAG->getTargetConstant(M6809Mem::Auto, DL, MVT::i8);
 
   if (auto *C = dyn_cast<ConstantSDNode>(Addr)) {
     Base = CurDAG->getRegister(Register(), MVT::i16);
@@ -113,7 +115,8 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
     SDLoc DL(N);
     SDValue TFI = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i16);
     SDValue Zero = CurDAG->getTargetConstant(0, DL, MVT::i16);
-    CurDAG->SelectNodeTo(N, M6809::LEA16, MVT::i16, TFI, Zero);
+    SDValue Mode = CurDAG->getTargetConstant(M6809Mem::Auto, DL, MVT::i8);
+    CurDAG->SelectNodeTo(N, M6809::LEA16, MVT::i16, TFI, Zero, Mode);
     return;
   }
 

@@ -45,27 +45,90 @@ void M6809InstPrinter::printOperand(const MCInst *MI, unsigned OpNo,
   MAI.printExpr(O, *Op.getExpr());
 }
 
-// Prints "off,reg" (indexed, zero offset left out as ",x"), or just "off"
-// when there is no base register (extended addressing).
+// Prints a memory operand in Motorola syntax:
+//   Auto       "off,reg" (",reg" for zero), or "addr" with no base register
+//   Extended   ">addr"            Direct    "<addr"
+//   Off5/8/16  "<<off,reg", "<off,reg", ">off,reg"
+//   ,R+  ,R++  ,-R  ,--R   a,R  b,R  d,R   addr,pcr
+// with "[...]" around it for the indirect forms.
 void M6809InstPrinter::printMemIndexedOperand(const MCInst *MI, unsigned OpNo,
                                               raw_ostream &O) {
   const MCOperand &Base = MI->getOperand(OpNo);
   const MCOperand &Off = MI->getOperand(OpNo + 1);
-  bool Extended = !Base.getReg();
+  unsigned Mode = MI->getOperand(OpNo + 2).getImm();
+  bool Indirect = Mode & M6809Mem::Indirect;
+  Mode &= M6809Mem::ModeMask;
+  bool NoBase = !Base.getReg();
 
-  if (Off.isImm()) {
-    // An absolute address is unsigned; an index offset is signed.
-    if (Extended)
-      O << static_cast<uint16_t>(Off.getImm());
-    else if (Off.getImm() != 0)
-      O << Off.getImm();
-  } else {
-    MAI.printExpr(O, *Off.getExpr());
+  auto PrintOff = [&](bool Absolute) {
+    if (Off.isImm()) {
+      // An absolute address is unsigned; an index offset is signed.
+      if (Absolute)
+        O << static_cast<uint16_t>(Off.getImm());
+      else
+        O << Off.getImm();
+    } else {
+      MAI.printExpr(O, *Off.getExpr());
+    }
+  };
+  auto PrintReg = [&] { printRegName(O, Base.getReg()); };
+
+  if (Indirect)
+    O << '[';
+  switch (Mode) {
+  case M6809Mem::Auto:
+    if (NoBase) {
+      PrintOff(true);
+      break;
+    }
+    if (!Off.isImm() || Off.getImm() != 0)
+      PrintOff(false);
+    O << ',';
+    PrintReg();
+    break;
+  case M6809Mem::Extended:
+    O << '>';
+    PrintOff(true);
+    break;
+  case M6809Mem::Direct:
+    O << '<';
+    PrintOff(true);
+    break;
+  case M6809Mem::Off5:
+  case M6809Mem::Off8:
+  case M6809Mem::Off16:
+    O << (Mode == M6809Mem::Off5 ? "<<" : Mode == M6809Mem::Off8 ? "<" : ">");
+    PrintOff(false);
+    O << ',';
+    PrintReg();
+    break;
+  case M6809Mem::PostInc1:
+  case M6809Mem::PostInc2:
+    O << ',';
+    PrintReg();
+    O << (Mode == M6809Mem::PostInc1 ? "+" : "++");
+    break;
+  case M6809Mem::PreDec1:
+  case M6809Mem::PreDec2:
+    O << (Mode == M6809Mem::PreDec1 ? ",-" : ",--");
+    PrintReg();
+    break;
+  case M6809Mem::AccA:
+  case M6809Mem::AccB:
+  case M6809Mem::AccD:
+    O << (Mode == M6809Mem::AccA ? "a," : Mode == M6809Mem::AccB ? "b," : "d,");
+    PrintReg();
+    break;
+  case M6809Mem::PCRel:
+    PrintOff(true);
+    O << ",pcr";
+    break;
+  default:
+    O << "<bad mode>";
+    break;
   }
-  if (Extended)
-    return;
-  O << ',';
-  printRegName(O, Base.getReg());
+  if (Indirect)
+    O << ']';
 }
 
 void M6809InstPrinter::printCondCode(const MCInst *MI, unsigned OpNo,

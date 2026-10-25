@@ -66,14 +66,16 @@ def callseq_end : SDNode<"ISD::CALLSEQ_END", SDT_M6809CallSeqEnd,
 def i8imm_op : Operand<i8>;
 def i16imm_op : Operand<i16>;
 
-// Memory operand: base register plus offset. "off,reg" is indexed ("2,s",
-// ",x"). With no base register it is extended addressing ("sym+2", "49152").
+// Memory operand: base register, offset and addressing mode (an
+// M6809Mem::Mode). In code generation the mode is always Auto: "off,reg" is
+// indexed ("2,s", ",x"), and with no base register it is extended
+// addressing ("sym+2", "49152"). The assembler can ask for any 6809 mode.
 def memidx : Operand<i16> {
-  let MIOperandInfo = (ops PTR16:$base, i16imm:$offset);
+  let MIOperandInfo = (ops PTR16:$base, i16imm:$offset, i8imm:$mode);
   let PrintMethod = "printMemIndexedOperand";
 }
 
-def addr : ComplexPattern<iPTR, 2, "SelectAddr", [frameindex], []>;
+def addr : ComplexPattern<iPTR, 3, "SelectAddr", [frameindex], []>;
 
 // Branch condition, printed as the mnemonic suffix ("eq", "hs", ...).
 def ccode : Operand<i8> {

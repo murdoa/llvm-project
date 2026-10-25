@@ -63,6 +63,7 @@ void M6809InstrInfo::storeRegToStackSlot(
       .addReg(SrcReg, getKillRegState(IsKill))
       .addFrameIndex(FrameIndex)
       .addImm(0)
+      .addImm(M6809Mem::Auto)
       .addMemOperand(getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOStore))
       .setMIFlag(Flags);
 }
@@ -77,6 +78,7 @@ void M6809InstrInfo::loadRegFromStackSlot(
   BuildMI(MBB, MI, DL, get(Opc), DestReg)
       .addFrameIndex(FrameIndex)
       .addImm(0)
+      .addImm(M6809Mem::Auto)
       .addMemOperand(getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOLoad))
       .setMIFlag(Flags);
 }
@@ -237,7 +239,10 @@ void M6809InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
   } else if (R == M6809::D) {
     BuildMI(MBB, MI, DL, get(M6809::SUBDi), R).addReg(R).addImm(0);
   } else if (EqNe && (R == M6809::X || R == M6809::Y)) {
-    BuildMI(MBB, MI, DL, get(M6809::LEA16), R).addReg(R).addImm(0);
+    BuildMI(MBB, MI, DL, get(M6809::LEA16), R)
+        .addReg(R)
+        .addImm(0)
+        .addImm(M6809Mem::Auto);
   } else {
     BuildMI(MBB, MI, DL, get(M6809::CMP16i)).add(Lhs).addImm(0);
   }
@@ -329,6 +334,7 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
                   .addReg(R)
                   .addReg(MI.getOperand(2).getReg());
         addOffset(MIB, MI.getOperand(3), High ? 0 : 1);
+        MIB.add(MI.getOperand(4)); // mode
         MIB.cloneMemRefs(MI);
         break;
       }
@@ -338,7 +344,8 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
           MIB = BuildMI(MBB, MI, DL, get(P.Mem), R)
                     .addReg(R)
                     .addReg(M6809::S)
-                    .addImm(1);
+                    .addImm(1)
+                    .addImm(M6809Mem::Auto);
         } else {
           MIB = BuildMI(MBB, MI, DL, get(P.Pop), R).addReg(R);
         }
@@ -365,7 +372,10 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     if (Dst == M6809::D)
       BuildMI(MBB, MI, DL, get(M6809::ADDDi), Dst).addReg(Dst).add(Imm);
     else
-      BuildMI(MBB, MI, DL, get(M6809::LEA16), Dst).addReg(Dst).add(Imm);
+      BuildMI(MBB, MI, DL, get(M6809::LEA16), Dst)
+          .addReg(Dst)
+          .add(Imm)
+          .addImm(M6809Mem::Auto);
     MI.eraseFromParent();
     return true;
   }
@@ -395,6 +405,7 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
           .add(Lhs)
           .add(MI.getOperand(1))
           .add(MI.getOperand(2))
+          .add(MI.getOperand(3))
           .cloneMemRefs(MI);
       break;
     default: {

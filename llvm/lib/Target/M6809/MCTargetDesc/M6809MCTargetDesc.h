@@ -45,6 +45,30 @@ inline const char *getName(CondCode CC) {
   return Names[CC];
 }
 } // namespace M6809CC
+
+// The third part of a memory operand (base, offset, mode): which 6809
+// addressing mode to use. Code generation always uses Auto. The assembler
+// sets the mode the source asked for.
+namespace M6809Mem {
+enum Mode {
+  Auto = 0,     // no base: extended; base: off,R in the shortest form
+  Extended = 1, // >addr
+  Direct = 2,   // <addr, the low byte, with DP supplying the high byte
+  Off5 = 3,     // n,R with the offset forced to a given width
+  Off8 = 4,
+  Off16 = 5,
+  PostInc1 = 6, // ,R+
+  PostInc2 = 7, // ,R++
+  PreDec1 = 8,  // ,-R
+  PreDec2 = 9,  // ,--R
+  AccA = 10,    // A,R
+  AccB = 11,    // B,R
+  AccD = 12,    // D,R
+  PCRel = 13,   // addr,PCR: the offset operand is the target address
+  ModeMask = 0x3F,
+  Indirect = 0x40, // [...]
+};
+} // namespace M6809Mem
 } // namespace llvm
 
 #define GET_REGINFO_ENUM
