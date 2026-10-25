@@ -86,9 +86,9 @@ SDValue M6800DAGToDAGISel::getTargetSymbol(SDValue Sym, int64_t Off) {
 // Picks the addressing mode for a load or store:
 //  - frame index (+ constant)    -> a stack slot, "off,x" after TSX
 //  - global/symbol (+ constant)  -> extended "sym+off", no base register
-//  - reg + global/symbol         -> indexed "sym,x"
 //  - constant address            -> extended "nnnn"
-//  - anything else (+ constant)  -> indexed "off,x"
+//  - reg + 0..255                -> indexed "off,x"
+//  - anything else               -> indexed "0,x" from the computed address
 //
 // A stack slot has SP as its base and an offset from SP + 1.
 bool M6800DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
@@ -104,6 +104,7 @@ bool M6800DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
     return true;
   }
 
+  SDValue Whole = Addr;
   if (CurDAG->isBaseWithConstantOffset(Addr)) {
     Off = cast<ConstantSDNode>(Addr.getOperand(1))->getSExtValue();
     Addr = Addr.getOperand(0);
@@ -117,20 +118,6 @@ bool M6800DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
     }
   }
 
-  // reg + symbol: indexed with the symbol as a 16-bit offset ("ldb tab,x").
-  if (Addr.getOpcode() == ISD::ADD) {
-    for (unsigned I = 0; I != 2; ++I) {
-      SDValue W = Addr.getOperand(I), R = Addr.getOperand(1 - I);
-      if (W.getOpcode() != M6800ISD::WRAPPER || isa<ConstantSDNode>(R))
-        continue;
-      if (SDValue Sym = getTargetSymbol(W.getOperand(0), Off)) {
-        Base = R;
-        Offset = Sym;
-        return true;
-      }
-    }
-  }
-
   if (auto *FIN = dyn_cast<FrameIndexSDNode>(Addr)) {
     Base = CurDAG->getTargetFrameIndex(FIN->getIndex(), MVT::i16);
   } else if (Addr.getOpcode() == ISD::CopyFromReg &&
@@ -138,8 +125,12 @@ bool M6800DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base,
     // Outgoing call arguments, at SP + 1 and up.
     Base = CurDAG->getRegister(M6800::SP, MVT::i16);
     --Off;
-  } else {
+  } else if (Off >= 0 && Off <= 255) {
+    // The indexed offset is an unsigned byte.
     Base = Addr;
+  } else {
+    Base = Whole;
+    Off = 0;
   }
 
   Offset = CurDAG->getSignedTargetConstant(Off, DL, MVT::i16);
