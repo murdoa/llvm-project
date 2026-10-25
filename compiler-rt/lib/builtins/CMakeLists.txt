@@ -922,6 +922,16 @@ set(avr_SOURCES
   ${GENERIC_SOURCES}
 )
 
+# Motorola 6809 and Hitachi HD6309. The 16-bit and 32-bit multiply, divide
+# and shift helpers that 32-bit targets never need.
+set(m6809_SOURCES
+  m6809/divmodhi4.S
+  m6809/mulhi3.S
+  m6809/mulsi3.S
+  m6809/shiftsi3.S
+  ${GENERIC_SOURCES}
+)
+
 # hexagon arch
 set(hexagon_SOURCES
   hexagon/common_entry_exit_abi1.S
