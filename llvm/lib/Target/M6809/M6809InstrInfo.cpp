@@ -323,15 +323,35 @@ static void addOffset(MachineInstrBuilder &MIB, const MachineOperand &MO,
 // "subd #0" set all four flags as a compare with zero would (V and C come
 // out clear). LEAX/LEAY set only Z, so they serve only EQ and NE.
 //
-// Often the instruction just before has already set the flags from R, and
-// no test is needed at all.
+// Often an instruction just before has already set the flags from R, and
+// no test is needed at all. Register moves and pushes in between leave
+// the flags alone, as long as they do not write R.
+static bool keepsFlags(const MachineInstr &MI, Register R,
+                       const TargetRegisterInfo &TRI) {
+  if (MI.isDebugInstr() || MI.isKill())
+    return true;
+  switch (MI.getOpcode()) {
+  case TargetOpcode::COPY:
+  case M6809::TFR8:
+  case M6809::TFR16:
+  case M6809::PSHS8:
+  case M6809::PSHS16:
+    return !MI.modifiesRegister(R, &TRI) &&
+           !MI.modifiesRegister(M6809::CC, &TRI);
+  default:
+    return false;
+  }
+}
+
 static bool flagsAlreadySet(MachineBasicBlock &MBB,
                             MachineBasicBlock::iterator MI, Register R,
                             int64_t CC) {
+  const TargetRegisterInfo &TRI =
+      *MBB.getParent()->getSubtarget().getRegisterInfo();
   if (MI == MBB.begin())
     return false;
   MachineBasicBlock::iterator Prev = std::prev(MI);
-  while (Prev->isDebugInstr() || Prev->isKill()) {
+  while (keepsFlags(*Prev, R, TRI)) {
     if (Prev == MBB.begin())
       return false;
     --Prev;
