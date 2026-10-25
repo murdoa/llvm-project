@@ -13,6 +13,38 @@
 
 namespace llvm {
 class Target;
+
+namespace M6809CC {
+// Branch conditions, in the order of the Bcc opcodes' low nibble from 0x22.
+enum CondCode {
+  HI, // unsigned >
+  LS, // unsigned <=
+  HS, // unsigned >= (BCC)
+  LO, // unsigned <  (BCS)
+  NE,
+  EQ,
+  VC,
+  VS,
+  PL,
+  MI,
+  GE, // signed >=
+  LT, // signed <
+  GT, // signed >
+  LE, // signed <=
+};
+
+inline CondCode getOpposite(CondCode CC) {
+  // Each condition is paired with its opposite: HI/LS, HS/LO, NE/EQ, ...
+  return static_cast<CondCode>(CC ^ 1);
+}
+
+inline const char *getName(CondCode CC) {
+  static const char *const Names[] = {"hi", "ls", "hs", "lo", "ne",
+                                      "eq", "vc", "vs", "pl", "mi",
+                                      "ge", "lt", "gt", "le"};
+  return Names[CC];
+}
+} // namespace M6809CC
 } // namespace llvm
 
 #define GET_REGINFO_ENUM

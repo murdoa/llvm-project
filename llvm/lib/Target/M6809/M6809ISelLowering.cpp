@@ -13,6 +13,7 @@
 #include "llvm/CodeGen/CallingConvLower.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/ErrorHandling.h"
 
@@ -58,9 +59,20 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setOperationAction(ISD::ExternalSymbol, MVT::i16, Custom);
   setOperationAction(ISD::BlockAddress, MVT::i16, Custom);
 
+  // Every compare ends up as BR_CC or SELECT_CC, which keep the compare and
+  // its flag user together.
+  for (MVT VT : {MVT::i8, MVT::i16}) {
+    setOperationAction(ISD::BR_CC, VT, Custom);
+    setOperationAction(ISD::SELECT_CC, VT, Custom);
+    setOperationAction(ISD::SETCC, VT, Expand);
+    setOperationAction(ISD::SELECT, VT, Expand);
+  }
+  setOperationAction(ISD::BRCOND, MVT::Other, Expand);
+  setOperationAction(ISD::BR_JT, MVT::Other, Expand);
+
   // TODO: everything not listed here is left Legal and fails instruction
-  // selection until it is added. Next up: shifts, compares and branches,
-  // multiply, divide and calls.
+  // selection until it is added. Next up: shifts, multiply, divide and
+  // calls.
 }
 
 //===----------------------------------------------------------------------===//
@@ -76,6 +88,10 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
     return lowerExternalSymbol(Op, DAG);
   case ISD::BlockAddress:
     return lowerBlockAddress(Op, DAG);
+  case ISD::BR_CC:
+    return lowerBR_CC(Op, DAG);
+  case ISD::SELECT_CC:
+    return lowerSELECT_CC(Op, DAG);
   default:
     llvm_unreachable("M6809: unexpected operation to lower");
   }
@@ -105,6 +121,115 @@ SDValue M6809TargetLowering::lowerBlockAddress(SDValue Op,
   SDValue BA = DAG.getTargetBlockAddress(N->getBlockAddress(), MVT::i16,
                                          N->getOffset());
   return DAG.getNode(M6809ISD::WRAPPER, DL, MVT::i16, BA);
+}
+
+// Maps an integer condition to a 6809 branch condition. A constant LHS is
+// swapped to the right first, since only the right side can be an immediate.
+static M6809CC::CondCode prepareCompare(SDValue &LHS, SDValue &RHS,
+                                        ISD::CondCode CC) {
+  if (isa<ConstantSDNode>(LHS) && !isa<ConstantSDNode>(RHS)) {
+    std::swap(LHS, RHS);
+    CC = ISD::getSetCCSwappedOperands(CC);
+  }
+  switch (CC) {
+  case ISD::SETEQ: return M6809CC::EQ;
+  case ISD::SETNE: return M6809CC::NE;
+  case ISD::SETUGT: return M6809CC::HI;
+  case ISD::SETUGE: return M6809CC::HS;
+  case ISD::SETULT: return M6809CC::LO;
+  case ISD::SETULE: return M6809CC::LS;
+  case ISD::SETGT: return M6809CC::GT;
+  case ISD::SETGE: return M6809CC::GE;
+  case ISD::SETLT: return M6809CC::LT;
+  case ISD::SETLE: return M6809CC::LE;
+  default:
+    llvm_unreachable("M6809: unsupported integer condition");
+  }
+}
+
+SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
+  SDValue Chain = Op.getOperand(0);
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(1))->get();
+  SDValue LHS = Op.getOperand(2);
+  SDValue RHS = Op.getOperand(3);
+  SDValue Dest = Op.getOperand(4);
+  SDLoc DL(Op);
+
+  M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC);
+  return DAG.getNode(M6809ISD::CMPBR, DL, MVT::Other, Chain, LHS, RHS,
+                     DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
+}
+
+SDValue M6809TargetLowering::lowerSELECT_CC(SDValue Op,
+                                            SelectionDAG &DAG) const {
+  SDValue LHS = Op.getOperand(0);
+  SDValue RHS = Op.getOperand(1);
+  SDValue TVal = Op.getOperand(2);
+  SDValue FVal = Op.getOperand(3);
+  ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
+  SDLoc DL(Op);
+
+  M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC);
+  return DAG.getNode(M6809ISD::SELECT_CC, DL, Op.getValueType(), TVal, FVal,
+                     LHS, RHS, DAG.getTargetConstant(MCC, DL, MVT::i8));
+}
+
+// SELECT* pseudos become:
+//
+//   ThisMBB:  CB*rr lhs, rhs, cc, SinkMBB    ; taken: result = tval
+//   FalseMBB: (falls through)                ; result = fval
+//   SinkMBB:  dst = PHI [tval, ThisMBB], [fval, FalseMBB]
+MachineBasicBlock *
+M6809TargetLowering::EmitInstrWithCustomInserter(MachineInstr &MI,
+                                                 MachineBasicBlock *MBB) const {
+  unsigned CBOpc;
+  switch (MI.getOpcode()) {
+  case M6809::SELECT8_c8:
+  case M6809::SELECT16_c8:
+    CBOpc = M6809::CB8rr;
+    break;
+  case M6809::SELECT8_c16:
+  case M6809::SELECT16_c16:
+    CBOpc = M6809::CB16rr;
+    break;
+  default:
+    llvm_unreachable("M6809: unexpected instruction for custom inserter");
+  }
+
+  const TargetInstrInfo &TII = *Subtarget.getInstrInfo();
+  DebugLoc DL = MI.getDebugLoc();
+  MachineFunction *MF = MBB->getParent();
+  const BasicBlock *BB = MBB->getBasicBlock();
+  MachineFunction::iterator It = std::next(MBB->getIterator());
+
+  MachineBasicBlock *FalseMBB = MF->CreateMachineBasicBlock(BB);
+  MachineBasicBlock *SinkMBB = MF->CreateMachineBasicBlock(BB);
+  MF->insert(It, FalseMBB);
+  MF->insert(It, SinkMBB);
+
+  // Everything after the select moves to SinkMBB.
+  SinkMBB->splice(SinkMBB->begin(), MBB,
+                  std::next(MachineBasicBlock::iterator(MI)), MBB->end());
+  SinkMBB->transferSuccessorsAndUpdatePHIs(MBB);
+  MBB->addSuccessor(FalseMBB);
+  MBB->addSuccessor(SinkMBB);
+  FalseMBB->addSuccessor(SinkMBB);
+
+  BuildMI(MBB, DL, TII.get(CBOpc))
+      .addReg(MI.getOperand(3).getReg())
+      .addReg(MI.getOperand(4).getReg())
+      .addImm(MI.getOperand(5).getImm())
+      .addMBB(SinkMBB);
+
+  BuildMI(*SinkMBB, SinkMBB->begin(), DL, TII.get(TargetOpcode::PHI),
+          MI.getOperand(0).getReg())
+      .addReg(MI.getOperand(1).getReg())
+      .addMBB(MBB)
+      .addReg(MI.getOperand(2).getReg())
+      .addMBB(FalseMBB);
+
+  MI.eraseFromParent();
+  return SinkMBB;
 }
 
 //===----------------------------------------------------------------------===//

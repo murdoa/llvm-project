@@ -17,7 +17,7 @@ namespace llvm {
 class M6809Subtarget;
 
 class M6809TargetLowering : public TargetLowering {
-  [[maybe_unused]] const M6809Subtarget &Subtarget;
+  const M6809Subtarget &Subtarget;
 
 public:
   explicit M6809TargetLowering(const TargetMachine &TM,
@@ -25,7 +25,18 @@ public:
 
   SDValue LowerOperation(SDValue Op, SelectionDAG &DAG) const override;
 
+  EVT getSetCCResultType(const DataLayout &DL, LLVMContext &Context,
+                         EVT VT) const override {
+    return MVT::i8;
+  }
+
+  MachineBasicBlock *
+  EmitInstrWithCustomInserter(MachineInstr &MI,
+                              MachineBasicBlock *MBB) const override;
+
 private:
+  SDValue lowerBR_CC(SDValue Op, SelectionDAG &DAG) const;
+  SDValue lowerSELECT_CC(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerGlobalAddress(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerExternalSymbol(SDValue Op, SelectionDAG &DAG) const;
   SDValue lowerBlockAddress(SDValue Op, SelectionDAG &DAG) const;

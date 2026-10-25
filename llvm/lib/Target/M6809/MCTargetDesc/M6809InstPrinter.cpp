@@ -7,6 +7,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "M6809InstPrinter.h"
+#include "M6809MCTargetDesc.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -65,4 +66,10 @@ void M6809InstPrinter::printMemIndexedOperand(const MCInst *MI, unsigned OpNo,
     return;
   O << ',';
   printRegName(O, Base.getReg());
+}
+
+void M6809InstPrinter::printCondCode(const MCInst *MI, unsigned OpNo,
+                                     raw_ostream &O) {
+  O << M6809CC::getName(
+      static_cast<M6809CC::CondCode>(MI->getOperand(OpNo).getImm()));
 }

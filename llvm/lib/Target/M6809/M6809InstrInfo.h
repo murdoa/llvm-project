@@ -45,6 +45,25 @@ public:
       MachineInstr::MIFlag Flags = MachineInstr::NoFlags) const override;
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
+
+  /// True for the CB* compare-and-branch pseudos.
+  static bool isCompareAndBranch(unsigned Opc);
+
+  // Branch analysis. A conditional branch is either a CB* compare-and-branch
+  // pseudo (before expansion) or an LBcc (after). Cond holds:
+  //   [0] opcode, [1..N-2] compare operands (CB* only), [N-1] condition code.
+  bool analyzeBranch(MachineBasicBlock &MBB, MachineBasicBlock *&TBB,
+                     MachineBasicBlock *&FBB,
+                     SmallVectorImpl<MachineOperand> &Cond,
+                     bool AllowModify = false) const override;
+  unsigned removeBranch(MachineBasicBlock &MBB,
+                        int *BytesRemoved = nullptr) const override;
+  unsigned insertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB,
+                        MachineBasicBlock *FBB, ArrayRef<MachineOperand> Cond,
+                        const DebugLoc &DL,
+                        int *BytesAdded = nullptr) const override;
+  bool
+  reverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const override;
 };
 
 } // namespace llvm

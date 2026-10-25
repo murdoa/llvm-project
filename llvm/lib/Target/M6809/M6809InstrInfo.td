@@ -28,6 +28,23 @@ def M6809Wrapper : SDNode<"M6809ISD::WRAPPER",
                           SDTypeProfile<1, 1, [SDTCisSameAs<0, 1>,
                                                SDTCisPtrTy<0>]>>;
 
+// Compare lhs with rhs and branch on condition cc (an M6809CC::CondCode).
+// Kept as one node, and one pseudo until after register allocation, so
+// nothing that changes the flags can land between the compare and the
+// branch.
+def M6809CmpBr : SDNode<"M6809ISD::CMPBR",
+                        SDTypeProfile<0, 4, [SDTCisSameAs<0, 1>,
+                                             SDTCisVT<2, i8>,
+                                             SDTCisVT<3, OtherVT>]>,
+                        [SDNPHasChain]>;
+
+// result = (lhs cc rhs) ? tval : fval
+def M6809SelectCC : SDNode<"M6809ISD::SELECT_CC",
+                           SDTypeProfile<1, 5, [SDTCisSameAs<0, 1>,
+                                                SDTCisSameAs<1, 2>,
+                                                SDTCisSameAs<3, 4>,
+                                                SDTCisVT<5, i8>]>>;
+
 def SDT_M6809CallSeqStart : SDCallSeqStart<[SDTCisVT<0, i16>,
                                             SDTCisVT<1, i16>]>;
 def SDT_M6809CallSeqEnd : SDCallSeqEnd<[SDTCisVT<0, i16>, SDTCisVT<1, i16>]>;
@@ -52,6 +69,13 @@ def memidx : Operand<i16> {
 }
 
 def addr : ComplexPattern<iPTR, 2, "SelectAddr", [frameindex], []>;
+
+// Branch condition, printed as the mnemonic suffix ("eq", "hs", ...).
+def ccode : Operand<i8> {
+  let PrintMethod = "printCondCode";
+}
+
+def brtarget : Operand<OtherVT>;
 
 //===----------------------------------------------------------------------===//
 // Pseudo instructions
@@ -248,3 +272,99 @@ def : Pat<(i8 (trunc GR16:$s)), (EXTRACT_SUBREG GR16:$s, sub_lo)>;
 def : Pat<(M6809Wrapper tglobaladdr:$a), (LD16i tglobaladdr:$a)>;
 def : Pat<(M6809Wrapper texternalsym:$a), (LD16i texternalsym:$a)>;
 def : Pat<(M6809Wrapper tblockaddress:$a), (LD16i tblockaddress:$a)>;
+
+//===----------------------------------------------------------------------===//
+// Compares and branches
+//===----------------------------------------------------------------------===//
+
+// Real compares, used after the CB* pseudos below are expanded.
+// cmpa/cmpb, and cmpd/cmpx/cmpy/cmpu.
+let Defs = [CC] in {
+  def CMP8i : M6809Inst<(outs), (ins ACC8:$lhs, i8imm_op:$imm),
+                        "cmp${lhs}\t#$imm", [], 2>;
+  def CMP16i : M6809Inst<(outs), (ins GR16:$lhs, i16imm_op:$imm),
+                         "cmp${lhs}\t#$imm", [], 4>;
+  let mayLoad = 1 in {
+    def CMP8m : M6809Inst<(outs), (ins ACC8:$lhs, memidx:$addr),
+                          "cmp${lhs}\t$addr", [], 2>;
+    def CMP16m : M6809Inst<(outs), (ins GR16:$lhs, memidx:$addr),
+                           "cmp${lhs}\t$addr", [], 3>;
+    let Uses = [S], Defs = [S, CC] in {
+      def CMP8pop : M6809Inst<(outs), (ins ACC8:$lhs), "cmp${lhs}\t,s+", [],
+                              2>;
+      def CMP16pop : M6809Inst<(outs), (ins GR16:$lhs), "cmp${lhs}\t,s++", [],
+                               3>;
+    }
+  }
+}
+
+let isBranch = 1, isTerminator = 1 in {
+  let isBarrier = 1 in
+  def LBRA : M6809Inst<(outs), (ins brtarget:$dst), "lbra\t$dst",
+                       [(br bb:$dst)], 3>;
+
+  let Uses = [CC] in
+  def LBcc : M6809Inst<(outs), (ins ccode:$cc, brtarget:$dst),
+                       "lb${cc}\t$dst", [], 4>;
+
+  // Compare-and-branch pseudos. Expanded after register allocation into a
+  // CMP* followed by LBcc.
+  let Defs = [CC] in {
+    def CB8ri : M6809Pseudo<(outs),
+                            (ins ACC8:$lhs, i8imm_op:$rhs, ccode:$cc,
+                                 brtarget:$dst), "",
+                            [(M6809CmpBr ACC8:$lhs, (i8 imm:$rhs), timm:$cc,
+                                         bb:$dst)]>;
+    def CB16ri : M6809Pseudo<(outs),
+                             (ins GR16:$lhs, i16imm_op:$rhs, ccode:$cc,
+                                  brtarget:$dst), "",
+                             [(M6809CmpBr GR16:$lhs, (i16 imm:$rhs), timm:$cc,
+                                          bb:$dst)]>;
+    let mayLoad = 1 in {
+      def CB8rm : M6809Pseudo<(outs),
+                              (ins ACC8:$lhs, memidx:$rhs, ccode:$cc,
+                                   brtarget:$dst), "",
+                              [(M6809CmpBr ACC8:$lhs, (i8 (load addr:$rhs)),
+                                           timm:$cc, bb:$dst)]>;
+      def CB16rm : M6809Pseudo<(outs),
+                               (ins GR16:$lhs, memidx:$rhs, ccode:$cc,
+                                    brtarget:$dst), "",
+                               [(M6809CmpBr GR16:$lhs, (i16 (load addr:$rhs)),
+                                            timm:$cc, bb:$dst)]>;
+    }
+    let Uses = [S], Defs = [S, CC] in {
+      def CB8rr : M6809Pseudo<(outs),
+                              (ins ACC8:$lhs, ACC8:$rhs, ccode:$cc,
+                                   brtarget:$dst), "",
+                              [(M6809CmpBr ACC8:$lhs, ACC8:$rhs, timm:$cc,
+                                           bb:$dst)]>;
+      def CB16rr : M6809Pseudo<(outs),
+                               (ins GR16:$lhs, GR16:$rhs, ccode:$cc,
+                                    brtarget:$dst), "",
+                               [(M6809CmpBr GR16:$lhs, GR16:$rhs, timm:$cc,
+                                            bb:$dst)]>;
+    }
+  }
+}
+
+// select_cc. The custom inserter turns these into a CB* diamond and a PHI.
+multiclass SELECT<RegisterClass ValRC> {
+  let usesCustomInserter = 1 in {
+    def _c8 : M6809Pseudo<(outs ValRC:$dst),
+                          (ins ValRC:$t, ValRC:$f, ACC8:$l, ACC8:$r,
+                               i8imm_op:$cc), "",
+                          [(set ValRC:$dst,
+                                (M6809SelectCC ValRC:$t, ValRC:$f, (i8 ACC8:$l),
+                                               ACC8:$r, timm:$cc))]>;
+    def _c16 : M6809Pseudo<(outs ValRC:$dst),
+                           (ins ValRC:$t, ValRC:$f, GR16:$l, GR16:$r,
+                                i8imm_op:$cc), "",
+                           [(set ValRC:$dst,
+                                 (M6809SelectCC ValRC:$t, ValRC:$f,
+                                                (i16 GR16:$l), GR16:$r,
+                                                timm:$cc))]>;
+  }
+}
+
+defm SELECT8 : SELECT<ACC8>;
+defm SELECT16 : SELECT<GR16>;

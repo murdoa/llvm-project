@@ -195,5 +195,188 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     return true;
   }
 
+  if (isCompareAndBranch(Opc)) {
+    unsigned N = MI.getNumExplicitOperands();
+    const MachineOperand &Lhs = MI.getOperand(0);
+    int64_t CC = MI.getOperand(N - 2).getImm();
+    MachineBasicBlock *Dest = MI.getOperand(N - 1).getMBB();
+    bool Is8 = Opc == M6809::CB8ri || Opc == M6809::CB8rm ||
+               Opc == M6809::CB8rr;
+
+    switch (Opc) {
+    case M6809::CB8ri:
+    case M6809::CB16ri:
+      BuildMI(MBB, MI, DL, get(Is8 ? M6809::CMP8i : M6809::CMP16i))
+          .add(Lhs)
+          .add(MI.getOperand(1));
+      break;
+    case M6809::CB8rm:
+    case M6809::CB16rm:
+      BuildMI(MBB, MI, DL, get(Is8 ? M6809::CMP8m : M6809::CMP16m))
+          .add(Lhs)
+          .add(MI.getOperand(1))
+          .add(MI.getOperand(2))
+          .cloneMemRefs(MI);
+      break;
+    default: {
+      const MachineOperand &Rhs = MI.getOperand(1);
+      BuildMI(MBB, MI, DL, get(Is8 ? M6809::PSHS8 : M6809::PSHS16))
+          .addReg(Rhs.getReg(), getKillRegState(Rhs.isKill()));
+      BuildMI(MBB, MI, DL, get(Is8 ? M6809::CMP8pop : M6809::CMP16pop))
+          .add(Lhs);
+      break;
+    }
+    }
+    BuildMI(MBB, MI, DL, get(M6809::LBcc)).addImm(CC).addMBB(Dest);
+    MI.eraseFromParent();
+    return true;
+  }
+
+  return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Branch analysis
+//===----------------------------------------------------------------------===//
+
+bool M6809InstrInfo::isCompareAndBranch(unsigned Opc) {
+  switch (Opc) {
+  case M6809::CB8ri:
+  case M6809::CB8rm:
+  case M6809::CB8rr:
+  case M6809::CB16ri:
+  case M6809::CB16rm:
+  case M6809::CB16rr:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool isCondBranch(unsigned Opc) {
+  return Opc == M6809::LBcc || M6809InstrInfo::isCompareAndBranch(Opc);
+}
+
+// Fills Cond from a conditional branch and returns its target.
+static MachineBasicBlock *parseCondBranch(const MachineInstr &MI,
+                                          SmallVectorImpl<MachineOperand> &Cond) {
+  Cond.push_back(MachineOperand::CreateImm(MI.getOpcode()));
+  unsigned N = MI.getNumExplicitOperands();
+  for (unsigned I = 0; I + 1 < N; ++I) {
+    MachineOperand MO = MI.getOperand(I);
+    if (MO.isReg())
+      MO.setIsKill(false);
+    Cond.push_back(MO);
+  }
+  return MI.getOperand(N - 1).getMBB();
+}
+
+bool M6809InstrInfo::analyzeBranch(MachineBasicBlock &MBB,
+                                   MachineBasicBlock *&TBB,
+                                   MachineBasicBlock *&FBB,
+                                   SmallVectorImpl<MachineOperand> &Cond,
+                                   bool AllowModify) const {
+  MachineBasicBlock::iterator I = MBB.end();
+  while (I != MBB.begin()) {
+    --I;
+    if (I->isDebugInstr())
+      continue;
+    if (!isUnpredicatedTerminator(*I))
+      break;
+    if (!I->isBranch())
+      return true;
+
+    unsigned Opc = I->getOpcode();
+    if (Opc == M6809::LBRA) {
+      MachineBasicBlock *Target = I->getOperand(0).getMBB();
+      if (!AllowModify) {
+        TBB = Target;
+        continue;
+      }
+      // Anything after an unconditional branch is dead.
+      MBB.erase(std::next(I), MBB.end());
+      Cond.clear();
+      FBB = nullptr;
+      if (MBB.isLayoutSuccessor(Target)) {
+        TBB = nullptr;
+        I->eraseFromParent();
+        I = MBB.end();
+        continue;
+      }
+      TBB = Target;
+      continue;
+    }
+
+    if (!isCondBranch(Opc))
+      return true;
+    // Only one conditional branch per block is understood.
+    if (!Cond.empty())
+      return true;
+    FBB = TBB;
+    TBB = parseCondBranch(*I, Cond);
+  }
+  return false;
+}
+
+unsigned M6809InstrInfo::removeBranch(MachineBasicBlock &MBB,
+                                      int *BytesRemoved) const {
+  unsigned Count = 0;
+  int Bytes = 0;
+  MachineBasicBlock::iterator I = MBB.end();
+  while (I != MBB.begin()) {
+    --I;
+    if (I->isDebugInstr())
+      continue;
+    if (I->getOpcode() != M6809::LBRA && !isCondBranch(I->getOpcode()))
+      break;
+    Bytes += getInstSizeInBytes(*I);
+    I->eraseFromParent();
+    I = MBB.end();
+    ++Count;
+  }
+  if (BytesRemoved)
+    *BytesRemoved = Bytes;
+  return Count;
+}
+
+unsigned M6809InstrInfo::insertBranch(MachineBasicBlock &MBB,
+                                      MachineBasicBlock *TBB,
+                                      MachineBasicBlock *FBB,
+                                      ArrayRef<MachineOperand> Cond,
+                                      const DebugLoc &DL,
+                                      int *BytesAdded) const {
+  assert(TBB && "insertBranch needs a target");
+  int Bytes = 0;
+
+  if (Cond.empty()) {
+    assert(!FBB && "unconditional branch with two targets");
+    MachineInstr &MI = *BuildMI(&MBB, DL, get(M6809::LBRA)).addMBB(TBB);
+    if (BytesAdded)
+      *BytesAdded = getInstSizeInBytes(MI);
+    return 1;
+  }
+
+  MachineInstrBuilder MIB = BuildMI(&MBB, DL, get(Cond[0].getImm()));
+  for (const MachineOperand &MO : Cond.drop_front())
+    MIB.add(MO);
+  MIB.addMBB(TBB);
+  Bytes += getInstSizeInBytes(*MIB);
+
+  if (!FBB) {
+    if (BytesAdded)
+      *BytesAdded = Bytes;
+    return 1;
+  }
+  MachineInstr &MI = *BuildMI(&MBB, DL, get(M6809::LBRA)).addMBB(FBB);
+  Bytes += getInstSizeInBytes(MI);
+  if (BytesAdded)
+    *BytesAdded = Bytes;
+  return 2;
+}
+
+bool M6809InstrInfo::reverseBranchCondition(
+    SmallVectorImpl<MachineOperand> &Cond) const {
+  MachineOperand &CC = Cond.back();
+  CC.setImm(M6809CC::getOpposite(static_cast<M6809CC::CondCode>(CC.getImm())));
   return false;
 }
