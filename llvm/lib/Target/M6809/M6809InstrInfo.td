@@ -153,6 +153,13 @@ let isMoveReg = 1, isCodeGenOnly = 1 in {
                         "tfr\t$src, $dst", [], 2>;
 }
 
+// An add of two registers. A constant operand is better as an offset or
+// immediate than loaded into D.
+def addrr : PatFrag<(ops node:$a, node:$b), (add node:$a, node:$b), [{
+  return !isa<ConstantSDNode>(N->getOperand(0)) &&
+         !isa<ConstantSDNode>(N->getOperand(1));
+}]>;
+
 // Indexed loads and stores. Size is a guess (no offset or a 5-bit one) until
 // the encoder knows the real postbyte form.
 let Defs = [CC] in {
@@ -172,6 +179,25 @@ let Defs = [CC] in {
                           "st${src}\t$addr",
                           [(store GR16:$src, addr:$addr)], 2>;
   }
+}
+
+// The same with D as the offset: "ldx d,u" for p[i]. The stored value
+// cannot be in D, which holds the offset. Lowered to the memidx forms with
+// the AccD mode.
+let Defs = [CC], AddedComplexity = 20 in {
+  let mayLoad = 1 in {
+    def LD8dr : M6809Pseudo<(outs ACC8:$dst), (ins PTR16:$base, ACC16:$idx),
+                            "", [(set ACC8:$dst,
+                                      (load (addrr PTR16:$base, ACC16:$idx)))]>;
+    def LD16dr : M6809Pseudo<(outs GR16:$dst), (ins PTR16:$base, ACC16:$idx),
+                             "", [(set GR16:$dst,
+                                       (load (addrr PTR16:$base, ACC16:$idx)))]>;
+  }
+  let mayStore = 1 in
+  def ST16dr : M6809Pseudo<(outs),
+                           (ins IDX16:$src, PTR16:$base, ACC16:$idx), "",
+                           [(store IDX16:$src,
+                                   (addrr PTR16:$base, ACC16:$idx))]>;
 }
 
 // Stack pointer adjustment for the prologue and epilogue. LEAS leaves the
@@ -322,7 +348,7 @@ def LEA16 : M6809Inst<(outs IDX16:$dst), (ins memidx:$addr),
 // to address memory.
 let Defs = [CC], AddedComplexity = 1 in
 def LEA16dr : M6809Pseudo<(outs IDX16:$dst), (ins PTR16:$base, ACC16:$idx),
-                          "", [(set IDX16:$dst, (add PTR16:$base, ACC16:$idx))]>;
+                          "", [(set IDX16:$dst, (addrr PTR16:$base, ACC16:$idx))]>;
 
 // Add a constant to any 16-bit register. Expanded after register allocation
 // to ADDD for D, or LEAX/LEAY/LEAU n,r for the index registers, so values
