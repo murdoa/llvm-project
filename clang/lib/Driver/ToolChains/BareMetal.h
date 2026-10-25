@@ -51,6 +51,13 @@ public:
 
   StringRef getOSLibName() const override { return "baremetal"; }
 
+  // The 6809 has no GNU toolchain to fall back on; link with lld.
+  const char *getDefaultLinker() const override {
+    return getTriple().getArch() == llvm::Triple::m6809
+               ? "ld.lld"
+               : ToolChain::getDefaultLinker();
+  }
+
   UnwindTableLevel
   getDefaultUnwindTableLevel(const llvm::opt::ArgList &Args) const override {
     return UnwindTableLevel::None;

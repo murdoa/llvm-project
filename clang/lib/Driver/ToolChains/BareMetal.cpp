@@ -61,6 +61,12 @@ static bool isLoongArchBareMetal(const llvm::Triple &Triple) {
          Triple.getEnvironmentName() == "elf";
 }
 
+/// Is the triple m6809-*-*? There is no hosted 6809 environment, so every
+/// 6809 triple is bare metal.
+static bool isM6809BareMetal(const llvm::Triple &Triple) {
+  return Triple.getArch() == llvm::Triple::m6809;
+}
+
 static bool findRISCVMultilibs(const Driver &D,
                                const llvm::Triple &TargetTriple,
                                const ArgList &Args, DetectedMultilibs &Result) {
@@ -288,7 +294,7 @@ bool BareMetal::handlesTarget(const llvm::Triple &Triple) {
   return arm::isARMEABIBareMetal(Triple) ||
          aarch64::isAArch64BareMetal(Triple) || isRISCVBareMetal(Triple) ||
          isPPCBareMetal(Triple) || isX86BareMetal(Triple) ||
-         isLoongArchBareMetal(Triple);
+         isLoongArchBareMetal(Triple) || isM6809BareMetal(Triple);
 }
 
 Tool *BareMetal::buildLinker() const {
