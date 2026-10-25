@@ -7,51 +7,41 @@
 define i8 @extract(<8 x i8> %v, i16 %i) {
 ; CHECK-LABEL: extract:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -20,s
-; CHECK-NEXT:    stb 9,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldd 29,s
+; CHECK-NEXT:    leas -14,s
+; CHECK-NEXT:    stb 5,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldd 23,s
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    andb #7
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    leax 12,s
-; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    addd ,s++
-; CHECK-NEXT:    std 10,s ; 2-byte Folded Spill
-; CHECK-NEXT:    lda 22,s
-; CHECK-NEXT:    ldb 23,s
-; CHECK-NEXT:    stb 8,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 24,s
-; CHECK-NEXT:    stb 7,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 25,s
-; CHECK-NEXT:    stb 6,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 26,s
-; CHECK-NEXT:    stb 5,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 27,s
+; CHECK-NEXT:    leax 6,s
+; CHECK-NEXT:    leax d,x
+; CHECK-NEXT:    lda 16,s
+; CHECK-NEXT:    ldb 17,s
 ; CHECK-NEXT:    stb 4,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 28,s
-; CHECK-NEXT:    stb 19,s
-; CHECK-NEXT:    ldb 4,s ; 1-byte Folded Reload
-; CHECK-NEXT:    stb 18,s
-; CHECK-NEXT:    ldb 5,s ; 1-byte Folded Reload
-; CHECK-NEXT:    stb 17,s
-; CHECK-NEXT:    ldb 6,s ; 1-byte Folded Reload
-; CHECK-NEXT:    stb 16,s
-; CHECK-NEXT:    ldb 7,s ; 1-byte Folded Reload
-; CHECK-NEXT:    stb 15,s
-; CHECK-NEXT:    ldb 8,s ; 1-byte Folded Reload
-; CHECK-NEXT:    stb 14,s
-; CHECK-NEXT:    ldb 9,s ; 1-byte Folded Reload
-; CHECK-NEXT:    sta 13,s
+; CHECK-NEXT:    ldb 18,s
+; CHECK-NEXT:    stb 3,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldb 19,s
+; CHECK-NEXT:    stb 2,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldb 20,s
+; CHECK-NEXT:    stb 1,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldb 21,s
+; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldb 22,s
+; CHECK-NEXT:    stb 13,s
+; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
 ; CHECK-NEXT:    stb 12,s
-; CHECK-NEXT:    ldd 10,s ; 2-byte Folded Reload
-; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldb 1,s ; 1-byte Folded Reload
+; CHECK-NEXT:    stb 11,s
+; CHECK-NEXT:    ldb 2,s ; 1-byte Folded Reload
+; CHECK-NEXT:    stb 10,s
+; CHECK-NEXT:    ldb 3,s ; 1-byte Folded Reload
+; CHECK-NEXT:    stb 9,s
+; CHECK-NEXT:    ldb 4,s ; 1-byte Folded Reload
+; CHECK-NEXT:    stb 8,s
+; CHECK-NEXT:    ldb 5,s ; 1-byte Folded Reload
+; CHECK-NEXT:    sta 7,s
+; CHECK-NEXT:    stb 6,s
 ; CHECK-NEXT:    ldb ,x
-; CHECK-NEXT:    leas 20,s
+; CHECK-NEXT:    leas 14,s
 ; CHECK-NEXT:    rts
   %e = extractelement <8 x i8> %v, i16 %i
   ret i8 %e

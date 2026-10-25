@@ -317,6 +317,13 @@ let Defs = [CC] in
 def LEA16 : M6809Inst<(outs IDX16:$dst), (ins memidx:$addr),
                       "lea${dst}\t$addr", [], 2>;
 
+// dst = base + D: "leax d,u". Two bytes, against four for pushing one
+// operand and adding it to D, and the sum lands in an index register ready
+// to address memory.
+let Defs = [CC], AddedComplexity = 1 in
+def LEA16dr : M6809Pseudo<(outs IDX16:$dst), (ins PTR16:$base, ACC16:$idx),
+                          "", [(set IDX16:$dst, (add PTR16:$base, ACC16:$idx))]>;
+
 // Add a constant to any 16-bit register. Expanded after register allocation
 // to ADDD for D, or LEAX/LEAY/LEAU n,r for the index registers, so values
 // such as loop counters and pointers need not live in D.

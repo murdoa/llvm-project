@@ -122,6 +122,12 @@ static void toRealInstruction(MCInst &MI) {
     Out.setOpcode(M6809::JSRm);
     addMem(Out, MI.getOperand(0).getReg(), MCOperand::createImm(0));
     break;
+  case M6809::LEA16dr: // lea dst, d,base
+    Out.setOpcode(M6809::LEA16);
+    Out.addOperand(MI.getOperand(0));
+    addMem(Out, MI.getOperand(1).getReg(), MCOperand::createImm(0),
+           M6809Mem::AccD);
+    break;
   case M6809::LEASi: // leas n,s
     Out.setOpcode(M6809::LEASm);
     addMem(Out, M6809::S, MI.getOperand(0));

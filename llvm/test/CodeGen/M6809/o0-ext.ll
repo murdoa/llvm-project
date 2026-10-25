@@ -7,11 +7,16 @@
 define i16 @zext_add(i8 %a, i16 %b) {
 ; CHECK-LABEL: zext_add:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:    stx ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    addd ,s++
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leax d,x
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %z = zext i8 %a to i16
   %r = add i16 %z, %b
@@ -21,11 +26,16 @@ define i16 @zext_add(i8 %a, i16 %b) {
 define i16 @sext_add(i8 %a, i16 %b) {
 ; CHECK-LABEL: sext_add:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:    stx ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    sex
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    addd ,s++
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leax d,x
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %z = sext i8 %a to i16
   %r = add i16 %z, %b

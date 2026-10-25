@@ -7,25 +7,19 @@
 define i16 @and_add(i16 %a) {
 ; CHECK-LABEL: and_add:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    anda #51
-; CHECK-NEXT:    andb #51
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    lsra
-; CHECK-NEXT:    rorb
-; CHECK-NEXT:    lsra
-; CHECK-NEXT:    rorb
 ; CHECK-NEXT:    anda #51
 ; CHECK-NEXT:    andb #51
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    pshs x
-; CHECK-NEXT:    addd ,s++
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    lsra
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    lsra
+; CHECK-NEXT:    rorb
+; CHECK-NEXT:    anda #51
+; CHECK-NEXT:    andb #51
+; CHECK-NEXT:    leax d,x
+; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    rts
   %x = and i16 %a, 13107
   %s = lshr i16 %a, 2

@@ -62,8 +62,10 @@ define i16 @value_across_call(i16 %a) {
 ; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    jsr f0
-; CHECK-NEXT:    pshs u
-; CHECK-NEXT:    addd ,s++
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    leax d,x
+; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
