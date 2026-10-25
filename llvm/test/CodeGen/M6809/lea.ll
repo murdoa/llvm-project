@@ -9,9 +9,8 @@ define i16 @two_counters(i16 %n) {
 ; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:  .LBB0_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    addd #3
-; CHECK-NEXT:    leax ,x
+; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    bne .LBB0_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts
@@ -38,9 +37,8 @@ define i8 @sum_bytes(ptr %p, i16 %n) {
 ; CHECK-NEXT:  .LBB1_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
 ; CHECK-NEXT:    addb ,x
-; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    leax 1,x
-; CHECK-NEXT:    leay ,y
+; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB1_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts

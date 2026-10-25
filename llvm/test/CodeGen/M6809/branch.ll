@@ -124,9 +124,8 @@ define i16 @count_down(i16 %n) {
 ; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:  .LBB6_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    addd #3
-; CHECK-NEXT:    leax ,x
+; CHECK-NEXT:    leax -1,x
 ; CHECK-NEXT:    bne .LBB6_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    rts

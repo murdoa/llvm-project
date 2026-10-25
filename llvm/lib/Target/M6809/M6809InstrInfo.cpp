@@ -323,9 +323,9 @@ static void addOffset(MachineInstrBuilder &MIB, const MachineOperand &MO,
 // "subd #0" set all four flags as a compare with zero would (V and C come
 // out clear). LEAX/LEAY set only Z, so they serve only EQ and NE.
 //
-// Often an instruction just before has already set the flags from R, and
-// no test is needed at all. Register moves and pushes in between leave
-// the flags alone, as long as they do not write R.
+// Register moves and pushes leave the flags alone; they may sit between
+// the instruction that set the flags from R and the test, as long as they
+// do not write R.
 static bool keepsFlags(const MachineInstr &MI, Register R,
                        const TargetRegisterInfo &TRI) {
   if (MI.isDebugInstr() || MI.isKill())
@@ -343,21 +343,10 @@ static bool keepsFlags(const MachineInstr &MI, Register R,
   }
 }
 
-static bool flagsAlreadySet(MachineBasicBlock &MBB,
-                            MachineBasicBlock::iterator MI, Register R,
-                            int64_t CC) {
-  const TargetRegisterInfo &TRI =
-      *MBB.getParent()->getSubtarget().getRegisterInfo();
-  if (MI == MBB.begin())
-    return false;
-  MachineBasicBlock::iterator Prev = std::prev(MI);
-  while (keepsFlags(*Prev, R, TRI)) {
-    if (Prev == MBB.begin())
-      return false;
-    --Prev;
-  }
-  if (Prev->getNumExplicitDefs() != 1 || !Prev->getOperand(0).isReg() ||
-      Prev->getOperand(0).getReg() != R)
+// Whether Def, which writes R, leaves the flags as "R cc 0" would.
+static bool setsFlagsFor(const MachineInstr &Def, Register R, int64_t CC) {
+  if (Def.getNumExplicitDefs() != 1 || !Def.getOperand(0).isReg() ||
+      Def.getOperand(0).getReg() != R)
     return false;
 
   bool EqNe = CC == M6809CC::EQ || CC == M6809CC::NE;
@@ -365,7 +354,7 @@ static bool flagsAlreadySet(MachineBasicBlock &MBB,
   // Signed orderings also work after instructions that clear V.
   bool VClear = Sign || CC == M6809CC::LT || CC == M6809CC::GE ||
                 CC == M6809CC::GT || CC == M6809CC::LE;
-  switch (Prev->getOpcode()) {
+  switch (Def.getOpcode()) {
   case M6809::LEA16:
     // LEAX/LEAY set Z; LEAU does not.
     return EqNe && (R == M6809::X || R == M6809::Y);
@@ -403,6 +392,69 @@ static bool flagsAlreadySet(MachineBasicBlock &MBB,
   default:
     return false;
   }
+}
+
+// Whether Def can move down past I: neither reads or writes what the
+// other writes, and I does not read the flags Def sets. Only the flags I
+// sets are lost, which the test does not want.
+static bool canSinkPast(const MachineInstr &Def, const MachineInstr &I,
+                        const TargetRegisterInfo &TRI) {
+  if (I.isDebugInstr())
+    return true;
+  // LEA and TFR have no pattern, so they are marked as having side
+  // effects; they have none.
+  bool Pure = I.getOpcode() == M6809::LEA16 || I.getOpcode() == M6809::TFR8 ||
+              I.getOpcode() == M6809::TFR16 || !I.hasUnmodeledSideEffects();
+  if (!Pure || I.isCall() || I.isTerminator() || I.isInlineAsm() ||
+      I.readsRegister(M6809::CC, &TRI))
+    return false;
+  if (Def.mayLoadOrStore() && I.mayLoadOrStore())
+    return false;
+  for (const MachineOperand &MO : Def.operands()) {
+    if (!MO.isReg() || !MO.getReg() || MO.getReg() == M6809::CC)
+      continue;
+    // I may not read or write any register Def reads or writes.
+    if (I.readsRegister(MO.getReg(), &TRI) ||
+        I.modifiesRegister(MO.getReg(), &TRI))
+      return false;
+  }
+  return true;
+}
+
+// Often an instruction before the test has already set the flags from R,
+// and no test is needed at all. If one or two independent instructions
+// (such as the LEAX of a pointer after the LEAY of a counter) overwrote
+// those flags since, the instruction moves down to the test.
+static bool flagsAlreadySet(MachineBasicBlock &MBB,
+                            MachineBasicBlock::iterator MI, Register R,
+                            int64_t CC) {
+  const TargetRegisterInfo &TRI =
+      *MBB.getParent()->getSubtarget().getRegisterInfo();
+  SmallVector<MachineInstr *, 4> Between;
+  unsigned Clobbers = 0;
+  for (MachineBasicBlock::iterator I = MI; I != MBB.begin();) {
+    --I;
+    if (keepsFlags(*I, R, TRI)) {
+      Between.push_back(&*I);
+      continue;
+    }
+    if (I->modifiesRegister(R, &TRI)) {
+      if (!setsFlagsFor(*I, R, CC))
+        return false;
+      if (!Clobbers)
+        return true;
+      if (!all_of(Between, [&](MachineInstr *B) {
+            return canSinkPast(*I, *B, TRI);
+          }))
+        return false;
+      MBB.splice(MI, &MBB, I);
+      return true;
+    }
+    if (++Clobbers > 2 || Between.size() > 6)
+      return false;
+    Between.push_back(&*I);
+  }
+  return false;
 }
 
 void M6809InstrInfo::emitCompareWithZero(MachineBasicBlock &MBB,
