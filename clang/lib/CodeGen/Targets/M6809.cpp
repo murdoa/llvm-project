@@ -45,8 +45,7 @@ public:
                    AggValueSlot Slot) const override {
     return emitVoidPtrVAArg(CGF, VAListAddr, Ty, /*IsIndirect=*/false,
                             getContext().getTypeInfoInChars(Ty),
-                            CharUnits::One(), /*AllowHigherAlign=*/false,
-                            Slot);
+                            CharUnits::One(), /*AllowHigherAlign=*/false, Slot);
   }
 };
 
