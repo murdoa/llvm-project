@@ -1,0 +1,200 @@
+//===-- M6800Opcodes.def - HD6301 opcode bytes -------------------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// One row per mnemonic and operand form:
+//
+//   M6800_OP(Mnemonic, MCOpcode, Reg, Form, Code)
+//
+// Reg is the register the mnemonic names ("ldaa" -> A), which is the first
+// register operand of the MC instruction, or NoRegister. Code is the opcode
+// byte; for the memory forms see M6800OpcodeTable.h. The encoder, the
+// assembler and the disassembler all read this table.
+//
+//===----------------------------------------------------------------------===//
+
+#ifndef M6800_OP
+#error "M6800_OP must be defined"
+#endif
+
+#define NOREG M6800::NoRegister
+#define RA M6800::A
+#define RB M6800::B
+#define RD M6800::D
+#define RX M6800::X
+
+// Inherent operations on A or B.
+M6800_OP("nega", NEG8, RA, Inh, 0x40)
+M6800_OP("negb", NEG8, RB, Inh, 0x50)
+M6800_OP("coma", COM8, RA, Inh, 0x43)
+M6800_OP("comb", COM8, RB, Inh, 0x53)
+M6800_OP("lsra", LSR8, RA, Inh, 0x44)
+M6800_OP("lsrb", LSR8, RB, Inh, 0x54)
+M6800_OP("rora", ROR8, RA, Inh, 0x46)
+M6800_OP("rorb", ROR8, RB, Inh, 0x56)
+M6800_OP("asra", ASR8, RA, Inh, 0x47)
+M6800_OP("asrb", ASR8, RB, Inh, 0x57)
+M6800_OP("asla", ASL8, RA, Inh, 0x48)
+M6800_OP("aslb", ASL8, RB, Inh, 0x58)
+M6800_OP("lsla", ASL8, RA, Inh, 0x48)
+M6800_OP("lslb", ASL8, RB, Inh, 0x58)
+M6800_OP("rola", ROL8, RA, Inh, 0x49)
+M6800_OP("rolb", ROL8, RB, Inh, 0x59)
+M6800_OP("deca", DEC8, RA, Inh, 0x4A)
+M6800_OP("decb", DEC8, RB, Inh, 0x5A)
+M6800_OP("inca", INC8, RA, Inh, 0x4C)
+M6800_OP("incb", INC8, RB, Inh, 0x5C)
+M6800_OP("tsta", TST8, RA, Inh, 0x4D)
+M6800_OP("tstb", TST8, RB, Inh, 0x5D)
+M6800_OP("clra", CLR8, RA, Inh, 0x4F)
+M6800_OP("clrb", CLR8, RB, Inh, 0x5F)
+
+// Shifts of D.
+M6800_OP("lsrd", LSR16, RD, Inh, 0x04)
+M6800_OP("asld", LSL16, RD, Inh, 0x05)
+M6800_OP("lsld", LSL16, RD, Inh, 0x05)
+
+// Other inherent instructions.
+M6800_OP("nop", NOP, NOREG, Inh, 0x01)
+M6800_OP("tap", TAP, NOREG, Inh, 0x06)
+M6800_OP("tpa", TPA, NOREG, Inh, 0x07)
+M6800_OP("inx", INX, NOREG, Inh, 0x08)
+M6800_OP("dex", DEX, NOREG, Inh, 0x09)
+M6800_OP("clv", CLV, NOREG, Inh, 0x0A)
+M6800_OP("sev", SEV, NOREG, Inh, 0x0B)
+M6800_OP("clc", CLC, NOREG, Inh, 0x0C)
+M6800_OP("sec", SEC, NOREG, Inh, 0x0D)
+M6800_OP("cli", CLI, NOREG, Inh, 0x0E)
+M6800_OP("sei", SEI, NOREG, Inh, 0x0F)
+M6800_OP("sba", SBA, NOREG, Inh, 0x10)
+M6800_OP("cba", CBA, NOREG, Inh, 0x11)
+M6800_OP("tab", TAB, NOREG, Inh, 0x16)
+M6800_OP("tba", TBA, NOREG, Inh, 0x17)
+M6800_OP("xgdx", XGDX, NOREG, Inh, 0x18)
+M6800_OP("daa", DAA, NOREG, Inh, 0x19)
+M6800_OP("slp", SLP, NOREG, Inh, 0x1A)
+M6800_OP("aba", ABA, NOREG, Inh, 0x1B)
+M6800_OP("tsx", TSX, NOREG, Inh, 0x30)
+M6800_OP("ins", INS, NOREG, Inh, 0x31)
+M6800_OP("pula", PUL8, RA, Inh, 0x32)
+M6800_OP("pulb", PUL8, RB, Inh, 0x33)
+M6800_OP("des", DES, NOREG, Inh, 0x34)
+M6800_OP("txs", TXS, NOREG, Inh, 0x35)
+M6800_OP("psha", PSH8, RA, Inh, 0x36)
+M6800_OP("pshb", PSH8, RB, Inh, 0x37)
+M6800_OP("pulx", PULX, RX, Inh, 0x38)
+M6800_OP("rts", RTS, NOREG, Inh, 0x39)
+M6800_OP("abx", ABX, NOREG, Inh, 0x3A)
+M6800_OP("rti", RTI, NOREG, Inh, 0x3B)
+M6800_OP("pshx", PSHX, RX, Inh, 0x3C)
+M6800_OP("mul", MUL, NOREG, Inh, 0x3D)
+M6800_OP("wai", WAI, NOREG, Inh, 0x3E)
+M6800_OP("swi", SWI, NOREG, Inh, 0x3F)
+
+// Accumulator operations with an immediate or memory operand. The memory
+// rows give the direct-page opcode.
+M6800_OP("suba", SUB8i, RA, Imm8, 0x80)
+M6800_OP("suba", SUB8m, RA, Mem, 0x90)
+M6800_OP("subb", SUB8i, RB, Imm8, 0xC0)
+M6800_OP("subb", SUB8m, RB, Mem, 0xD0)
+M6800_OP("cmpa", CMP8i, RA, Imm8, 0x81)
+M6800_OP("cmpa", CMP8m, RA, Mem, 0x91)
+M6800_OP("cmpb", CMP8i, RB, Imm8, 0xC1)
+M6800_OP("cmpb", CMP8m, RB, Mem, 0xD1)
+M6800_OP("sbca", SBC8i, RA, Imm8, 0x82)
+M6800_OP("sbca", SBC8m, RA, Mem, 0x92)
+M6800_OP("sbcb", SBC8i, RB, Imm8, 0xC2)
+M6800_OP("sbcb", SBC8m, RB, Mem, 0xD2)
+M6800_OP("anda", AND8i, RA, Imm8, 0x84)
+M6800_OP("anda", AND8m, RA, Mem, 0x94)
+M6800_OP("andb", AND8i, RB, Imm8, 0xC4)
+M6800_OP("andb", AND8m, RB, Mem, 0xD4)
+M6800_OP("bita", BIT8i, RA, Imm8, 0x85)
+M6800_OP("bita", BIT8m, RA, Mem, 0x95)
+M6800_OP("bitb", BIT8i, RB, Imm8, 0xC5)
+M6800_OP("bitb", BIT8m, RB, Mem, 0xD5)
+M6800_OP("ldaa", LD8i, RA, Imm8, 0x86)
+M6800_OP("ldaa", LD8m, RA, Mem, 0x96)
+M6800_OP("ldab", LD8i, RB, Imm8, 0xC6)
+M6800_OP("ldab", LD8m, RB, Mem, 0xD6)
+M6800_OP("staa", ST8m, RA, Mem, 0x97)
+M6800_OP("stab", ST8m, RB, Mem, 0xD7)
+M6800_OP("eora", EOR8i, RA, Imm8, 0x88)
+M6800_OP("eora", EOR8m, RA, Mem, 0x98)
+M6800_OP("eorb", EOR8i, RB, Imm8, 0xC8)
+M6800_OP("eorb", EOR8m, RB, Mem, 0xD8)
+M6800_OP("adca", ADC8i, RA, Imm8, 0x89)
+M6800_OP("adca", ADC8m, RA, Mem, 0x99)
+M6800_OP("adcb", ADC8i, RB, Imm8, 0xC9)
+M6800_OP("adcb", ADC8m, RB, Mem, 0xD9)
+M6800_OP("oraa", OR8i, RA, Imm8, 0x8A)
+M6800_OP("oraa", OR8m, RA, Mem, 0x9A)
+M6800_OP("orab", OR8i, RB, Imm8, 0xCA)
+M6800_OP("orab", OR8m, RB, Mem, 0xDA)
+M6800_OP("adda", ADD8i, RA, Imm8, 0x8B)
+M6800_OP("adda", ADD8m, RA, Mem, 0x9B)
+M6800_OP("addb", ADD8i, RB, Imm8, 0xCB)
+M6800_OP("addb", ADD8m, RB, Mem, 0xDB)
+
+// 16-bit operations.
+M6800_OP("subd", SUBDi, RD, Imm16, 0x83)
+M6800_OP("subd", SUBDm, RD, Mem, 0x93)
+M6800_OP("addd", ADDDi, RD, Imm16, 0xC3)
+M6800_OP("addd", ADDDm, RD, Mem, 0xD3)
+M6800_OP("cpx", CPXi, RX, Imm16, 0x8C)
+M6800_OP("cpx", CPXm, RX, Mem, 0x9C)
+M6800_OP("ldd", LD16i, RD, Imm16, 0xCC)
+M6800_OP("ldd", LD16m, RD, Mem, 0xDC)
+M6800_OP("std", ST16m, RD, Mem, 0xDD)
+M6800_OP("ldx", LD16i, RX, Imm16, 0xCE)
+M6800_OP("ldx", LD16m, RX, Mem, 0xDE)
+M6800_OP("stx", ST16m, RX, Mem, 0xDF)
+M6800_OP("lds", LDSi, NOREG, Imm16, 0x8E)
+M6800_OP("lds", LDSm, NOREG, Mem, 0x9E)
+M6800_OP("sts", STSm, NOREG, Mem, 0x9F)
+M6800_OP("jsr", JSRm, NOREG, Mem, 0x9D)
+
+// Read-modify-write on memory, indexed or extended. The rows give the
+// indexed opcode.
+M6800_OP("neg", NEGm, NOREG, MemIX, 0x60)
+M6800_OP("com", COMm, NOREG, MemIX, 0x63)
+M6800_OP("lsr", LSRm, NOREG, MemIX, 0x64)
+M6800_OP("ror", RORm, NOREG, MemIX, 0x66)
+M6800_OP("asr", ASRm, NOREG, MemIX, 0x67)
+M6800_OP("asl", ASLm, NOREG, MemIX, 0x68)
+M6800_OP("lsl", ASLm, NOREG, MemIX, 0x68)
+M6800_OP("rol", ROLm, NOREG, MemIX, 0x69)
+M6800_OP("dec", DECm, NOREG, MemIX, 0x6A)
+M6800_OP("inc", INCm, NOREG, MemIX, 0x6C)
+M6800_OP("tst", TSTm, NOREG, MemIX, 0x6D)
+M6800_OP("jmp", JMPm, NOREG, MemIX, 0x6E)
+M6800_OP("clr", CLRm, NOREG, MemIX, 0x6F)
+
+// HD6301 logic on memory with an immediate. The rows give the direct
+// opcode.
+M6800_OP("aim", AIM, NOREG, ImmMem, 0x71)
+M6800_OP("oim", OIM, NOREG, ImmMem, 0x72)
+M6800_OP("eim", EIM, NOREG, ImmMem, 0x75)
+M6800_OP("tim", TIM, NOREG, ImmMem, 0x7B)
+
+// Branches. The Bcc row is the first of fourteen conditional branches.
+M6800_OP("bra", BRA, NOREG, Rel8, 0x20)
+M6800_OP("brn", BRN, NOREG, Rel8, 0x21)
+M6800_OP("b", Bcc, NOREG, Cond8, 0x22)
+M6800_OP("bsr", BSR, NOREG, Rel8, 0x8D)
+
+// The long forms branches relax to.
+M6800_OP("jmp", LBRA, NOREG, Abs16, 0x7E)
+M6800_OP("lb", LBcc, NOREG, LongCond, 0x22)
+M6800_OP("jsr", LBSR, NOREG, Abs16, 0xBD)
+
+#undef NOREG
+#undef RA
+#undef RB
+#undef RD
+#undef RX
+#undef M6800_OP

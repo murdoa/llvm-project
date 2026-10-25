@@ -1,0 +1,91 @@
+//===-- M6800SplitDOperands.cpp - Copy second D operands out of D ---------===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// Many 6800 operations work only on D. If an instruction whose result may be
+// in D or X reads a D-only value as its tied operand, the two-address pass
+// narrows the result to D as well. At -O0 a chain of such operations pins
+// every value to D, and the fast allocator runs out of registers. This pass
+// reads those operands through a COPY into a fresh GR16 register. It does
+// nothing when optimizing.
+//
+//===----------------------------------------------------------------------===//
+
+#include "M6800.h"
+#include "M6800InstrInfo.h"
+#include "M6800Subtarget.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Target/TargetMachine.h"
+
+using namespace llvm;
+
+#define DEBUG_TYPE "m6800-split-d-operands"
+#define PASS_NAME "M6800 copy D-only tied operands out of D"
+
+namespace {
+
+class M6800SplitDOperands : public MachineFunctionPass {
+public:
+  static char ID;
+  M6800SplitDOperands() : MachineFunctionPass(ID) {}
+
+  bool runOnMachineFunction(MachineFunction &MF) override;
+  StringRef getPassName() const override { return PASS_NAME; }
+};
+
+} // namespace
+
+char M6800SplitDOperands::ID = 0;
+
+INITIALIZE_PASS(M6800SplitDOperands, DEBUG_TYPE, PASS_NAME, false, false)
+
+static bool isDClass(const TargetRegisterClass *RC) {
+  return RC == &M6800::ACC16RegClass;
+}
+
+// At -O0, read a D-only tied source of an instruction whose result may be
+// in any GR16 through a GR16 copy. Otherwise the two-address pass narrows
+// the result to D as well, and a chain of such operations pins every value
+// to D.
+static bool widenTiedDSources(MachineFunction &MF) {
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  bool Changed = false;
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineInstr &MI : MBB) {
+      if (MI.isCopy() || MI.isPHI() || MI.getNumExplicitDefs() != 1)
+        continue;
+      const TargetRegisterClass *DefRC = TII.getRegClass(MI.getDesc(), 0);
+      if (DefRC != &M6800::GR16RegClass)
+        continue;
+      for (MachineOperand &MO : MI.explicit_uses()) {
+        if (!MO.isReg() || !MO.isTied() || !MO.getReg().isVirtual() ||
+            !isDClass(MRI.getRegClass(MO.getReg())))
+          continue;
+        Register Copy = MRI.createVirtualRegister(&M6800::GR16RegClass);
+        BuildMI(MBB, MI, MI.getDebugLoc(), TII.get(TargetOpcode::COPY), Copy)
+            .addReg(MO.getReg());
+        MO.setReg(Copy);
+        MO.setIsKill(true);
+        Changed = true;
+      }
+    }
+  }
+  return Changed;
+}
+
+bool M6800SplitDOperands::runOnMachineFunction(MachineFunction &MF) {
+  if (MF.getTarget().getOptLevel() != CodeGenOptLevel::None)
+    return false;
+  return widenTiedDSources(MF);
+}
+
+FunctionPass *llvm::createM6800SplitDOperandsPass() {
+  return new M6800SplitDOperands();
+}
