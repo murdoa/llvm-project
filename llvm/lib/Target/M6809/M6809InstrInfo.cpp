@@ -66,20 +66,43 @@ static MachineMemOperand *getFrameMMO(MachineBasicBlock &MBB, int FI,
                                  MFI.getObjectAlign(FI));
 }
 
+// Spill code goes where the flags are not live, so the flags the load or
+// store sets are dead.
+static void markFlagsDead(MachineInstr &MI) {
+  for (MachineOperand &MO : MI.implicit_operands())
+    if (MO.isDef() && MO.getReg() == M6809::CC)
+      MO.setIsDead();
+}
+
+// ST16m and LD16m take GR16, which leaves out S. A virtual register of a
+// class with S in it, such as PTR16, is narrowed to the registers both
+// classes have.
+static void constrainForSpill(MachineBasicBlock &MBB, Register Reg, bool Is8) {
+  if (Is8 || !Reg.isVirtual())
+    return;
+  MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+  [[maybe_unused]] const TargetRegisterClass *RC =
+      MRI.constrainRegClass(Reg, &M6809::GR16RegClass);
+  assert(RC && "M6809: no 16-bit spill class for this register");
+}
+
 void M6809InstrInfo::storeRegToStackSlot(
     MachineBasicBlock &MBB, MachineBasicBlock::iterator MI, Register SrcReg,
     bool IsKill, int FrameIndex, const TargetRegisterClass *RC, Register VReg,
     MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc =
-      RC->hasSuperClassEq(&M6809::ACC8RegClass) ? M6809::ST8m : M6809::ST16m;
-  BuildMI(MBB, MI, DL, get(Opc))
-      .addReg(SrcReg, getKillRegState(IsKill))
-      .addFrameIndex(FrameIndex)
-      .addImm(0)
-      .addImm(M6809Mem::Auto)
-      .addMemOperand(getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOStore))
-      .setMIFlag(Flags);
+  bool Is8 = RC->hasSuperClassEq(&M6809::ACC8RegClass);
+  constrainForSpill(MBB, SrcReg, Is8);
+  MachineInstr *Store =
+      BuildMI(MBB, MI, DL, get(Is8 ? M6809::ST8m : M6809::ST16m))
+          .addReg(SrcReg, getKillRegState(IsKill))
+          .addFrameIndex(FrameIndex)
+          .addImm(0)
+          .addImm(M6809Mem::Auto)
+          .addMemOperand(
+              getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOStore))
+          .setMIFlag(Flags);
+  markFlagsDead(*Store);
 }
 
 void M6809InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
@@ -89,14 +112,17 @@ void M6809InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
                                           Register VReg, unsigned SubReg,
                                           MachineInstr::MIFlag Flags) const {
   DebugLoc DL = MI != MBB.end() ? MI->getDebugLoc() : DebugLoc();
-  unsigned Opc =
-      RC->hasSuperClassEq(&M6809::ACC8RegClass) ? M6809::LD8m : M6809::LD16m;
-  BuildMI(MBB, MI, DL, get(Opc), DestReg)
-      .addFrameIndex(FrameIndex)
-      .addImm(0)
-      .addImm(M6809Mem::Auto)
-      .addMemOperand(getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOLoad))
-      .setMIFlag(Flags);
+  bool Is8 = RC->hasSuperClassEq(&M6809::ACC8RegClass);
+  constrainForSpill(MBB, DestReg, Is8);
+  MachineInstr *Load =
+      BuildMI(MBB, MI, DL, get(Is8 ? M6809::LD8m : M6809::LD16m), DestReg)
+          .addFrameIndex(FrameIndex)
+          .addImm(0)
+          .addImm(M6809Mem::Auto)
+          .addMemOperand(
+              getFrameMMO(MBB, FrameIndex, MachineMemOperand::MOLoad))
+          .setMIFlag(Flags);
+  markFlagsDead(*Load);
 }
 
 // The memory form of a pseudo whose right-hand register operand (RhsIdx) can
