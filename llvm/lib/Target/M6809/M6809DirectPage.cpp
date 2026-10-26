@@ -9,13 +9,15 @@
 // A variable in a .dp or .dp.* section is reached with a one-byte direct
 // address ("ldb <var"), a byte shorter than the extended ">var" (see
 // M6809MCInstLower). With -m6809-direct-page-bytes=N this pass picks
-// zero-initialised variables for the section .dp.bss itself, up to N bytes
-// less what the module already puts in .dp sections, choosing those that
-// save the most bytes: one for each load or store of a fixed address.
+// variables for the direct page itself, up to N bytes less what the module
+// already puts in .dp sections, choosing those that save the most bytes:
+// one for each load or store of a fixed address. Zero-initialised ones go
+// to .dp.bss, the others to .dp.data.
 //
 // The choice is per module, so the option is meant for a whole program in
-// one module (LTO); the linker script places .dp.bss in the page DP points
-// at, keeps it there, and the startup code clears it.
+// one module (LTO); the linker script places .dp.bss and .dp.data in the
+// page DP points at, and the startup code clears the one and copies the
+// other as it does .bss and .data.
 //
 //===----------------------------------------------------------------------===//
 
@@ -101,8 +103,7 @@ bool M6809DirectPage::runOnModule(Module &M) {
       continue;
     }
     if (GV.hasSection() || GV.isConstant() || GV.isThreadLocal() ||
-        GV.hasComdat() || !GV.hasInitializer() ||
-        !GV.getInitializer()->isNullValue() || GV.isInterposable() ||
+        GV.hasComdat() || !GV.hasInitializer() || GV.isInterposable() ||
         GV.getAddressSpace() != 0 || Size == 0 || Size > DirectPageBytes)
       continue;
     unsigned Gain = savings(&GV, DL);
@@ -126,7 +127,9 @@ bool M6809DirectPage::runOnModule(Module &M) {
   bool Changed = false;
   for (unsigned I = Cands.size(), W = Cap; I-- > 0;)
     if (Take[I][W]) {
-      Cands[I].GV->setSection(".dp.bss");
+      GlobalVariable *GV = Cands[I].GV;
+      GV->setSection(GV->getInitializer()->isNullValue() ? ".dp.bss"
+                                                          : ".dp.data");
       W -= Cands[I].Size;
       Changed = true;
     }
