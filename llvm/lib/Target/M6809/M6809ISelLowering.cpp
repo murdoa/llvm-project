@@ -414,6 +414,16 @@ SDValue M6809TargetLowering::lowerShift(SDValue Op, SelectionDAG &DAG) const {
   if (Opc == ISD::SRA && N == VT.getSizeInBits() - 1)
     return DAG.getNode(M6809ISD::SIGN, DL, VT, Val);
 
+  // Shorter through the carry (see M6809InstrInfo.td).
+  if (N == 7 && (VT == MVT::i8 ? Opc != ISD::SRA : true))
+    return DAG.getNode(Opc == ISD::SHL   ? M6809ISD::LSL7
+                       : Opc == ISD::SRL ? M6809ISD::LSR7
+                                         : M6809ISD::ASR7,
+                       DL, VT, Val);
+  if (N == 6 && VT == MVT::i8 && Opc != ISD::SRA)
+    return DAG.getNode(Opc == ISD::SHL ? M6809ISD::LSL6 : M6809ISD::LSR6, DL,
+                       VT, Val);
+
   unsigned OneOpc = Opc == ISD::SHL   ? M6809ISD::LSL
                     : Opc == ISD::SRL ? M6809ISD::LSR
                                       : M6809ISD::ASR;

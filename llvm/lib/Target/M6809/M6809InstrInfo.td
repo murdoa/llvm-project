@@ -800,6 +800,35 @@ def : Pat<(i8 (trunc (srl ACC16:$x, (i8 8)))),
 def : Pat<(i8 (trunc (sra ACC16:$x, (i8 8)))),
           (EXTRACT_SUBREG ACC16:$x, sub_hi)>;
 
+// Constant shifts that are shorter done through the carry than one bit at
+// a time (see lowerShift):
+//
+//   i8  >> 7: asl; ld #0; rol           << 7: lsr; ld #0; ror
+//   i8  >> 6: rol; rol; rol; and #3     << 6: ror; ror; ror; and #$c0
+//   i16 >> 7: aslb; rola; tfr a,b; lda #0; rola     (sra: ...; sbca #0)
+//   i16 << 7: lsra; rorb; tfr b,a; ldb #0; rorb
+def M6809Lsr7 : SDNode<"M6809ISD::LSR7", SDT_M6809Shift1>;
+def M6809Lsl7 : SDNode<"M6809ISD::LSL7", SDT_M6809Shift1>;
+def M6809Asr7 : SDNode<"M6809ISD::ASR7", SDT_M6809Shift1>;
+def M6809Lsr6 : SDNode<"M6809ISD::LSR6", SDT_M6809Shift1>;
+def M6809Lsl6 : SDNode<"M6809ISD::LSL6", SDT_M6809Shift1>;
+let Constraints = "$src = $dst", Defs = [CC] in {
+  def LSR8_7 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src), "",
+                           [(set ACC8:$dst, (M6809Lsr7 ACC8:$src))]>;
+  def LSL8_7 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src), "",
+                           [(set ACC8:$dst, (M6809Lsl7 ACC8:$src))]>;
+  def LSR8_6 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src), "",
+                           [(set ACC8:$dst, (M6809Lsr6 ACC8:$src))]>;
+  def LSL8_6 : M6809Pseudo<(outs ACC8:$dst), (ins ACC8:$src), "",
+                           [(set ACC8:$dst, (M6809Lsl6 ACC8:$src))]>;
+  def LSR16_7 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                            [(set ACC16:$dst, (M6809Lsr7 ACC16:$src))]>;
+  def LSL16_7 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                            [(set ACC16:$dst, (M6809Lsl7 ACC16:$src))]>;
+  def ASR16_7 : M6809Pseudo<(outs ACC16:$dst), (ins ACC16:$src), "",
+                            [(set ACC16:$dst, (M6809Asr7 ACC16:$src))]>;
+}
+
 // Variable shifts. The custom inserter builds the loop.
 multiclass SHIFTLOOP<SDNode node> {
   let usesCustomInserter = 1, Defs = [CC] in {

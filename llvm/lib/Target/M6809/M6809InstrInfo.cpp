@@ -1003,6 +1003,66 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
     MI.eraseFromParent();
     return true;
   }
+  // Constant shifts through the carry (see M6809InstrInfo.td). LD leaves
+  // C alone.
+  if (Opc == M6809::LSR8_7 || Opc == M6809::LSL8_7) {
+    Register R = MI.getOperand(0).getReg();
+    bool Right = Opc == M6809::LSR8_7;
+    BuildMI(MBB, MI, DL, get(Right ? M6809::ASL8 : M6809::LSR8), R).addReg(R);
+    BuildMI(MBB, MI, DL, get(M6809::LD8i), R)
+        .addImm(0)
+        .addReg(M6809::CC, RegState::Implicit);
+    BuildMI(MBB, MI, DL, get(Right ? M6809::ROL8 : M6809::ROR8), R).addReg(R);
+    MI.eraseFromParent();
+    return true;
+  }
+  if (Opc == M6809::LSR8_6 || Opc == M6809::LSL8_6) {
+    Register R = MI.getOperand(0).getReg();
+    bool Right = Opc == M6809::LSR8_6;
+    // The bit the first rotate brings in is masked off: C may be anything.
+    for (int I = 0; I != 3; ++I) {
+      MachineInstr *Rot =
+          BuildMI(MBB, MI, DL, get(Right ? M6809::ROL8 : M6809::ROR8), R)
+              .addReg(R, I == 0 ? getUndefRegState(MI.getOperand(1).isUndef())
+                                : RegState());
+      if (I == 0)
+        for (MachineOperand &MO : Rot->implicit_operands())
+          if (MO.isUse() && MO.getReg() == M6809::CC)
+            MO.setIsUndef();
+    }
+    BuildMI(MBB, MI, DL, get(M6809::AND8i), R).addReg(R).addImm(Right ? 3 : 0xC0);
+    MI.eraseFromParent();
+    return true;
+  }
+  if (Opc == M6809::LSR16_7 || Opc == M6809::ASR16_7 || Opc == M6809::LSL16_7) {
+    bool Left = Opc == M6809::LSL16_7;
+    Register First = Left ? M6809::A : M6809::B; // shifted first
+    Register Second = Left ? M6809::B : M6809::A;
+    RegState Undef = getUndefRegState(MI.getOperand(1).isUndef());
+    // Shift D one bit the other way, so the result's 8 middle bits are in
+    // one byte and the last bit in C.
+    BuildMI(MBB, MI, DL, get(Left ? M6809::LSR8 : M6809::ASL8), First)
+        .addReg(First, Undef);
+    BuildMI(MBB, MI, DL, get(Left ? M6809::ROR8 : M6809::ROL8), Second)
+        .addReg(Second, Undef);
+    // Move that byte across.
+    BuildMI(MBB, MI, DL, get(M6809::TFR8), First).addReg(Second);
+    // And make the other byte from C.
+    BuildMI(MBB, MI, DL, get(M6809::LD8i), Second)
+        .addImm(0)
+        .addReg(M6809::CC, RegState::Implicit);
+    MachineInstrBuilder Last;
+    if (Opc == M6809::ASR16_7)
+      Last = BuildMI(MBB, MI, DL, get(M6809::SBC8i), Second)
+                 .addReg(Second)
+                 .addImm(0);
+    else
+      Last = BuildMI(MBB, MI, DL, get(Left ? M6809::ROR8 : M6809::ROL8), Second)
+                 .addReg(Second);
+    addWholeD(Last);
+    MI.eraseFromParent();
+    return true;
+  }
   if (Opc == M6809::ABXp) {
     BuildMI(MBB, MI, DL, get(M6809::ABX));
     MI.eraseFromParent();
