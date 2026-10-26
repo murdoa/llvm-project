@@ -157,8 +157,7 @@ define void @store_consts(ptr %p) {
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd #4660
 ; CHECK-NEXT:    std ,x
-; CHECK-NEXT:    clrb
-; CHECK-NEXT:    stb g8
+; CHECK-NEXT:    clr g8
 ; CHECK-NEXT:    rts
   store i16 4660, ptr %p
   store i8 0, ptr @g8

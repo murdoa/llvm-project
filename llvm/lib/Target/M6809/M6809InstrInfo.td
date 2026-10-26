@@ -876,6 +876,27 @@ let Uses = [CC] in {
 let Defs = [CC], mayLoad = 1 in
 def TSTm : M6809Inst<(outs), (ins memidx:$addr), "tst\t$addr", [], 2>;
 
+// Read-modify-write on memory for code generation. The 6809 reads the
+// location before CLR writes it, and a hardware register can notice the read,
+// so volatile accesses keep the plain load and store.
+def nonvolatile_store : PatFrag<(ops node:$v, node:$a), (store node:$v, node:$a), [{
+  return !cast<StoreSDNode>(N)->isVolatile();
+}]>;
+def nonvolatile_load : PatFrag<(ops node:$a), (load node:$a), [{
+  return !cast<LoadSDNode>(N)->isVolatile();
+}]>;
+// "clr 3,x" rather than "clrb; stb 3,x".
+def : Pat<(nonvolatile_store (i8 0), addr:$a), (CLRm addr:$a)>;
+// "inc g" rather than "ldb g; incb; stb g".
+def : Pat<(nonvolatile_store (add (i8 (nonvolatile_load addr:$a)), 1), addr:$a),
+          (INCm addr:$a)>;
+def : Pat<(nonvolatile_store (add (i8 (nonvolatile_load addr:$a)), -1), addr:$a),
+          (DECm addr:$a)>;
+def : Pat<(nonvolatile_store (not (i8 (nonvolatile_load addr:$a))), addr:$a),
+          (COMm addr:$a)>;
+def : Pat<(nonvolatile_store (ineg (i8 (nonvolatile_load addr:$a))), addr:$a),
+          (NEGm addr:$a)>;
+
 // Jumps and calls through any addressing mode.
 let isBranch = 1, isIndirectBranch = 1, isTerminator = 1, isBarrier = 1 in
 def JMPm : M6809Inst<(outs), (ins memidx:$addr), "jmp\t$addr", [], 2>;
