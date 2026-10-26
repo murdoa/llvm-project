@@ -26,12 +26,7 @@ define void @copy5(ptr %d, ptr %s) minsize {
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldx 2,s
 ; CHECK-NEXT:    ldb #5
-; CHECK-NEXT:  .Ltmp0:
-; CHECK-NEXT:    lda ,x+
-; CHECK-NEXT:    sta ,y+
-; CHECK-NEXT:    decb
-; CHECK-NEXT:    bne .Ltmp0
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp __m6809_copy_xy
   call void @llvm.memcpy.p0.p0.i16(ptr %d, ptr %s, i16 5, i1 false)
   ret void
 }
@@ -53,13 +48,8 @@ define void @zero12(ptr %d) minsize {
 ; CHECK-LABEL: zero12:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    clra
 ; CHECK-NEXT:    ldb #12
-; CHECK-NEXT:  .Ltmp1:
-; CHECK-NEXT:    sta ,x+
-; CHECK-NEXT:    decb
-; CHECK-NEXT:    bne .Ltmp1
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp __m6809_clear_x
   call void @llvm.memset.p0.i16(ptr %d, i8 0, i16 12, i1 false)
   ret void
 }

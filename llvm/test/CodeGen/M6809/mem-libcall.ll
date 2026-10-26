@@ -49,12 +49,7 @@ define void @memcpy_volatile(ptr %d, ptr %s) {
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldx 2,s
 ; CHECK-NEXT:    ldb #64
-; CHECK-NEXT:  .Ltmp0:
-; CHECK-NEXT:    lda ,x+
-; CHECK-NEXT:    sta ,y+
-; CHECK-NEXT:    decb
-; CHECK-NEXT:    bne .Ltmp0
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp __m6809_copy_xy
   call void @llvm.memcpy.p0.p0.i16(ptr %d, ptr %s, i16 64, i1 true)
   ret void
 }
@@ -83,10 +78,7 @@ define void @memset_local() {
 ; CHECK-NEXT:    tfr y, x
 ; CHECK-NEXT:    lda #1
 ; CHECK-NEXT:    ldb #64
-; CHECK-NEXT:  .Ltmp1:
-; CHECK-NEXT:    sta ,x+
-; CHECK-NEXT:    decb
-; CHECK-NEXT:    bne .Ltmp1
+; CHECK-NEXT:    jsr __m6809_fill_x
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    leas 64,s

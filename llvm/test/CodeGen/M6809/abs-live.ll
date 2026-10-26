@@ -25,11 +25,7 @@ define void @from_word(ptr %agg.result, i16 %w) minsize {
 ; CHECK-NEXT:    stb 0
 ; CHECK-NEXT:    ldx #0
 ; CHECK-NEXT:    ldb #5
-; CHECK-NEXT:  .Ltmp0:
-; CHECK-NEXT:    lda ,x+
-; CHECK-NEXT:    sta ,y+
-; CHECK-NEXT:    decb
-; CHECK-NEXT:    bne .Ltmp0
+; CHECK-NEXT:    jsr __m6809_copy_xy
 ; CHECK-NEXT:  .LBB0_4: ; %if.then
 ; CHECK-NEXT:    rts
 entry:

@@ -12,11 +12,16 @@
 #include "TargetInfo/M6809TargetInfo.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/BinaryFormat/ELF.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Compiler.h"
+#include <set>
+#include <string>
 
 using namespace llvm;
 
@@ -39,6 +44,10 @@ public:
   void emitInstruction(const MachineInstr *MI) override {
     if (MI->getOpcode() == M6809::SJLJ_SETUP)
       return;
+    if (SkipReturn && MI->getOpcode() == M6809::RTS) {
+      SkipReturn = false;
+      return;
+    }
     M6809_MC::verifyInstructionPredicates(MI->getOpcode(),
                                           getSubtargetInfo().getFeatureBits());
     if (MI->getOpcode() == M6809::COPYLOOP ||
@@ -52,6 +61,12 @@ public:
   }
 
   void emitLoop(const MachineInstr &MI);
+  void emitEndOfAsmFile(Module &M) override;
+
+  // The shared copy and fill routines the module calls (see emitLoop).
+  std::set<std::string> LoopRoutines;
+  // The loop before this RTS jumped to its routine, which returns instead.
+  bool SkipReturn = false;
 
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
                        const char *ExtraCode, raw_ostream &OS) override;
@@ -61,49 +76,111 @@ public:
 
 } // namespace
 
-// ldb #len; 1: lda ,src+; sta ,dst+; decb; bne 1b
-// lda #val; ldb #len; 1: sta ,dst+; decb; bne 1b
+// The loops live in shared routines, one for each pair of registers, which
+// each object file that uses one emits in a COMDAT group of its own:
+//
+//   ldb #len; jsr __m6809_copy_<src><dst>
+//     __m6809_copy_xu: lda ,x+; sta ,u+; decb; bne __m6809_copy_xu; rts
+//   ldb #len; jsr __m6809_clear_<dst>          (value 0)
+//   lda #val; ldb #len; jsr __m6809_fill_<dst>
+//     __m6809_clear_x: clra
+//     __m6809_fill_x:  sta ,x+; decb; bne __m6809_fill_x; rts
+//
+// A call is five bytes where the loop is nine, and a call just before a
+// return jumps instead (see SkipReturn). The routines leave what the
+// loop would: the pointers advanced, B zero, A the last byte, the flags set.
+static char regLetter(MCRegister R) {
+  return R == M6809::X ? 'x' : R == M6809::Y ? 'y' : 'u';
+}
+
 void M6809AsmPrinter::emitLoop(const MachineInstr &MI) {
   bool Cpy = MI.getOpcode() == M6809::COPYLOOP;
   MCRegister Dst = MI.getOperand(Cpy ? 2 : 1).getReg();
+  std::string Name;
+  if (Cpy) {
+    MCRegister Src = MI.getOperand(3).getReg();
+    Name = std::string("__m6809_copy_") + regLetter(Src) + regLetter(Dst);
+  } else {
+    int64_t Val = MI.getOperand(2).getImm();
+    if (Val != 0)
+      EmitToStreamer(*OutStreamer,
+                     MCInstBuilder(M6809::LD8i).addReg(M6809::A).addImm(Val));
+    Name = std::string(Val == 0 ? "__m6809_clear_" : "__m6809_fill_") +
+           regLetter(Dst);
+  }
+  EmitToStreamer(*OutStreamer, MCInstBuilder(M6809::LD8i)
+                                   .addReg(M6809::B)
+                                   .addImm(MI.getOperand(Cpy ? 4 : 3).getImm()));
+  // "jsr routine; rts" is "jmp routine".
+  MachineBasicBlock::const_iterator Next = std::next(MI.getIterator());
+  while (Next != MI.getParent()->end() && Next->isMetaInstruction())
+    ++Next;
+  SkipReturn = Next != MI.getParent()->end() && Next->getOpcode() == M6809::RTS;
+  MCInst Call;
+  Call.setOpcode(SkipReturn ? M6809::JMPm : M6809::JSRm);
+  Call.addOperand(MCOperand::createReg(MCRegister()));
+  Call.addOperand(MCOperand::createExpr(
+      MCSymbolRefExpr::create(OutContext.getOrCreateSymbol(Name), OutContext)));
+  Call.addOperand(MCOperand::createImm(M6809Mem::Auto));
+  EmitToStreamer(*OutStreamer, Call);
+  // A copy names its pair; clear and fill share one routine per register.
+  LoopRoutines.insert(Cpy ? Name : std::string("fill_") + regLetter(Dst));
+}
+
+void M6809AsmPrinter::emitEndOfAsmFile(Module &M) {
   auto Mem = [](MCInst &I, MCRegister Base) {
     I.addOperand(MCOperand::createReg(Base));
     I.addOperand(MCOperand::createImm(0));
     I.addOperand(MCOperand::createImm(M6809Mem::PostInc1));
   };
-  if (!Cpy) {
-    int64_t Val = MI.getOperand(2).getImm();
-    if (Val == 0)
-      EmitToStreamer(*OutStreamer,
-                     MCInstBuilder(M6809::CLR8).addReg(M6809::A));
-    else
-      EmitToStreamer(*OutStreamer,
-                     MCInstBuilder(M6809::LD8i).addReg(M6809::A).addImm(Val));
+  auto Reg = [](char C) {
+    return C == 'x' ? M6809::X : C == 'y' ? M6809::Y : M6809::U;
+  };
+  // No function is current here, so the module's subtarget encodes.
+  const MCSubtargetInfo &STI = TM.getMCSubtargetInfo();
+  auto Emit = [&](const MCInst &I) { OutStreamer->emitInstruction(I, STI); };
+  auto Define = [&](MCSymbol *Sym) {
+    OutStreamer->emitSymbolAttribute(Sym, MCSA_Weak);
+    OutStreamer->emitSymbolAttribute(Sym, MCSA_Hidden);
+    OutStreamer->emitSymbolAttribute(Sym, MCSA_ELF_TypeFunction);
+    OutStreamer->emitLabel(Sym);
+  };
+  for (const std::string &R : LoopRoutines) {
+    bool Cpy = StringRef(R).starts_with("__m6809_copy_");
+    char D = R.back();
+    std::string Group = Cpy ? R : std::string("__m6809_fill_") + D;
+    OutStreamer->switchSection(OutContext.getELFSection(
+        ".text." + Group, ELF::SHT_PROGBITS,
+        ELF::SHF_ALLOC | ELF::SHF_EXECINSTR | ELF::SHF_GROUP, 0, Group,
+        /*IsComdat=*/true));
+    if (!Cpy) {
+      Define(OutContext.getOrCreateSymbol(std::string("__m6809_clear_") + D));
+      Emit(MCInstBuilder(M6809::CLR8).addReg(M6809::A));
+    }
+    Define(OutContext.getOrCreateSymbol(Group));
+    // Branch to a local label: the global one is weak, so the assembler
+    // could not resolve a branch to it.
+    MCSymbol *Loop = OutContext.createTempSymbol();
+    OutStreamer->emitLabel(Loop);
+    if (Cpy) {
+      MCInst Ld;
+      Ld.setOpcode(M6809::LD8m);
+      Ld.addOperand(MCOperand::createReg(M6809::A));
+      Mem(Ld, Reg(R[R.size() - 2]));
+      Emit(Ld);
+    }
+    MCInst St;
+    St.setOpcode(M6809::ST8m);
+    St.addOperand(MCOperand::createReg(M6809::A));
+    Mem(St, Reg(D));
+    Emit(St);
+    Emit(MCInstBuilder(M6809::DEC8).addReg(M6809::B).addReg(M6809::B));
+    Emit(MCInstBuilder(M6809::Bcc)
+             .addImm(M6809CC::NE)
+             .addExpr(MCSymbolRefExpr::create(Loop, OutContext)));
+    Emit(MCInstBuilder(M6809::RTS));
   }
-  EmitToStreamer(*OutStreamer, MCInstBuilder(M6809::LD8i)
-                                   .addReg(M6809::B)
-                                   .addImm(MI.getOperand(Cpy ? 4 : 3).getImm()));
-  MCSymbol *Loop = OutContext.createTempSymbol();
-  OutStreamer->emitLabel(Loop);
-  if (Cpy) {
-    MCInst Ld;
-    Ld.setOpcode(M6809::LD8m);
-    Ld.addOperand(MCOperand::createReg(M6809::A));
-    Mem(Ld, MI.getOperand(3).getReg());
-    EmitToStreamer(*OutStreamer, Ld);
-  }
-  MCInst St;
-  St.setOpcode(M6809::ST8m);
-  St.addOperand(MCOperand::createReg(M6809::A));
-  Mem(St, Dst);
-  EmitToStreamer(*OutStreamer, St);
-  EmitToStreamer(*OutStreamer, MCInstBuilder(M6809::DEC8)
-                                   .addReg(M6809::B)
-                                   .addReg(M6809::B));
-  EmitToStreamer(*OutStreamer,
-                 MCInstBuilder(M6809::Bcc)
-                     .addImm(M6809CC::NE)
-                     .addExpr(MCSymbolRefExpr::create(Loop, OutContext)));
+  LoopRoutines.clear();
 }
 
 bool M6809AsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,

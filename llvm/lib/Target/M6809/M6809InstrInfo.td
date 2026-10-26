@@ -1051,8 +1051,9 @@ def : Pat<(atomic_fence timm, timm), (MEMBARRIER)>;
 // unroll at the size the function is optimized for:
 //   ldb #len; 1: lda ,src+; sta ,dst+; decb; bne 1b
 //   lda #val; ldb #len; 1: sta ,dst+; decb; bne 1b
-// M6809AsmPrinter writes the loop. The pseudos return the advanced pointers,
-// which nothing uses.
+// M6809AsmPrinter calls a shared routine with the loop ("ldb #len; jsr
+// __m6809_copy_xu"). The pseudos return the advanced pointers, which
+// nothing uses.
 def SDT_M6809CopyLoop : SDTypeProfile<0, 3, [SDTCisVT<0, i16>,
                                              SDTCisVT<1, i16>,
                                              SDTCisVT<2, i8>]>;
@@ -1064,11 +1065,11 @@ def SDT_M6809SetLoop : SDTypeProfile<0, 3, [SDTCisVT<0, i16>,
 def M6809SetLoop : SDNode<"M6809ISD::SETLOOP", SDT_M6809SetLoop,
                           [SDNPHasChain, SDNPMayStore]>;
 let Defs = [A, B, CC], mayStore = 1, hasSideEffects = 0 in {
-  let mayLoad = 1, Size = 9, Constraints = "$dst = $dstout, $src = $srcout" in
+  let mayLoad = 1, Size = 5, Constraints = "$dst = $dstout, $src = $srcout" in
   def COPYLOOP : M6809Pseudo<(outs IDX16:$dstout, IDX16:$srcout),
                              (ins IDX16:$dst, IDX16:$src, i8imm_op:$len),
                              "", []>;
-  let Size = 9, Constraints = "$dst = $dstout" in
+  let Size = 7, Constraints = "$dst = $dstout" in
   def SETLOOP : M6809Pseudo<(outs IDX16:$dstout),
                             (ins IDX16:$dst, i8imm_op:$val, i8imm_op:$len),
                             "", []>;
