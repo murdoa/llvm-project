@@ -24,6 +24,13 @@ M6809RegisterInfo::M6809RegisterInfo(const M6809Subtarget &STI)
 
 const MCPhysReg *
 M6809RegisterInfo::getCalleeSavedRegs(const MachineFunction *MF) const {
+  // For IRQ, NMI and SWI the CPU saves every register, and the handler's RTI
+  // restores them, so a handler need not save any, except W on the HD6309,
+  // which the CPU does not save in emulation mode.
+  if (MF->getFunction().hasFnAttribute("interrupt"))
+    return MF->getSubtarget<M6809Subtarget>().has6309()
+               ? CSR_HD6309_Interrupt_SaveList
+               : CSR_NoRegs_SaveList;
   return CSR_M6809_SaveList;
 }
 

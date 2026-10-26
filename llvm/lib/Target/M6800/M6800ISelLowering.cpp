@@ -1143,6 +1143,9 @@ bool M6800TargetLowering::isEligibleForSiblingCall(
   const Function &Caller = MF.getFunction();
   if (StackBytes || CLI.IsVarArg || Caller.hasStructRetAttr())
     return false;
+  // The callee would return to the interrupted code with RTS.
+  if (Caller.hasFnAttribute("interrupt"))
+    return false;
   const TargetRegisterInfo *TRI = Subtarget.getRegisterInfo();
   if (!TRI->regmaskSubsetEqual(
           TRI->getCallPreservedMask(MF, Caller.getCallingConv()),
@@ -1305,7 +1308,12 @@ M6800TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   RetOps[0] = Chain;
   if (Glue.getNode())
     RetOps.push_back(Glue);
-  return DAG.getNode(M6800ISD::RET_GLUE, DL, MVT::Other, RetOps);
+  // An interrupt handler returns with RTI, which restores the registers the
+  // CPU saved when it took the interrupt.
+  bool IsInterrupt =
+      DAG.getMachineFunction().getFunction().hasFnAttribute("interrupt");
+  return DAG.getNode(IsInterrupt ? M6800ISD::RTI_GLUE : M6800ISD::RET_GLUE, DL,
+                     MVT::Other, RetOps);
 }
 
 //===----------------------------------------------------------------------===//

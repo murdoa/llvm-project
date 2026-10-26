@@ -25,6 +25,9 @@ include "M6800InstrFormats.td"
 
 def M6800RetGlue : SDNode<"M6800ISD::RET_GLUE", SDTNone,
                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+// The return of an interrupt handler.
+def M6800RtiGlue : SDNode<"M6800ISD::RTI_GLUE", SDTNone,
+                          [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 // Wraps a target address (global, external symbol, block address) so the
 // address-mode selector can recognise it.
@@ -905,7 +908,7 @@ def NOP : Inherent<"nop">;
 let Uses = [A, CC], Defs = [A, CC] in
 def DAA : Inherent<"daa">;
 let isReturn = 1, isTerminator = 1, isBarrier = 1 in
-def RTI : Inherent<"rti">;
+def RTI : M6800Inst<(outs), (ins), "rti", [(M6800RtiGlue)], 1>;
 def SWI : Inherent<"swi">;
 def WAI : Inherent<"wai">;
 def SLP : Inherent<"slp">;

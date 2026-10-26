@@ -21,6 +21,9 @@ include "M6809InstrFormats.td"
 
 def M6809RetGlue : SDNode<"M6809ISD::RET_GLUE", SDTNone,
                           [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
+// The return of an interrupt handler.
+def M6809RtiGlue : SDNode<"M6809ISD::RTI_GLUE", SDTNone,
+                          [SDNPHasChain, SDNPOptInGlue, SDNPVariadic]>;
 
 // Wraps a target address (global, external symbol, block address) so the
 // address-mode selector can recognise it.
@@ -967,7 +970,7 @@ def DAA : Inherent<"daa">;
 let Uses = [X, B], Defs = [X] in
 def ABX : Inherent<"abx">;
 let isReturn = 1, isTerminator = 1, isBarrier = 1 in
-def RTI : Inherent<"rti">;
+def RTI : M6809Inst<(outs), (ins), "rti", [(M6809RtiGlue)], 1>;
 def SWI : Inherent<"swi">;
 def SWI2 : Inherent<"swi2", 2>;
 def SWI3 : Inherent<"swi3", 2>;

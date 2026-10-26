@@ -39,3 +39,5 @@ def CC_M6809 : CallingConv<[
 
 def CSR_M6809 : CalleeSavedRegs<(add U)>;
 def CSR_NoRegs : CalleeSavedRegs<(add)>;
+// An HD6309 interrupt handler: in emulation mode the CPU does not save W.
+def CSR_HD6309_Interrupt : CalleeSavedRegs<(add W)>;
