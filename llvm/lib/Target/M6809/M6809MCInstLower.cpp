@@ -12,6 +12,7 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineInstr.h"
+#include "llvm/IR/GlobalObject.h"
 #include "llvm/MC/MCContext.h"
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
@@ -223,12 +224,33 @@ MCOperand M6809MCInstLower::lowerOperand(const MachineOperand &MO) const {
   }
 }
 
+// Variables in a section named .dp or .dp.* live in the page that DP points
+// at, and are reached with a one-byte direct address.
+static bool isDirectPage(const MachineOperand &MO) {
+  if (!MO.isGlobal())
+    return false;
+  const GlobalObject *GO = MO.getGlobal()->getAliaseeObject();
+  if (!GO || !GO->hasSection())
+    return false;
+  StringRef Name = GO->getSection();
+  return Name == ".dp" || Name.starts_with(".dp.");
+}
+
 void M6809MCInstLower::lower(const MachineInstr *MI, MCInst &OutMI) const {
   OutMI.setOpcode(MI->getOpcode());
 
-  for (const MachineOperand &MO : MI->operands()) {
+  for (unsigned I = 0, E = MI->getNumOperands(); I != E; ++I) {
+    const MachineOperand &MO = MI->getOperand(I);
     if ((MO.isReg() && MO.isImplicit()) || MO.isRegMask())
       continue;
+    // A memory operand (no base, a direct-page variable, Auto) becomes
+    // "<var" instead of ">var".
+    if (MO.isImm() && MO.getImm() == M6809Mem::Auto && I >= 2 &&
+        isDirectPage(MI->getOperand(I - 1)) && MI->getOperand(I - 2).isReg() &&
+        !MI->getOperand(I - 2).getReg()) {
+      OutMI.addOperand(MCOperand::createImm(M6809Mem::Direct));
+      continue;
+    }
     OutMI.addOperand(lowerOperand(MO));
   }
   toRealInstruction(OutMI);
