@@ -70,10 +70,10 @@ struct __murmur2_or_cityhash<_Size, 32> {
     }
     switch (__len) {
     case 3:
-      __h ^= static_cast<_Size>(__data[2] << 16);
+      __h ^= static_cast<_Size>(__data[2]) << 16;
       [[__fallthrough__]];
     case 2:
-      __h ^= static_cast<_Size>(__data[1] << 8);
+      __h ^= static_cast<_Size>(__data[1]) << 8;
       [[__fallthrough__]];
     case 1:
       __h ^= __data[0];
@@ -83,6 +83,16 @@ struct __murmur2_or_cityhash<_Size, 32> {
     __h *= __m;
     __h ^= __h >> 15;
     return __h;
+  }
+};
+
+// With a 16-bit size_t, hash with 32 bits and fold the result.
+template <class _Size>
+struct __murmur2_or_cityhash<_Size, 16> {
+  _LIBCPP_HIDE_FROM_ABI _LIBCPP_DISABLE_UBSAN_UNSIGNED_INTEGER_CHECK _Size
+  operator()(const void* __key, _Size __len) const {
+    uint32_t __h = __murmur2_or_cityhash<uint32_t>()(__key, __len);
+    return static_cast<_Size>(__h ^ (__h >> 16));
   }
 };
 
