@@ -57,11 +57,8 @@ define void @byval(ptr %p) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    tfr x, y
-; CHECK-NEXT:    ldb 1,y
-; CHECK-NEXT:    stb 1,s
-; CHECK-NEXT:    ldb ,x
-; CHECK-NEXT:    stb ,s
+; CHECK-NEXT:    ldd ,x
+; CHECK-NEXT:    std ,s
 ; CHECK-NEXT:    ldb #1
 ; CHECK-NEXT:    jsr take
 ; CHECK-NEXT:    leas 2,s

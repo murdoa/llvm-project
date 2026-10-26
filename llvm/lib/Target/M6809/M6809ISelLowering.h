@@ -100,6 +100,17 @@ private:
     return TargetLowering::getTypeForExtReturn(Context, VT, ExtendKind);
   }
 
+  // The 6809 has no alignment: a word may be at any address, at no cost.
+  // This lets memcpy and memset of a few bytes become word moves.
+  bool allowsMisalignedMemoryAccesses(EVT VT, unsigned AddrSpace,
+                                      Align Alignment,
+                                      MachineMemOperand::Flags Flags,
+                                      unsigned *Fast) const override {
+    if (Fast)
+      *Fast = 1;
+    return true;
+  }
+
   bool CanLowerReturn(CallingConv::ID CallConv, MachineFunction &MF,
                       bool IsVarArg,
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
