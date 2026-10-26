@@ -10,8 +10,8 @@ define i16 @dense(i16 %x) {
 ; CHECK-NEXT:  ; %bb.1: ; %entry
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
-; CHECK-NEXT:    ldx #.LJTI0_0
-; CHECK-NEXT:    ldx d,x
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldx .LJTI0_0,x
 ; CHECK-NEXT:    jmp ,x
 ; CHECK-NEXT:  .LBB0_2: ; %a
 ; CHECK-NEXT:    ldd #10
@@ -60,8 +60,8 @@ def:
 define i8 @index8(i16 %i) {
 ; CHECK-LABEL: index8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    ldx #tab
-; CHECK-NEXT:    ldb d,x
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldb tab,x
 ; CHECK-NEXT:    rts
   %p = getelementptr i8, ptr @tab, i16 %i
   %v = load i8, ptr %p
@@ -73,9 +73,9 @@ define void @index16(i16 %i, i16 %v) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
-; CHECK-NEXT:    ldy #wtab
-; CHECK-NEXT:    ldx 2,s
-; CHECK-NEXT:    stx d,y
+; CHECK-NEXT:    ldy 2,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    sty wtab,x
 ; CHECK-NEXT:    rts
   %p = getelementptr i16, ptr @wtab, i16 %i
   store i16 %v, ptr %p

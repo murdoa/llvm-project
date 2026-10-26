@@ -112,7 +112,7 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   // The generic combine only makes BR_CC for legal types, so
   // PerformDAGCombine makes the i32 ones.
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
-  setTargetDAGCombine({ISD::BRCOND, ISD::SELECT, ISD::MUL});
+  setTargetDAGCombine({ISD::BRCOND, ISD::SELECT, ISD::MUL, ISD::ADD});
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
@@ -647,8 +647,49 @@ static SDValue combineMul8(SDNode *N, SelectionDAG &DAG) {
   return DAG.getNode(ISD::ADD, DL, MVT::i16, Lo, Hi);
 }
 
+// (add (wrapper sym+k), (zext b)) -> (add (add (wrapper sym), (zext b)), k).
+// Elements of one array indexed by the same byte then share "ldx #sym; abx"
+// and differ only in the offset: "ldb ,x; addb 1,x".
+static SDValue combineAddSymbolIndex(SDNode *N, SelectionDAG &DAG) {
+  for (unsigned I = 0; I != 2; ++I) {
+    SDValue W = N->getOperand(I), R = N->getOperand(1 - I);
+    if (W.getOpcode() != M6809ISD::WRAPPER ||
+        R.getOpcode() != ISD::ZERO_EXTEND ||
+        R.getOperand(0).getValueType() != MVT::i8)
+      continue;
+    auto *G = dyn_cast<GlobalAddressSDNode>(W.getOperand(0));
+    if (!G || G->getOffset() == 0)
+      continue;
+    // Only when the same byte also indexes another element of the array:
+    // a lone address would gain a "leax k,x".
+    auto SameArray = [&](SDNode *U) {
+      if (U == N || U->getOpcode() != ISD::ADD)
+        return false;
+      for (const SDValue &Op : U->op_values())
+        if (Op.getOpcode() == M6809ISD::WRAPPER)
+          if (auto *G2 = dyn_cast<GlobalAddressSDNode>(Op.getOperand(0)))
+            if (G2->getGlobal() == G->getGlobal())
+              return true;
+      return false;
+    };
+    if (none_of(R->users(), SameArray))
+      continue;
+    SDLoc DL(N);
+    SDValue Base = DAG.getNode(
+        M6809ISD::WRAPPER, DL, MVT::i16,
+        DAG.getTargetGlobalAddress(G->getGlobal(), DL, MVT::i16, 0));
+    SDValue Sum = DAG.getNode(ISD::ADD, DL, MVT::i16, Base, R);
+    return DAG.getNode(ISD::ADD, DL, MVT::i16, Sum,
+                       DAG.getSignedConstant(G->getOffset(), DL, MVT::i16));
+  }
+  return SDValue();
+}
+
 SDValue M6809TargetLowering::PerformDAGCombine(SDNode *N,
                                                DAGCombinerInfo &DCI) const {
+  if (N->getOpcode() == ISD::ADD)
+    return DCI.isBeforeLegalize() ? SDValue()
+                                  : combineAddSymbolIndex(N, DCI.DAG);
   if (!DCI.isBeforeLegalize())
     return SDValue();
   if (N->getOpcode() == ISD::MUL)

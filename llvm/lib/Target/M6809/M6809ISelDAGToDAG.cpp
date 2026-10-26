@@ -120,6 +120,11 @@ bool M6809DAGToDAGISel::SelectAddr(SDValue Addr, SDValue &Base, SDValue &Offset,
       SDValue W = Addr.getOperand(I), R = Addr.getOperand(1 - I);
       if (W.getOpcode() != M6809ISD::WRAPPER || isa<ConstantSDNode>(R))
         continue;
+      // A zero-extended byte index is cheaper added with ABX: "ldx #tab;
+      // abx; ldb ,x" against "clra; tfr d,x; ldb tab,x".
+      if (R.getOpcode() == ISD::ZERO_EXTEND &&
+          R.getOperand(0).getValueType() == MVT::i8)
+        continue;
       if (SDValue Sym = getTargetSymbol(W.getOperand(0), Off)) {
         Base = R;
         Offset = Sym;

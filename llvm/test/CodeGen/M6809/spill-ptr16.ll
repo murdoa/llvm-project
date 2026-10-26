@@ -3,35 +3,35 @@
 
 ; A pointer (PTR16, which has S in it) spilled around the loop. The spill
 ; and reload use ST16m and LD16m, which take GR16, so the register is
-; narrowed to X, U or Y.
+; narrowed to X, U or Y. (Now that the symbol is the store's offset,
+; "stu a,x", nothing needs spilling here; the test stays as a regression
+; test for the narrowing.)
 
 @a = external dso_local global [255 x ptr]
 
 define i16 @f(i16 %m, i16 %shr) {
 ; CHECK-LABEL: f:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -8,s
-; CHECK-NEXT:    stu 6,s ; 2-byte Folded Spill
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 10,s
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldd 4,s
 ; CHECK-NEXT:    aslb
 ; CHECK-NEXT:    rola
-; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldy #0
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldu #0
 ; CHECK-NEXT:  .LBB0_1: ; %loop
 ; CHECK-NEXT:    ; =>This Inner Loop Header: Depth=1
-; CHECK-NEXT:    sty 4,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd #a
+; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    ldu #0
-; CHECK-NEXT:    ldx ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    stu d,x
-; CHECK-NEXT:    ldy 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    ldd 4,s ; 2-byte Folded Reload
+; CHECK-NEXT:    stu a,x
+; CHECK-NEXT:    tfr y, u
+; CHECK-NEXT:    subd #0
 ; CHECK-NEXT:    blt .LBB0_1
 ; CHECK-NEXT:  ; %bb.2: ; %done
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    ldu 6,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 8,s
+; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
 entry:
   br label %loop

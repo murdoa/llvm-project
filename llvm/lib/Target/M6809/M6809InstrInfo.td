@@ -179,9 +179,13 @@ let isMoveReg = 1, isCodeGenOnly = 1 in {
 
 // An add of two registers. A constant operand is better as an offset or
 // immediate than loaded into D.
+// A symbol operand is better as a 16-bit offset ("ldb tab,x"), which leaves
+// D free.
 def addrr : PatFrag<(ops node:$a, node:$b), (add node:$a, node:$b), [{
-  return !isa<ConstantSDNode>(N->getOperand(0)) &&
-         !isa<ConstantSDNode>(N->getOperand(1));
+  auto IsImm = [](SDValue V) {
+    return isa<ConstantSDNode>(V) || V.getOpcode() == M6809ISD::WRAPPER;
+  };
+  return !IsImm(N->getOperand(0)) && !IsImm(N->getOperand(1));
 }]>;
 
 // Indexed loads and stores. Size is a guess (no offset or a 5-bit one) until
