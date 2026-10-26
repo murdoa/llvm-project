@@ -493,6 +493,9 @@ static void emitAtomicCmpXchgFailureSet(
   // MonotonicBB is arbitrarily chosen as the default case; in practice, this
   // doesn't matter unless someone is crazy enough to use something that
   // doesn't fold to a constant for the ordering.
+  // The cases are i32, and the order has the type of int.
+  FailureOrderVal = CGF.Builder.CreateIntCast(
+      FailureOrderVal, CGF.Builder.getInt32Ty(), /*isSigned=*/false);
   llvm::SwitchInst *SI = CGF.Builder.CreateSwitch(FailureOrderVal, MonotonicBB);
   // Implemented as acquire, since it's the closest in LLVM.
   SI->addCase(CGF.Builder.getInt32((int)llvm::AtomicOrderingCABI::consume),
