@@ -41,6 +41,7 @@ define void @indirect(ptr %p, i16 %a) {
 define void @to_fastcc(i16 %a) {
 ; CHECK-LABEL: to_fastcc:
 ; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    jmp fast
   tail call fastcc void @fast(i16 %a)
   ret void
@@ -49,7 +50,7 @@ define void @to_fastcc(i16 %a) {
 define internal fastcc void @fast(i16 %a) {
 ; CHECK-LABEL: fast:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    std 64
+; CHECK-NEXT:    stx 64
 ; CHECK-NEXT:    rts
   store volatile i16 %a, ptr inttoptr (i16 64 to ptr)
   ret void

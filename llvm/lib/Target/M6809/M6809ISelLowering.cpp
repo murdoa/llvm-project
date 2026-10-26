@@ -1296,6 +1296,10 @@ M6809TargetLowering::emitSelect32(MachineInstr &MI,
 // Calling convention
 //===----------------------------------------------------------------------===//
 
+static CCAssignFn *getArgCC(CallingConv::ID CC, bool IsVarArg) {
+  return CC == CallingConv::Fast && !IsVarArg ? CC_M6809_Fast : CC_M6809;
+}
+
 SDValue M6809TargetLowering::LowerFormalArguments(
     SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
@@ -1306,7 +1310,7 @@ SDValue M6809TargetLowering::LowerFormalArguments(
 
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CallConv, IsVarArg, MF, ArgLocs, *DAG.getContext());
-  CCInfo.AnalyzeFormalArguments(Ins, CC_M6809);
+  CCInfo.AnalyzeFormalArguments(Ins, getArgCC(CallConv, IsVarArg));
 
   for (const CCValAssign &VA : ArgLocs) {
     MVT VT = VA.getLocVT();
@@ -1395,7 +1399,7 @@ SDValue M6809TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
 
   SmallVector<CCValAssign, 16> ArgLocs;
   CCState CCInfo(CLI.CallConv, CLI.IsVarArg, MF, ArgLocs, *DAG.getContext());
-  CCInfo.AnalyzeCallOperands(CLI.Outs, CC_M6809);
+  CCInfo.AnalyzeCallOperands(CLI.Outs, getArgCC(CLI.CallConv, CLI.IsVarArg));
   unsigned NumBytes = CCInfo.getStackSize();
 
   bool IsTailCall = CLI.IsTailCall && isEligibleForSiblingCall(CLI, NumBytes);

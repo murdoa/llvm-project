@@ -37,6 +37,20 @@ def CC_M6809 : CallingConv<[
   CCIfType<[i16], CCAssignToStack<2, 1>>
 ]>;
 
+// fastcc, which LTO gives internal functions whose every call it can see:
+// more of the arguments in registers. Bytes take B then A, words X, D then
+// Y, each while no part of the register is taken; the rest go on the stack
+// as for C. X first leaves D free for the arithmetic, and a pointer argument
+// is where indexing wants it.
+def CC_M6809_Fast : CallingConv<[
+  CCIfByVal<CCCustom<"CC_M6809_ByVal">>,
+  CCIfType<[i1], CCPromoteToType<i8>>,
+  CCIfType<[i8], CCAssignToReg<[B, A]>>,
+  CCIfType<[i16], CCAssignToReg<[X, D, Y]>>,
+  CCIfType<[i8], CCAssignToStack<1, 1>>,
+  CCIfType<[i16], CCAssignToStack<2, 1>>
+]>;
+
 def CSR_M6809 : CalleeSavedRegs<(add U)>;
 def CSR_NoRegs : CalleeSavedRegs<(add)>;
 // An HD6309 interrupt handler: in emulation mode the CPU does not save W.
