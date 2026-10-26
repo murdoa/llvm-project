@@ -48,6 +48,10 @@ M6809TargetMachine::M6809TargetMachine(const Target &T, const Triple &TT,
   // live often has no register to be copied into. TwoAddressInstruction
   // inserts the copy instead, which the fast allocator can spill around.
   setEnableTiedFastRegAlloc(false);
+  // Outline repeated sequences in minsize functions; a JSR costs three
+  // bytes and the outlined RTS one.
+  setMachineOutliner(true);
+  setSupportsDefaultOutlining(true);
 }
 
 M6809TargetMachine::~M6809TargetMachine() = default;

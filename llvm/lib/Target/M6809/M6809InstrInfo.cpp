@@ -1472,3 +1472,238 @@ unsigned M6809InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
   Emitter->encodeInstruction(Inst, Code, Fixups, STI);
   return Code.size();
 }
+
+//===----------------------------------------------------------------------===//
+// Machine outliner
+//===----------------------------------------------------------------------===//
+//
+// JSR and RTS change nothing but S and PC, so an outlined sequence needs no
+// registers saved and may even keep the flags live across the call. What
+// changes is S: inside the outlined function the return address sits under
+// the stack, two bytes deeper. A sequence is outlined only if it leaves S
+// where it found it and never pulls what was pushed before it; its S-relative
+// offsets that reach past what it pushed itself then move along by two. A
+// sequence that ends in a return is jumped to instead, and S is unchanged.
+
+namespace {
+enum M6809OutlinerKind { OutlinerCall, OutlinerTail };
+} // namespace
+
+static unsigned getRegListBytes(unsigned Mask) {
+  unsigned Bytes = 0;
+  for (unsigned Bit = 0; Bit != 8; ++Bit)
+    if (Mask & (1u << Bit))
+      Bytes += Bit >= 4 ? 2 : 1; // X, Y, U/S and PC are words
+  return Bytes;
+}
+
+// The memory operand of MI with base S, as the index of its base register.
+static std::optional<unsigned> getStackMemOperand(const MachineInstr &MI) {
+  if (!MI.mayLoadOrStore() && MI.getOpcode() != M6809::LEA16 &&
+      MI.getOpcode() != M6809::LEASm)
+    return std::nullopt;
+  for (unsigned I = 0, E = MI.getNumExplicitOperands(); I + 2 < E; ++I) {
+    const MachineOperand &Base = MI.getOperand(I);
+    if (Base.isReg() && Base.getReg() == M6809::S &&
+        (MI.getOperand(I + 1).isImm() || MI.getOperand(I + 1).isGlobal()) &&
+        MI.getOperand(I + 2).isImm())
+      return I;
+  }
+  return std::nullopt;
+}
+
+// How many bytes MI pushes (negative: pulls), or nullopt if it changes S in
+// a way the outliner does not follow.
+static std::optional<int> getStackDelta(const MachineInstr &MI) {
+  switch (MI.getOpcode()) {
+  case M6809::PSHS8:
+    return 1;
+  case M6809::PULS8:
+    return -1;
+  case M6809::PSHS16:
+  case M6809::PSHSW:
+    return 2;
+  case M6809::PULS16:
+  case M6809::PULSW:
+    return -2;
+  case M6809::PSHSr:
+    return getRegListBytes(MI.getOperand(0).getImm());
+  case M6809::PULSr:
+  case M6809::PULSret:
+    return -int(getRegListBytes(MI.getOperand(0).getImm()));
+  case M6809::ADD8pop:
+  case M6809::SUB8pop:
+  case M6809::AND8pop:
+  case M6809::OR8pop:
+  case M6809::EOR8pop:
+  case M6809::CMP8pop:
+    return -1;
+  case M6809::ADC8pop2:
+  case M6809::SBC8pop2:
+  case M6809::ADDDpop:
+  case M6809::SUBDpop:
+  case M6809::CMP16pop:
+    return -2;
+  case M6809::LEASi:
+    return -int(MI.getOperand(0).getImm());
+  default:
+    break;
+  }
+  if (std::optional<unsigned> I = getStackMemOperand(MI)) {
+    switch (MI.getOperand(*I + 2).getImm() & M6809Mem::ModeMask) {
+    case M6809Mem::PostInc1:
+      return -1;
+    case M6809Mem::PostInc2:
+      return -2;
+    case M6809Mem::PreDec1:
+      return 1;
+    case M6809Mem::PreDec2:
+      return 2;
+    default:
+      break;
+    }
+    if (MI.getOpcode() == M6809::LEASm)
+      return -int(MI.getOperand(*I + 1).getImm());
+  }
+  if (MI.isCall() && !MI.isReturn())
+    return 0;
+  if (MI.modifiesRegister(M6809::S, /*TRI=*/nullptr))
+    return std::nullopt;
+  return 0;
+}
+
+// Walks a sequence that is to be called. Returns false if it pulls more
+// than it pushed, leaves S moved, addresses the stack in a way whose offset
+// cannot be moved, or calls a function: a callee may read arguments that the
+// caller stored below the sequence's pushes. Each S-relative offset that
+// reaches below the bytes pushed so far is passed to Fix.
+static bool walkCalledSequence(
+    iterator_range<MachineBasicBlock::iterator> Seq,
+    function_ref<void(MachineInstr &, unsigned)> Fix) {
+  int Depth = 0;
+  for (MachineInstr &MI : Seq) {
+    if (MI.isDebugInstr())
+      continue;
+    if (MI.isCall())
+      return false;
+    if (std::optional<unsigned> I = getStackMemOperand(MI)) {
+      unsigned Mode = MI.getOperand(*I + 2).getImm() & M6809Mem::ModeMask;
+      const MachineOperand &Off = MI.getOperand(*I + 1);
+      switch (Mode) {
+      case M6809Mem::Auto:
+        if (MI.getOpcode() != M6809::LEASm &&
+            (!Off.isImm() || Off.getImm() >= Depth))
+          Fix(MI, *I + 1);
+        break;
+      case M6809Mem::PostInc1:
+      case M6809Mem::PostInc2:
+      case M6809Mem::PreDec1:
+      case M6809Mem::PreDec2:
+        break;
+      default:
+        return false;
+      }
+    }
+    std::optional<int> D = getStackDelta(MI);
+    if (!D)
+      return false;
+    // A pop reads the top of the stack first.
+    Depth += *D;
+    if (Depth < 0)
+      return false;
+  }
+  return Depth == 0;
+}
+
+std::optional<std::unique_ptr<outliner::OutlinedFunction>>
+M6809InstrInfo::getOutliningCandidateInfo(
+    const MachineModuleInfo &MMI,
+    std::vector<outliner::Candidate> &RepeatedSequenceLocs,
+    unsigned MinRepeats) const {
+  outliner::Candidate &C = RepeatedSequenceLocs[0];
+  bool Tail = C.back().isReturn();
+  unsigned FrameOverhead = 0;
+  if (!Tail) {
+    FrameOverhead = 1; // rts
+    // An offset moved from 14 or 15 to 16 or 17 needs a longer postbyte.
+    bool OK = walkCalledSequence(
+        make_range(C.begin(), C.end()), [&](MachineInstr &MI, unsigned Idx) {
+          const MachineOperand &Off = MI.getOperand(Idx);
+          if (Off.isImm() && (Off.getImm() == 14 || Off.getImm() == 15))
+            ++FrameOverhead;
+        });
+    if (!OK)
+      return std::nullopt;
+  }
+  unsigned SequenceSize = 0;
+  for (MachineInstr &MI : C)
+    SequenceSize += getInstSizeInBytes(MI);
+  // jsr sym or jmp sym.
+  for (outliner::Candidate &Cand : RepeatedSequenceLocs)
+    Cand.setCallInfo(Tail ? OutlinerTail : OutlinerCall, 3);
+  if (RepeatedSequenceLocs.size() < MinRepeats)
+    return std::nullopt;
+  return std::make_unique<outliner::OutlinedFunction>(
+      RepeatedSequenceLocs, SequenceSize, FrameOverhead,
+      Tail ? OutlinerTail : OutlinerCall);
+}
+
+outliner::InstrType
+M6809InstrInfo::getOutliningTypeImpl(const MachineModuleInfo &MMI,
+                                     MachineBasicBlock::iterator &MIT,
+                                     unsigned Flags) const {
+  MachineInstr &MI = *MIT;
+  if (MI.isInlineAsm() || MI.isPosition() || MI.isCFIInstruction())
+    return outliner::InstrType::Illegal;
+  if (MI.getOpcode() == M6809::RTI)
+    return outliner::InstrType::Illegal;
+  if (MI.isReturn())
+    return outliner::InstrType::Legal;
+  if (MI.isBranch() || MI.isIndirectBranch() || MI.isTerminator())
+    return outliner::InstrType::Illegal;
+  for (const MachineOperand &MO : MI.operands())
+    if (MO.isMBB() || MO.isJTI() || MO.isCPI() || MO.isFI() ||
+        MO.isBlockAddress() || MO.isMCSymbol())
+      return outliner::InstrType::Illegal;
+  // The frame pointer's set-up and the like.
+  if (MI.getFlag(MachineInstr::FrameSetup) &&
+      MI.modifiesRegister(M6809::U, /*TRI=*/nullptr) &&
+      MI.getOpcode() == M6809::LEA16)
+    return outliner::InstrType::Illegal;
+  std::optional<int> Delta = getStackDelta(MI);
+  if (!Delta)
+    return outliner::InstrType::Illegal;
+  // S read other than as an address, say "tfr s,x": its value would differ
+  // by the return address.
+  if (*Delta == 0 && !MI.isCall() && !getStackMemOperand(MI) &&
+      MI.readsRegister(M6809::S, /*TRI=*/nullptr))
+    return outliner::InstrType::Illegal;
+  return outliner::InstrType::Legal;
+}
+
+void M6809InstrInfo::buildOutlinedFrame(
+    MachineBasicBlock &MBB, MachineFunction &MF,
+    const outliner::OutlinedFunction &OF) const {
+  if (OF.FrameConstructionID == OutlinerTail)
+    return;
+  [[maybe_unused]] bool OK = walkCalledSequence(
+      make_range(MBB.begin(), MBB.end()), [](MachineInstr &MI, unsigned Idx) {
+        MachineOperand &Off = MI.getOperand(Idx);
+        if (Off.isImm())
+          Off.setImm(Off.getImm() + 2);
+        else
+          Off.setOffset(Off.getOffset() + 2);
+      });
+  assert(OK && "M6809: outlined an unbalanced sequence");
+  MBB.insert(MBB.end(), BuildMI(MF, DebugLoc(), get(M6809::RTS)));
+}
+
+MachineBasicBlock::iterator M6809InstrInfo::insertOutlinedCall(
+    Module &M, MachineBasicBlock &MBB, MachineBasicBlock::iterator &It,
+    MachineFunction &MF, outliner::Candidate &C) const {
+  bool Tail = C.CallConstructionID == OutlinerTail;
+  It = MBB.insert(It, BuildMI(MF, DebugLoc(),
+                              get(Tail ? M6809::TAILJMPe : M6809::JSRe))
+                          .addGlobalAddress(M.getNamedValue(MF.getName())));
+  return It;
+}
