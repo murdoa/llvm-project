@@ -1268,6 +1268,9 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
         Opc == M6809::CB8ri || Opc == M6809::CB8rm || Opc == M6809::CB8rr;
 
     switch (Opc) {
+    case M6809::CBBIT8i:
+      BuildMI(MBB, MI, DL, get(M6809::BIT8i)).add(Lhs).add(MI.getOperand(1));
+      break;
     case M6809::CB8ri:
     case M6809::CB16ri:
       if (MI.getOperand(1).getImm() == 0) {
@@ -1327,6 +1330,7 @@ bool M6809InstrInfo::expandPostRAPseudo(MachineInstr &MI) const {
 
 bool M6809InstrInfo::isCompareAndBranch(unsigned Opc) {
   switch (Opc) {
+  case M6809::CBBIT8i:
   case M6809::CB8ri:
   case M6809::CB8rm:
   case M6809::CB8rr:

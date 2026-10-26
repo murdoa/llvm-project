@@ -41,6 +41,14 @@ def M6809CmpBr : SDNode<"M6809ISD::CMPBR",
                                              SDTCisVT<3, OtherVT>]>,
                         [SDNPHasChain]>;
 
+// Test lhs against a mask (BIT) and branch on cc, for (lhs & mask) against
+// zero: lhs stays as it is. cc is not an unsigned one (BIT leaves C).
+def M6809BitBr : SDNode<"M6809ISD::BITBR",
+                        SDTypeProfile<0, 4, [SDTCisVT<0, i8>, SDTCisVT<1, i8>,
+                                             SDTCisVT<2, i8>,
+                                             SDTCisVT<3, OtherVT>]>,
+                        [SDNPHasChain]>;
+
 // Subtract rhs and the carry from lhs, and branch on cc: the high half of an
 // i32 compare, after a SUBC of the low halves.
 def M6809SbcBr : SDNode<"M6809ISD::SBCBR",
@@ -520,6 +528,11 @@ let isBranch = 1, isTerminator = 1 in {
                                  brtarget:$dst), "",
                             [(M6809CmpBr ACC8:$lhs, (i8 imm:$rhs), timm:$cc,
                                          bb:$dst)]>;
+    def CBBIT8i : M6809Pseudo<(outs),
+                              (ins ACC8:$lhs, i8imm_op:$mask, ccode:$cc,
+                                   brtarget:$dst), "",
+                              [(M6809BitBr ACC8:$lhs, (i8 imm:$mask), timm:$cc,
+                                           bb:$dst)]>;
     def CB16ri : M6809Pseudo<(outs),
                              (ins GR16:$lhs, i16imm_op:$rhs, ccode:$cc,
                                   brtarget:$dst), "",

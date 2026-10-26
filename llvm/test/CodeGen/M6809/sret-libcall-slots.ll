@@ -13,11 +13,10 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    leas -24,s
-; CHECK-NEXT:    andb #1
 ; CHECK-NEXT:    ldx 32,s
 ; CHECK-NEXT:    ldy 30,s
 ; CHECK-NEXT:    ldu 28,s
-; CHECK-NEXT:    tstb
+; CHECK-NEXT:    bitb #1
 ; CHECK-NEXT:    beq .LBB0_2
 ; CHECK-NEXT:  ; %bb.1: ; %x
 ; CHECK-NEXT:    ldd 38,s

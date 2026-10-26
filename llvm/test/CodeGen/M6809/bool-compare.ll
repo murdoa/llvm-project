@@ -23,7 +23,7 @@ end:
 
 define void @branch_masked(i8 %a) {
 ; CHECK-LABEL: branch_masked:
-; CHECK:         andb #1
+; CHECK:         bitb #1
 ; CHECK-NEXT:    bne
 entry:
   %m = and i8 %a, 1

@@ -552,6 +552,23 @@ SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   SDLoc DL(Op);
 
   M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC, DAG);
+  // (x & mask) against zero: BIT, which keeps x, where the AND has no other
+  // use and the condition reads only N, Z and V. Where the mask keeps every
+  // bit x can have (a bool), x itself is compared, as the combiner would.
+  if (LHS.getValueType() == MVT::i8 && isNullConstant(RHS) &&
+      LHS.getOpcode() == ISD::AND && LHS.hasOneUse() && MCC > M6809CC::LO)
+    if (auto *Mask = dyn_cast<ConstantSDNode>(LHS.getOperand(1))) {
+      SDValue X = LHS.getOperand(0);
+      const APInt &M = Mask->getAPIntValue();
+      KnownBits Known = DAG.computeKnownBits(X);
+      if ((~Known.Zero & ~M).isZero())
+        LHS = X;
+      else
+        return DAG.getNode(
+            M6809ISD::BITBR, DL, MVT::Other, Chain, X,
+            DAG.getConstant(Mask->getZExtValue(), DL, MVT::i8),
+            DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
+    }
   return DAG.getNode(M6809ISD::CMPBR, DL, MVT::Other, Chain, LHS, RHS,
                      DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
 }
