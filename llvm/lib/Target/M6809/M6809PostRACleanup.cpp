@@ -18,6 +18,12 @@
 // A dead load or move goes only if no later instruction reads the flags it
 // set; CC is reserved, so MachineInstr::isDead never deletes these.
 //
+// It also turns an addition into D that only feeds an index register, and
+// a load that only feeds a transfer, into one instruction:
+//
+//   pshs x / addd ,s++ / tfr d,x   into   leax d,x
+//   ldd 4,s / tfr d,x              into   ldx 4,s
+//
 //===----------------------------------------------------------------------===//
 
 #include "M6809.h"
@@ -26,6 +32,7 @@
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/LiveRegUnits.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -129,6 +136,117 @@ static MachineInstr *nextInstr(MachineInstr &MI) {
   return I == E ? nullptr : &*I;
 }
 
+// Does an instruction after MI read the flags before they are set again?
+// CC is reserved, so liveness does not track it. Flags never live across
+// blocks: each block's branch consumes them.
+static bool flagsReadAfter(MachineInstr &MI, const TargetRegisterInfo &TRI) {
+  for (MachineBasicBlock::iterator J = std::next(MI.getIterator()),
+                                   E = MI.getParent()->end();
+       J != E; ++J) {
+    if (J->readsRegister(M6809::CC, &TRI))
+      return true;
+    if (J->modifiesRegister(M6809::CC, &TRI))
+      return false;
+  }
+  return false;
+}
+
+// pshs r / addd ,s++ / tfr d,r2, where the flags are dead after: r2 = r + D
+// with "lear2 d,r", and "tfr r2,d" after it if D is still live.
+static bool foldAddIntoLea(MachineBasicBlock &MBB,
+                           const TargetRegisterInfo &TRI,
+                           const TargetInstrInfo &TII) {
+  bool Changed = false;
+  for (MachineBasicBlock::iterator I = MBB.begin(), E = MBB.end(); I != E;
+       ++I) {
+    if (I->getOpcode() != M6809::PSHS16)
+      continue;
+    Register R = I->getOperand(0).getReg();
+    if (R != M6809::X && R != M6809::Y && R != M6809::U)
+      continue;
+    MachineInstr *Add = nextInstr(*I);
+    if (!Add || Add->getOpcode() != M6809::ADDDpop)
+      continue;
+    MachineInstr *Tfr = nextInstr(*Add);
+    if (!Tfr || Tfr->getOpcode() != M6809::TFR16 ||
+        Tfr->getOperand(1).getReg() != M6809::D)
+      continue;
+    Register R2 = Tfr->getOperand(0).getReg();
+    if (R2 != M6809::X && R2 != M6809::Y && R2 != M6809::U)
+      continue;
+    // Liveness after the transfer.
+    LivePhysRegs Live(TRI);
+    Live.addLiveOuts(MBB);
+    for (MachineBasicBlock::iterator J = MBB.end(),
+                                     After = std::next(Tfr->getIterator());
+         J != After;)
+      Live.stepBackward(*--J);
+    const MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+    if (flagsReadAfter(*Tfr, TRI))
+      continue;
+    DebugLoc DL = Add->getDebugLoc();
+    MachineInstr *Lea =
+        BuildMI(MBB, Tfr->getIterator(), DL, TII.get(M6809::LEA16dr), R2)
+            .addReg(R)
+            .addReg(M6809::D);
+    if (!Live.available(MRI, M6809::D))
+      BuildMI(MBB, Tfr->getIterator(), DL, TII.get(M6809::TFR16), M6809::D)
+          .addReg(R2);
+    Tfr->eraseFromParent();
+    Add->eraseFromParent();
+    I->eraseFromParent();
+    I = Lea->getIterator();
+    Changed = true;
+  }
+  return Changed;
+}
+
+// A load that only feeds a transfer loads the destination directly:
+// "ldd 4,s; tfr d,x" is "ldx 4,s" when D is dead after. LD sets the flags
+// from the value whichever register it writes.
+static bool loadIntoTransferDest(MachineBasicBlock &MBB,
+                                 const TargetRegisterInfo &TRI) {
+  bool Changed = false;
+  const MachineRegisterInfo &MRI = MBB.getParent()->getRegInfo();
+  for (MachineInstr &MI : make_early_inc_range(MBB)) {
+    unsigned Opc = MI.getOpcode();
+    if (Opc != M6809::TFR16 && Opc != M6809::TFR8)
+      continue;
+    Register Dst = MI.getOperand(0).getReg();
+    Register Src = MI.getOperand(1).getReg();
+    const TargetRegisterClass &RC =
+        Opc == M6809::TFR16 ? M6809::GR16RegClass : M6809::ACC8RegClass;
+    if (!RC.contains(Dst) || !RC.contains(Src))
+      continue;
+    MachineBasicBlock::iterator PI = MI.getIterator();
+    if (PI == MBB.begin())
+      continue;
+    MachineInstr &Prev = *std::prev(PI);
+    unsigned POpc = Prev.getOpcode();
+    if (!(POpc == M6809::LD16m || POpc == M6809::LD16i ||
+          POpc == M6809::LD8m || POpc == M6809::LD8i) ||
+        Prev.getOperand(0).getReg() != Src || Prev.hasOrderedMemoryRef())
+      continue;
+    // "ldd ,x++; tfr d,x" must not become "ldx ,x++".
+    if ((POpc == M6809::LD16m || POpc == M6809::LD8m) &&
+        Prev.getOperand(3).getImm() != M6809Mem::Auto &&
+        Prev.getOperand(1).isReg() && Prev.getOperand(1).getReg() &&
+        TRI.regsOverlap(Prev.getOperand(1).getReg(), Dst))
+      continue;
+    LivePhysRegs Live(TRI);
+    Live.addLiveOuts(MBB);
+    for (MachineBasicBlock::iterator J = MBB.end(), After = std::next(PI);
+         J != After;)
+      Live.stepBackward(*--J);
+    if (!Live.available(MRI, Src))
+      continue;
+    Prev.getOperand(0).setReg(Dst);
+    MI.eraseFromParent();
+    Changed = true;
+  }
+  return Changed;
+}
+
 bool M6809PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
   if (DisableCleanup || skipFunction(MF.getFunction()))
     return false;
@@ -136,8 +254,10 @@ bool M6809PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   bool Changed = false;
 
+  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
   for (MachineBasicBlock &MBB : MF) {
-    bool BlockChanged = false;
+    bool BlockChanged = foldAddIntoLea(MBB, TRI, TII);
+    BlockChanged |= loadIntoTransferDest(MBB, TRI);
     for (MachineInstr &MI : MBB) {
       unsigned W = loadWidth(MI) | storeWidth(MI);
       MachineInstr *Next;

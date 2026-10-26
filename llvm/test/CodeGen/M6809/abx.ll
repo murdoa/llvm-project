@@ -23,8 +23,7 @@ define i16 @sum(ptr %p, i16 %n) {
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    puls u,pc
 ; CHECK-NEXT:  .LBB0_1:
-; CHECK-NEXT:    ldx #0
-; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    ldd #0
 ; CHECK-NEXT:    puls u,pc
 entry:
   %z = icmp eq i16 %n, 0
