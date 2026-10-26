@@ -1479,8 +1479,9 @@ unsigned M6809InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
     return getInlineAsmLength(MI.getOperand(0).getSymbolName(),
                               MF.getTarget().getMCAsmInfo());
   unsigned Guess = MI.getDesc().getSize();
-  // Branches start short and become long only in the assembler.
-  if (MI.isBranch())
+  // Branches start short and become long only in the assembler. A jump
+  // through memory (jmp n,x) has its operand's size, like any other.
+  if (MI.isBranch() && !MI.isIndirectBranch())
     return Guess;
   for (const MachineOperand &MO : MI.operands())
     if (MO.isReg() && MO.getReg().isVirtual())
