@@ -91,6 +91,15 @@ private:
   SDValue LowerCall(TargetLowering::CallLoweringInfo &CLI,
                     SmallVectorImpl<SDValue> &InVals) const override;
 
+  // A zeroext or signext byte result is extended to 8 bits only: it comes
+  // back in B, and callers never read A for it.
+  EVT getTypeForExtReturn(LLVMContext &Context, EVT VT,
+                          ISD::NodeType ExtendKind) const override {
+    if (VT.isInteger() && VT.bitsLE(MVT::i8))
+      return MVT::i8;
+    return TargetLowering::getTypeForExtReturn(Context, VT, ExtendKind);
+  }
+
   bool CanLowerReturn(CallingConv::ID CallConv, MachineFunction &MF,
                       bool IsVarArg,
                       const SmallVectorImpl<ISD::OutputArg> &Outs,
