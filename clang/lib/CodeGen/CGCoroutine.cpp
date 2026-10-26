@@ -1177,6 +1177,15 @@ RValue CodeGenFunction::EmitCoroutineIntrinsic(const CallExpr *E,
     Args.push_back(llvm::ConstantTokenNone::get(getLLVMContext()));
 
   llvm::Function *F = CGM.getIntrinsic(IID);
+  // The builtins take int where the intrinsics take i32 (the promise's
+  // alignment, for example), which differ on targets with a 16-bit int.
+  llvm::FunctionType *FTy = F->getFunctionType();
+  for (unsigned I = 0, N = std::min<unsigned>(Args.size(), FTy->getNumParams());
+       I != N; ++I)
+    if (Args[I]->getType()->isIntegerTy() &&
+        FTy->getParamType(I)->isIntegerTy())
+      Args[I] = Builder.CreateIntCast(Args[I], FTy->getParamType(I),
+                                      /*isSigned=*/true);
   llvm::CallInst *Call = Builder.CreateCall(F, Args);
 
   // Note: The following code is to enable to emit coro.id and coro.begin by
