@@ -11,6 +11,8 @@
 
 #include "M6809RegisterInfo.h"
 #include "llvm/CodeGen/TargetInstrInfo.h"
+#include "llvm/MC/MCCodeEmitter.h"
+#include <memory>
 
 #define GET_INSTRINFO_HEADER
 #include "M6809GenInstrInfo.inc"
@@ -22,6 +24,10 @@ class M6809Subtarget;
 class M6809InstrInfo : public M6809GenInstrInfo {
   const M6809RegisterInfo RI;
   const M6809Subtarget &STI;
+  // For getInstSizeInBytes, made on first use for the context it was made
+  // with.
+  mutable std::unique_ptr<MCCodeEmitter> Emitter;
+  mutable const MCContext *EmitterCtx = nullptr;
   virtual void anchor();
 
   bool expand6309(MachineInstr &MI) const;
@@ -53,6 +59,9 @@ public:
                               int &FrameIndex) const override;
 
   bool expandPostRAPseudo(MachineInstr &MI) const override;
+
+  // The encoded size, from the code emitter, once registers are allocated.
+  unsigned getInstSizeInBytes(const MachineInstr &MI) const override;
 
 protected:
   MachineInstr *foldMemoryOperandImpl(MachineFunction &MF, MachineInstr &MI,

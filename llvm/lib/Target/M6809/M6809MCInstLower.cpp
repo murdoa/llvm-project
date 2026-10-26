@@ -20,6 +20,8 @@
 using namespace llvm;
 
 MCOperand M6809MCInstLower::lowerSymbolOperand(const MachineOperand &MO) const {
+  if (!Printer)
+    return MCOperand::createExpr(MCConstantExpr::create(0x1234, Ctx));
   const MCSymbol *Sym;
   int64_t Offset = 0;
 
@@ -28,22 +30,22 @@ MCOperand M6809MCInstLower::lowerSymbolOperand(const MachineOperand &MO) const {
     Sym = MO.getMBB()->getSymbol();
     break;
   case MachineOperand::MO_GlobalAddress:
-    Sym = Printer.getSymbol(MO.getGlobal());
+    Sym = Printer->getSymbol(MO.getGlobal());
     Offset = MO.getOffset();
     break;
   case MachineOperand::MO_ExternalSymbol:
-    Sym = Printer.GetExternalSymbolSymbol(MO.getSymbolName());
+    Sym = Printer->GetExternalSymbolSymbol(MO.getSymbolName());
     Offset = MO.getOffset();
     break;
   case MachineOperand::MO_BlockAddress:
-    Sym = Printer.GetBlockAddressSymbol(MO.getBlockAddress());
+    Sym = Printer->GetBlockAddressSymbol(MO.getBlockAddress());
     Offset = MO.getOffset();
     break;
   case MachineOperand::MO_JumpTableIndex:
-    Sym = Printer.GetJTISymbol(MO.getIndex());
+    Sym = Printer->GetJTISymbol(MO.getIndex());
     break;
   case MachineOperand::MO_ConstantPoolIndex:
-    Sym = Printer.GetCPISymbol(MO.getIndex());
+    Sym = Printer->GetCPISymbol(MO.getIndex());
     Offset = MO.getOffset();
     break;
   default:

@@ -22,10 +22,12 @@ class MachineOperand;
 
 class LLVM_LIBRARY_VISIBILITY M6809MCInstLower {
   MCContext &Ctx;
-  AsmPrinter &Printer;
+  // Null when lowering only to measure an instruction: symbols then become
+  // a placeholder 16-bit constant.
+  AsmPrinter *Printer;
 
 public:
-  M6809MCInstLower(MCContext &Ctx, AsmPrinter &Printer)
+  M6809MCInstLower(MCContext &Ctx, AsmPrinter *Printer)
       : Ctx(Ctx), Printer(Printer) {}
 
   void lower(const MachineInstr *MI, MCInst &OutMI) const;

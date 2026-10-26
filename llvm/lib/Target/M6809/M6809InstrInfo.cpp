@@ -10,7 +10,15 @@
 #include "M6809.h"
 #include "M6809FrameLowering.h"
 #include "M6809MachineFunctionInfo.h"
+#include "M6809MCInstLower.h"
 #include "M6809Subtarget.h"
+#include "MCTargetDesc/M6809OpcodeTable.h"
+#include "TargetInfo/M6809TargetInfo.h"
+#include "llvm/MC/MCCodeEmitter.h"
+#include "llvm/MC/MCContext.h"
+#include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCSubtargetInfo.h"
+#include "llvm/MC/TargetRegistry.h"
 #include "llvm/CodeGen/LivePhysRegs.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -1397,4 +1405,70 @@ bool M6809InstrInfo::reverseBranchCondition(
   MachineOperand &CC = Cond.back();
   CC.setImm(M6809CC::getOpposite(static_cast<M6809CC::CondCode>(CC.getImm())));
   return false;
+}
+
+//===----------------------------------------------------------------------===//
+// Instruction sizes
+//===----------------------------------------------------------------------===//
+
+unsigned M6809InstrInfo::getInstSizeInBytes(const MachineInstr &MI) const {
+  if (MI.isMetaInstruction())
+    return 0;
+  const MachineFunction &MF = *MI.getMF();
+  if (MI.isInlineAsm())
+    return getInlineAsmLength(MI.getOperand(0).getSymbolName(),
+                              MF.getTarget().getMCAsmInfo());
+  unsigned Guess = MI.getDesc().getSize();
+  // Branches start short and become long only in the assembler.
+  if (MI.isBranch())
+    return Guess;
+  for (const MachineOperand &MO : MI.operands())
+    if (MO.isReg() && MO.getReg().isVirtual())
+      return Guess;
+  if (MI.isPseudo() && !MI.isCall()) {
+    // Expanded after register allocation, or lowered by M6809MCInstLower.
+    switch (MI.getOpcode()) {
+    case M6809::LD8dr:
+    case M6809::LD16dr:
+    case M6809::ST16dr:
+    case M6809::LEA16dr:
+    case M6809::LD8pi:
+    case M6809::LD16pi:
+    case M6809::LD8pd:
+    case M6809::LD16pd:
+    case M6809::ST8pi:
+    case M6809::ST16pi:
+    case M6809::ST8pd:
+    case M6809::ST16pd:
+      break;
+    default:
+      return Guess;
+    }
+  }
+  for (const MachineOperand &MO : MI.operands())
+    if (MO.isFI())
+      return Guess;
+
+  MCContext &Ctx = const_cast<MachineFunction &>(MF).getContext();
+  if (!Emitter || EmitterCtx != &Ctx) {
+    Emitter.reset(
+        getTheM6809Target().createMCCodeEmitter(*MF.getTarget().getMCInstrInfo(), Ctx));
+    EmitterCtx = &Ctx;
+  }
+  if (!Emitter)
+    return Guess;
+  MCInst Inst;
+  M6809MCInstLower(Ctx, nullptr).lower(&MI, Inst);
+  unsigned Reg = M6809::NoRegister;
+  for (const MCOperand &Op : Inst)
+    if (Op.isReg()) {
+      Reg = Op.getReg().id();
+      break;
+    }
+  if (!M6809::findOpcodeEntry(Inst.getOpcode(), Reg))
+    return Guess;
+  SmallVector<char, 8> Code;
+  SmallVector<MCFixup, 2> Fixups;
+  Emitter->encodeInstruction(Inst, Code, Fixups, STI);
+  return Code.size();
 }

@@ -31,7 +31,7 @@ public:
 
   M6809AsmPrinter(TargetMachine &TM, std::unique_ptr<MCStreamer> Streamer)
       : AsmPrinter(TM, std::move(Streamer), ID),
-        MCInstLowering(OutContext, *this) {}
+        MCInstLowering(OutContext, this) {}
 
   StringRef getPassName() const override { return "M6809 Assembly Printer"; }
 
