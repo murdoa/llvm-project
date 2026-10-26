@@ -59,8 +59,8 @@ e:
 define i32 @smax(i32 %a, i32 %b) {
 ; M6809-LABEL: smax:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -12,s
-; M6809-NEXT:    stu 10,s ; 2-byte Folded Spill
+; M6809-NEXT:    pshs u
+; M6809-NEXT:    leas -10,s
 ; M6809-NEXT:    tfr d, u
 ; M6809-NEXT:    ldd 16,s
 ; M6809-NEXT:    std 4,s ; 2-byte Folded Spill
@@ -86,9 +86,8 @@ define i32 @smax(i32 %a, i32 %b) {
 ; M6809-NEXT:  .LBB1_2:
 ; M6809-NEXT:    ldd 6,s ; 2-byte Folded Reload
 ; M6809-NEXT:    ldx 8,s ; 2-byte Folded Reload
-; M6809-NEXT:    ldu 10,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 12,s
-; M6809-NEXT:    rts
+; M6809-NEXT:    leas 10,s
+; M6809-NEXT:    puls u,pc
 ;
 ; H6309-LABEL: smax:
 ; H6309:       ; %bb.0:

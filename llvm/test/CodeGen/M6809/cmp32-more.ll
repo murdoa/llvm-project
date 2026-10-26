@@ -231,41 +231,37 @@ define i32 @sel_zero_low(i32 %a, i32 %x, i32 %y) {
 define i1 @setcc_sle(i32 %a, i32 %b) {
 ; M6809-LABEL: setcc_sle:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -4,s
-; M6809-NEXT:    stu 2,s ; 2-byte Folded Spill
+; M6809-NEXT:    pshs u
 ; M6809-NEXT:    tfr d, x
-; M6809-NEXT:    ldu 8,s
+; M6809-NEXT:    ldu 6,s
 ; M6809-NEXT:    ldb #1
 ; M6809-NEXT:    lda #1
-; M6809-NEXT:    stu ,s
-; M6809-NEXT:    cmpx ,s
+; M6809-NEXT:    pshs u
+; M6809-NEXT:    cmpx ,s++
 ; M6809-NEXT:    ble .LBB7_2
 ; M6809-NEXT:  ; %bb.1:
 ; M6809-NEXT:    clra
 ; M6809-NEXT:  .LBB7_2:
-; M6809-NEXT:    ldu 10,s
-; M6809-NEXT:    ldy 6,s
-; M6809-NEXT:    stu ,s
-; M6809-NEXT:    cmpy ,s
+; M6809-NEXT:    ldu 8,s
+; M6809-NEXT:    ldy 4,s
+; M6809-NEXT:    pshs u
+; M6809-NEXT:    cmpy ,s++
 ; M6809-NEXT:    bls .LBB7_4
 ; M6809-NEXT:  ; %bb.3:
 ; M6809-NEXT:    clrb
 ; M6809-NEXT:  .LBB7_4:
-; M6809-NEXT:    ldu 8,s
-; M6809-NEXT:    stu ,s
-; M6809-NEXT:    cmpx ,s
+; M6809-NEXT:    ldu 6,s
+; M6809-NEXT:    pshs u
+; M6809-NEXT:    cmpx ,s++
 ; M6809-NEXT:    beq .LBB7_6
 ; M6809-NEXT:  ; %bb.5:
 ; M6809-NEXT:    tfr a, b
 ; M6809-NEXT:  .LBB7_6:
-; M6809-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 4,s
-; M6809-NEXT:    rts
+; M6809-NEXT:    puls u,pc
 ;
 ; H6309-LABEL: setcc_sle:
 ; H6309:       ; %bb.0:
-; H6309-NEXT:    leas -2,s
-; H6309-NEXT:    stu ,s ; 2-byte Folded Spill
+; H6309-NEXT:    pshs u
 ; H6309-NEXT:    tfr d, w
 ; H6309-NEXT:    ldy 6,s
 ; H6309-NEXT:    ldb #1
@@ -278,18 +274,19 @@ define i1 @setcc_sle(i32 %a, i32 %b) {
 ; H6309-NEXT:    ldu 8,s
 ; H6309-NEXT:    ldx 4,s
 ; H6309-NEXT:    cmpr u, x
-; H6309-NEXT:    bls .LBB7_4
-; H6309-NEXT:  ; %bb.3:
+; H6309-NEXT:    bhi .LBB7_3
+; H6309-NEXT:  ; %bb.4:
+; H6309-NEXT:    cmpr y, w
+; H6309-NEXT:    bne .LBB7_5
+; H6309-NEXT:  .LBB7_6:
+; H6309-NEXT:    puls u,pc
+; H6309-NEXT:  .LBB7_3:
 ; H6309-NEXT:    clrb
-; H6309-NEXT:  .LBB7_4:
 ; H6309-NEXT:    cmpr y, w
 ; H6309-NEXT:    beq .LBB7_6
-; H6309-NEXT:  ; %bb.5:
+; H6309-NEXT:  .LBB7_5:
 ; H6309-NEXT:    tfr a, b
-; H6309-NEXT:  .LBB7_6:
-; H6309-NEXT:    ldu ,s ; 2-byte Folded Reload
-; H6309-NEXT:    leas 2,s
-; H6309-NEXT:    rts
+; H6309-NEXT:    puls u,pc
   %c = icmp sle i32 %a, %b
   ret i1 %c
 }

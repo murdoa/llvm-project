@@ -11,8 +11,8 @@
 define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-LABEL: mul_either:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -26,s
-; CHECK-NEXT:    stu 24,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -24,s
 ; CHECK-NEXT:    andb #1
 ; CHECK-NEXT:    ldx 32,s
 ; CHECK-NEXT:    ldy 30,s
@@ -44,7 +44,8 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-NEXT:    std g+2
 ; CHECK-NEXT:    ldd 16,s
 ; CHECK-NEXT:    std g
-; CHECK-NEXT:    bra .LBB0_3
+; CHECK-NEXT:    leas 24,s
+; CHECK-NEXT:    puls u,pc
 ; CHECK-NEXT:  .LBB0_2: ; %y
 ; CHECK-NEXT:    sty 10,s
 ; CHECK-NEXT:    stu 8,s
@@ -66,10 +67,8 @@ define void @mul_either(i1 %c, i64 %a, i64 %b) {
 ; CHECK-NEXT:    std h+2
 ; CHECK-NEXT:    ldd 16,s
 ; CHECK-NEXT:    std h
-; CHECK-NEXT:  .LBB0_3: ; %y
-; CHECK-NEXT:    ldu 24,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 26,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 24,s
+; CHECK-NEXT:    puls u,pc
   br i1 %c, label %x, label %y
 x:
   %p = mul i64 %a, %b

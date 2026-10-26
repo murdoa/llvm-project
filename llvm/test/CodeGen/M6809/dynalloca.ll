@@ -23,8 +23,7 @@ define void @vla(i16 %n) {
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    leas ,u
-; CHECK-NEXT:    puls u
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %fixed = alloca [4 x i8]
   %v = alloca i8, i16 %n
   call void @use(ptr %fixed, ptr %v)

@@ -10,21 +10,17 @@
 define i16 @setjmp() {
 ; CHECK-LABEL: setjmp:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    ldx #buf
 ; CHECK-NEXT:    ldd #.LBB0_3
 ; CHECK-NEXT:    std 2,x
 ; CHECK-NEXT:    stu 6,x
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    bra .LBB0_2
+; CHECK-NEXT:    puls u,pc
 ; CHECK-NEXT:  .LBB0_3: ; Block address taken
 ; CHECK-NEXT:    ldd #1
-; CHECK-NEXT:  .LBB0_2:
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %r = call i32 @llvm.eh.sjlj.setjmp(ptr @buf)
   %t = trunc i32 %r to i16
   ret i16 %t
@@ -33,8 +29,7 @@ define i16 @setjmp() {
 define void @longjmp() {
 ; CHECK-LABEL: longjmp:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    ldx #buf
 ; CHECK-NEXT:    ldu 6,x
 ; CHECK-NEXT:    lds 4,x

@@ -75,8 +75,8 @@ define void @memset_small(ptr %d) {
 define void @memset_local() {
 ; CHECK-LABEL: memset_local:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -70,s
-; CHECK-NEXT:    stu 68,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -68,s
 ; CHECK-NEXT:    ldd #64
 ; CHECK-NEXT:    std 2,s
 ; CHECK-NEXT:    ldd #1
@@ -86,9 +86,8 @@ define void @memset_local() {
 ; CHECK-NEXT:    jsr memset
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    jsr use
-; CHECK-NEXT:    ldu 68,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 70,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 68,s
+; CHECK-NEXT:    puls u,pc
   %a = alloca [64 x i8]
   call void @llvm.memset.p0.i16(ptr %a, i8 1, i16 64, i1 false)
   call void @use(ptr %a)

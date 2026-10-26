@@ -58,17 +58,14 @@ define i16 @call_stack_args() {
 define i16 @value_across_call(i16 %a) {
 ; CHECK-LABEL: value_across_call:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    jsr f0
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    leax d,x
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %r = call i16 @f0()
   %s = add i16 %r, %a
   ret i16 %s

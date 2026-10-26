@@ -91,8 +91,7 @@ define i16 @mul16x8_min(i16 %a, i8 %b) minsize {
 ; CHECK-NEXT:    std ,s
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    jsr __mulhi3
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls x,pc
   %x = zext i8 %b to i16
   %r = mul i16 %a, %x
   ret i16 %r

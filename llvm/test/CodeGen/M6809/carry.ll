@@ -49,8 +49,7 @@ define i32 @add32_imm(i32 %a) {
 define void @add32_mem(ptr %p, ptr %q) {
 ; CHECK-LABEL: add32_mem:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd 2,x
 ; CHECK-NEXT:    ldu ,x
@@ -63,9 +62,7 @@ define void @add32_mem(ptr %p, ptr %q) {
 ; CHECK-NEXT:    adca ,u
 ; CHECK-NEXT:    std ,x
 ; CHECK-NEXT:    sty 2,x
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %a = load i32, ptr %p
   %b = load i32, ptr %q
   %r = add i32 %a, %b
@@ -76,8 +73,8 @@ define void @add32_mem(ptr %p, ptr %q) {
 define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-LABEL: add64:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -6,s
-; CHECK-NEXT:    stu 4,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd 14,s
 ; CHECK-NEXT:    ldu 12,s
@@ -102,9 +99,8 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    std 4,x
 ; CHECK-NEXT:    stu 2,x
 ; CHECK-NEXT:    sty ,x
-; CHECK-NEXT:    ldu 4,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 6,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 4,s
+; CHECK-NEXT:    puls u,pc
   %r = add i64 %a, %b
   ret i64 %r
 }
@@ -196,8 +192,7 @@ define i32 @shl32_16(i32 %a) {
 define i32 @lshr32_8(i32 %a) {
 ; CHECK-LABEL: lshr32_8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldb 4,s
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
@@ -215,9 +210,7 @@ define i32 @lshr32_8(i32 %a) {
 ; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    clra
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %r = lshr i32 %a, 8
   ret i32 %r
 }

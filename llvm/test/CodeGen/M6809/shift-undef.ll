@@ -10,8 +10,7 @@
 define i32 @f(i32 %n) {
 ; CHECK-LABEL: f:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    ldd #-1
 ; CHECK-NEXT:    eora 4,s
 ; CHECK-NEXT:    eorb 5,s
@@ -41,9 +40,7 @@ define i32 @f(i32 %n) {
 ; CHECK-NEXT:    andb #1
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
 ;
 ; HD6309-LABEL: f:
 ; HD6309:       ; %bb.0:

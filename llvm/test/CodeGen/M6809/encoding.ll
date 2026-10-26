@@ -20,7 +20,7 @@ define i16 @f(i16 %a, ptr %p, i8 %c) {
 ; CHECK: pshs x ; encoding: [0x34,0x10]
 ; CHECK: eora ,s+ ; encoding: [0xa8,0xe0]
 ; CHECK: jsr h ; encoding: [0xbd,A,A]
-; CHECK: rts ; encoding: [0x39]
+; CHECK: puls u,pc ; encoding: [0x35,0xc0]
   %v = load i16, ptr %p
   %s = add i16 %a, %v
   %g = load i16, ptr @g

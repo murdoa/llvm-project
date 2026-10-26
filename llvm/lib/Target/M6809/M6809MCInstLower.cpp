@@ -193,6 +193,9 @@ static void toRealInstruction(MCInst &MI) {
         M6809::getPushPullMask(MI.getOperand(0).getReg(), false)));
     break;
   }
+  case M6809::PULSret: // puls ...,pc
+    MI.setOpcode(M6809::PULSr);
+    return;
   case M6809::CLRA: // the high byte of D
     Out.setOpcode(M6809::CLR8);
     Out.addOperand(MCOperand::createReg(M6809::A));

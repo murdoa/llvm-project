@@ -12,8 +12,7 @@
 define i16 @f(i16 %m, i16 %shr) {
 ; CHECK-LABEL: f:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldd 4,s
 ; CHECK-NEXT:    aslb
@@ -30,9 +29,7 @@ define i16 @f(i16 %m, i16 %shr) {
 ; CHECK-NEXT:    blt .LBB0_1
 ; CHECK-NEXT:  ; %bb.2: ; %done
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
 entry:
   br label %loop
 

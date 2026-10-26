@@ -7,8 +7,7 @@
 define i16 @sum(ptr %p, i16 %n) {
 ; CHECK-LABEL: sum:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    ldy 4,s
 ; CHECK-NEXT:    beq .LBB0_1
@@ -20,14 +19,13 @@ define i16 @sum(ptr %p, i16 %n) {
 ; CHECK-NEXT:    abx
 ; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB0_3
-; CHECK-NEXT:    bra .LBB0_4
+; CHECK-NEXT:  ; %bb.4: ; %exit
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    puls u,pc
 ; CHECK-NEXT:  .LBB0_1:
 ; CHECK-NEXT:    ldx #0
-; CHECK-NEXT:  .LBB0_4: ; %exit
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
 entry:
   %z = icmp eq i16 %n, 0
   br i1 %z, label %exit, label %loop

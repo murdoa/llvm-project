@@ -167,8 +167,8 @@ define void @sret(ptr sret(%struct.big) %p, i16 %v) {
 define i64 @call_i64() {
 ; CHECK-LABEL: call_i64:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -12,s
-; CHECK-NEXT:    stu 10,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -10,s
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    leax 2,s
 ; CHECK-NEXT:    tfr x, d
@@ -183,9 +183,8 @@ define i64 @call_i64() {
 ; CHECK-NEXT:    stx 2,u
 ; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std ,u
-; CHECK-NEXT:    ldu 10,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 12,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 10,s
+; CHECK-NEXT:    puls u,pc
   %r = call i64 @get64()
   ret i64 %r
 }

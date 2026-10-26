@@ -48,15 +48,12 @@ define void @symbol() {
 define void @clobber_u() {
 ; CHECK-LABEL: clobber_u:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    ;APP
 ; CHECK-NEXT:    nop
 ; CHECK-EMPTY:
 ; CHECK-NEXT:    ;NO_APP
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   call void asm sideeffect "nop", "~{x},~{y},~{u}"()
   ret void
 }

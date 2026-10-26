@@ -169,8 +169,8 @@ define i16 @v16_mem(i16 %a, i16 %x, i16 %y) {
 define i32 @v32_c16(i16 %a, i16 %b, i32 %x, i32 %y) {
 ; M6809-LABEL: v32_c16:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -8,s
-; M6809-NEXT:    stu 6,s ; 2-byte Folded Spill
+; M6809-NEXT:    pshs u
+; M6809-NEXT:    leas -6,s
 ; M6809-NEXT:    leax 16,s
 ; M6809-NEXT:    stx 2,s ; 2-byte Folded Spill
 ; M6809-NEXT:    leax 12,s
@@ -194,14 +194,12 @@ define i32 @v32_c16(i16 %a, i16 %b, i32 %x, i32 %y) {
 ; M6809-NEXT:    leax 2,x
 ; M6809-NEXT:    ldx ,x
 ; M6809-NEXT:    ldd 4,s ; 2-byte Folded Reload
-; M6809-NEXT:    ldu 6,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 8,s
-; M6809-NEXT:    rts
+; M6809-NEXT:    leas 6,s
+; M6809-NEXT:    puls u,pc
 ;
 ; H6309-LABEL: v32_c16:
 ; H6309:       ; %bb.0:
-; H6309-NEXT:    leas -2,s
-; H6309-NEXT:    stu ,s ; 2-byte Folded Spill
+; H6309-NEXT:    pshs u
 ; H6309-NEXT:    ldy 4,s
 ; H6309-NEXT:    leax 10,s
 ; H6309-NEXT:    tfr x, w
@@ -222,9 +220,7 @@ define i32 @v32_c16(i16 %a, i16 %b, i32 %x, i32 %y) {
 ; H6309-NEXT:    leax 2,x
 ; H6309-NEXT:    ldx ,x
 ; H6309-NEXT:    tfr y, d
-; H6309-NEXT:    ldu ,s ; 2-byte Folded Reload
-; H6309-NEXT:    leas 2,s
-; H6309-NEXT:    rts
+; H6309-NEXT:    puls u,pc
   %c = icmp ugt i16 %a, %b
   %r = select i1 %c, i32 %x, i32 %y
   ret i32 %r

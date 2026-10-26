@@ -10,8 +10,7 @@
 define i32 @add32_regs(i32 %a, i32 %b) {
 ; CHECK-LABEL: add32_regs:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, w
 ; CHECK-NEXT:    ldd 8,s
 ; CHECK-NEXT:    ldx 6,s
@@ -28,9 +27,7 @@ define i32 @add32_regs(i32 %a, i32 %b) {
 ; CHECK-NEXT:    tfr u, w
 ; CHECK-NEXT:    addr w, x
 ; CHECK-NEXT:    adcr y, d
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %x = shl i32 %a, 1
   %y = shl i32 %b, 1
   %r = add i32 %x, %y
@@ -40,8 +37,7 @@ define i32 @add32_regs(i32 %a, i32 %b) {
 define i32 @sub32_regs(i32 %a, i32 %b) {
 ; CHECK-LABEL: sub32_regs:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, w
 ; CHECK-NEXT:    ldd 8,s
 ; CHECK-NEXT:    ldx 6,s
@@ -58,9 +54,7 @@ define i32 @sub32_regs(i32 %a, i32 %b) {
 ; CHECK-NEXT:    tfr u, w
 ; CHECK-NEXT:    subr w, x
 ; CHECK-NEXT:    sbcr y, d
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %x = shl i32 %a, 1
   %y = shl i32 %b, 1
   %r = sub i32 %x, %y
@@ -112,8 +106,8 @@ define i16 @sub_xor(ptr %p, ptr %q) {
 define i64 @add64_imm(i64 %a) {
 ; CHECK-LABEL: add64_imm:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    addd 12,s
@@ -132,9 +126,8 @@ define i64 @add64_imm(i64 %a) {
 ; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 2,x
 ; CHECK-NEXT:    sty ,x
-; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 4,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    puls u,pc
   %r = add i64 %a, 1
   ret i64 %r
 }
@@ -143,8 +136,8 @@ define i64 @add64_imm(i64 %a) {
 define i16 @counter_in_w(ptr %a, ptr %b, ptr %c, ptr %d, i16 %n) {
 ; CHECK-LABEL: counter_in_w:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -6,s
-; CHECK-NEXT:    stu 4,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    clrd
 ; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
@@ -171,9 +164,8 @@ define i16 @counter_in_w(ptr %a, ptr %b, ptr %c, ptr %d, i16 %n) {
 ; CHECK-NEXT:    bne .LBB5_1
 ; CHECK-NEXT:  ; %bb.2: ; %exit
 ; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    ldu 4,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 6,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 4,s
+; CHECK-NEXT:    puls u,pc
 entry:
   br label %loop
 loop:

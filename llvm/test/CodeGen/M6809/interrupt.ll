@@ -40,12 +40,10 @@ define void @calls() "interrupt" {
 ;
 ; HD6309-LABEL: calls:
 ; HD6309:       ; %bb.0:
-; HD6309-NEXT:    leas -2,s
-; HD6309-NEXT:    stw ,s ; 2-byte Folded Spill
+; HD6309-NEXT:    pshsw
 ; HD6309-NEXT:    ldd count
 ; HD6309-NEXT:    jsr work
-; HD6309-NEXT:    ldw ,s ; 2-byte Folded Reload
-; HD6309-NEXT:    leas 2,s
+; HD6309-NEXT:    pulsw
 ; HD6309-NEXT:    rti
   %c = load volatile i16, ptr @count
   call void @work(i16 %c)
@@ -61,12 +59,10 @@ define void @tail() "interrupt" {
 ;
 ; HD6309-LABEL: tail:
 ; HD6309:       ; %bb.0:
-; HD6309-NEXT:    leas -2,s
-; HD6309-NEXT:    stw ,s ; 2-byte Folded Spill
+; HD6309-NEXT:    pshsw
 ; HD6309-NEXT:    ldd #1
 ; HD6309-NEXT:    jsr work
-; HD6309-NEXT:    ldw ,s ; 2-byte Folded Reload
-; HD6309-NEXT:    leas 2,s
+; HD6309-NEXT:    pulsw
 ; HD6309-NEXT:    rti
   tail call void @work(i16 1)
   ret void

@@ -368,8 +368,8 @@ declare void @use3(i16, i16, i16)
 define void @loop_in_call(i16 %a, i16 %b, i16 %n) {
 ; M6809-LABEL: loop_in_call:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -6,s
-; M6809-NEXT:    stu 4,s ; 2-byte Folded Spill
+; M6809-NEXT:    pshs u
+; M6809-NEXT:    leas -4,s
 ; M6809-NEXT:    tfr d, u
 ; M6809-NEXT:    ldd 10,s
 ; M6809-NEXT:    std 2,s
@@ -392,9 +392,8 @@ define void @loop_in_call(i16 %a, i16 %b, i16 %n) {
 ; M6809-NEXT:    std ,s
 ; M6809-NEXT:    tfr u, d
 ; M6809-NEXT:    jsr use3
-; M6809-NEXT:    ldu 4,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 6,s
-; M6809-NEXT:    rts
+; M6809-NEXT:    leas 4,s
+; M6809-NEXT:    puls u,pc
 ;
 ; H6309-LABEL: loop_in_call:
 ; H6309:       ; %bb.0:

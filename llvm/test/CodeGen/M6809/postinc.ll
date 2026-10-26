@@ -42,8 +42,7 @@ done:
 define void @copy16(ptr %d, ptr %s, i16 %n) {
 ; CHECK-LABEL: copy16:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldy 6,s
 ; CHECK-NEXT:    beq .LBB1_3
@@ -56,9 +55,7 @@ define void @copy16(ptr %d, ptr %s, i16 %n) {
 ; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB1_2
 ; CHECK-NEXT:  .LBB1_3: ; %done
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
 entry:
   %z = icmp eq i16 %n, 0
   br i1 %z, label %done, label %loop
@@ -104,8 +101,8 @@ done:
 define i16 @strlen(ptr %s) {
 ; CHECK-LABEL: strlen:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -5,s
-; CHECK-NEXT:    stu 3,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -3,s
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    tfr y, x
 ; CHECK-NEXT:    leax -1,x
@@ -121,9 +118,8 @@ define i16 @strlen(ptr %s) {
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    sty 1,s
 ; CHECK-NEXT:    subd 1,s
-; CHECK-NEXT:    ldu 3,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 5,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 3,s
+; CHECK-NEXT:    puls u,pc
 entry:
   br label %loop
 loop:
@@ -203,8 +199,7 @@ done:
 define void @copy_down(ptr %d, ptr %s, i16 %n) {
 ; CHECK-LABEL: copy_down:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldy 6,s
 ; CHECK-NEXT:    beq .LBB6_3
@@ -217,9 +212,7 @@ define void @copy_down(ptr %d, ptr %s, i16 %n) {
 ; CHECK-NEXT:    leay -1,y
 ; CHECK-NEXT:    bne .LBB6_2
 ; CHECK-NEXT:  .LBB6_3: ; %done
-; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 2,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
 entry:
   %z = icmp eq i16 %n, 0
   br i1 %z, label %done, label %loop

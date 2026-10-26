@@ -9,8 +9,8 @@
 define i8 @parity(i16 %v) {
 ; CHECK-LABEL: parity:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr a, b
 ; CHECK-NEXT:    clra
@@ -47,14 +47,13 @@ define i8 @parity(i16 %v) {
 ; CHECK-NEXT:    eorb ,s+
 ; CHECK-NEXT:    ; kill: def $b killed $b killed $d
 ; CHECK-NEXT:    andb #1
-; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 4,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    puls u,pc
 ;
 ; OFF-LABEL: parity:
 ; OFF:       ; %bb.0: ; %entry
-; OFF-NEXT:    leas -4,s
-; OFF-NEXT:    stu 2,s ; 2-byte Folded Spill
+; OFF-NEXT:    pshs u
+; OFF-NEXT:    leas -2,s
 ; OFF-NEXT:    std ,s ; 2-byte Folded Spill
 ; OFF-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; OFF-NEXT:    tfr a, b
@@ -92,9 +91,8 @@ define i8 @parity(i16 %v) {
 ; OFF-NEXT:    eorb ,s+
 ; OFF-NEXT:    ; kill: def $b killed $b killed $d
 ; OFF-NEXT:    andb #1
-; OFF-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; OFF-NEXT:    leas 4,s
-; OFF-NEXT:    rts
+; OFF-NEXT:    leas 2,s
+; OFF-NEXT:    puls u,pc
 entry:
   %shr = lshr i16 %v, 8
   %xor = xor i16 %shr, %v

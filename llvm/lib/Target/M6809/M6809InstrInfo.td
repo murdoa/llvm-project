@@ -965,6 +965,10 @@ let Uses = [S], Defs = [S] in {
   def PSHSr : M6809Inst<(outs), (ins reglist:$regs), "pshs\t$regs", [], 2>;
   def PULSr : M6809Inst<(outs), (ins reglist:$regs), "puls\t$regs", [], 2>;
 }
+// "puls u,pc": the epilogue's pulls with the return folded in.
+let isReturn = 1, isTerminator = 1, isBarrier = 1, Uses = [S], Defs = [S],
+    isCodeGenOnly = 1 in
+def PULSret : M6809Inst<(outs), (ins reglist:$regs), "puls\t$regs", [], 2>;
 let Uses = [U], Defs = [U] in {
   def PSHUr : M6809Inst<(outs), (ins reglist_u:$regs), "pshu\t$regs", [], 2>;
   def PULUr : M6809Inst<(outs), (ins reglist_u:$regs), "pulu\t$regs", [], 2>;

@@ -83,16 +83,16 @@ done:
 define void @indirect_framed(ptr %p, i16 %a) {
 ; CHECK-LABEL: indirect_framed:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldu 6,s
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    jsr g
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    ldx ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 4,s
+; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    puls u
 ; CHECK-NEXT:    jmp ,x
   call void @g(i16 %a)
   tail call void %p(i16 %a)

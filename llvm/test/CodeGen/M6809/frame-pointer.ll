@@ -36,8 +36,7 @@ define i16 @stack_arg(i16 %n, i16 %b) {
 ; CHECK-NEXT:    leas 4,s
 ; CHECK-NEXT:    ldd 4,u
 ; CHECK-NEXT:    leas ,u
-; CHECK-NEXT:    puls u
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %p = alloca i8, i16 %n
   call void @use3(ptr %p, i16 %b, i16 %n)
   ret i16 %b
@@ -63,8 +62,7 @@ define i16 @local(i16 %n) {
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    ldd -2,u
 ; CHECK-NEXT:    leas ,u
-; CHECK-NEXT:    puls u
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %l = alloca i16
   %p = alloca i8, i16 %n
   call void @use(ptr %l)
@@ -87,8 +85,7 @@ define i8 @byval(i16 %n, ptr byval(%S) %s) {
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    ldb 6,u
 ; CHECK-NEXT:    leas ,u
-; CHECK-NEXT:    puls u
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %p = alloca i8, i16 %n
   call void @use(ptr %p)
   %q = getelementptr %S, ptr %s, i16 0, i32 1
@@ -112,8 +109,7 @@ define ptr @frameaddr(i16 %n) {
 ; CHECK-NEXT:    leax 2,u
 ; CHECK-NEXT:    tfr x, d
 ; CHECK-NEXT:    leas ,u
-; CHECK-NEXT:    puls u
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %p = alloca i8, i16 %n
   call void @use(ptr %p)
   %f = call ptr @llvm.frameaddress.p0(i32 0)
@@ -133,8 +129,7 @@ define ptr @retaddr(i16 %n) {
 ; CHECK-NEXT:    jsr use
 ; CHECK-NEXT:    ldd 2,u
 ; CHECK-NEXT:    leas ,u
-; CHECK-NEXT:    puls u
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %p = alloca i8, i16 %n
   call void @use(ptr %p)
   %f = call ptr @llvm.returnaddress(i32 0)
@@ -159,8 +154,7 @@ define void @save_restore(i16 %n) {
 ; CHECK-NEXT:    ldd -2,u ; 2-byte Folded Reload
 ; CHECK-NEXT:    tfr d, s
 ; CHECK-NEXT:    leas ,u
-; CHECK-NEXT:    puls u
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    puls u,pc
   %s = call ptr @llvm.stacksave.p0()
   %p = alloca i8, i16 %n
   call void @use(ptr %p)

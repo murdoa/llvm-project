@@ -77,8 +77,8 @@ define i16 @or_bools(ptr %p) {
 define i64 @neg64(i64 %a) {
 ; M6809-LABEL: neg64:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -6,s
-; M6809-NEXT:    stu 4,s ; 2-byte Folded Spill
+; M6809-NEXT:    pshs u
+; M6809-NEXT:    leas -4,s
 ; M6809-NEXT:    tfr d, x
 ; M6809-NEXT:    ldd #0
 ; M6809-NEXT:    subd 14,s
@@ -101,14 +101,13 @@ define i64 @neg64(i64 %a) {
 ; M6809-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; M6809-NEXT:    std 2,x
 ; M6809-NEXT:    sty ,x
-; M6809-NEXT:    ldu 4,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 6,s
-; M6809-NEXT:    rts
+; M6809-NEXT:    leas 4,s
+; M6809-NEXT:    puls u,pc
 ;
 ; H6309-LABEL: neg64:
 ; H6309:       ; %bb.0:
-; H6309-NEXT:    leas -4,s
-; H6309-NEXT:    stu 2,s ; 2-byte Folded Spill
+; H6309-NEXT:    pshs u
+; H6309-NEXT:    leas -2,s
 ; H6309-NEXT:    tfr d, x
 ; H6309-NEXT:    clrd
 ; H6309-NEXT:    subd 12,s
@@ -127,9 +126,8 @@ define i64 @neg64(i64 %a) {
 ; H6309-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; H6309-NEXT:    std 2,x
 ; H6309-NEXT:    sty ,x
-; H6309-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; H6309-NEXT:    leas 4,s
-; H6309-NEXT:    rts
+; H6309-NEXT:    leas 2,s
+; H6309-NEXT:    puls u,pc
   %r = sub i64 0, %a
   ret i64 %r
 }

@@ -6,8 +6,8 @@
 define i16 @umulh16(i16 %a, i16 %b) {
 ; CHECK-LABEL: umulh16:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -7,s
-; CHECK-NEXT:    stu 5,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -5,s
 ; CHECK-NEXT:    tfr d, y
 ; CHECK-NEXT:    ldx 9,s
 ; CHECK-NEXT:    tfr x, d
@@ -69,9 +69,8 @@ define i16 @umulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    tfr u, d
 ; CHECK-NEXT:    leax d,x
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    ldu 5,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 7,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 5,s
+; CHECK-NEXT:    puls u,pc
   %r = call i16 @llvm.umulh.i16(i16 %a, i16 %b)
   ret i16 %r
 }
@@ -79,8 +78,8 @@ define i16 @umulh16(i16 %a, i16 %b) {
 define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-LABEL: smulh16:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -13,s
-; CHECK-NEXT:    stu 11,s ; 2-byte Folded Spill
+; CHECK-NEXT:    pshs u
+; CHECK-NEXT:    leas -11,s
 ; CHECK-NEXT:    tfr d, u
 ; CHECK-NEXT:    ldx 15,s
 ; CHECK-NEXT:    tfr x, d
@@ -174,9 +173,8 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    tfr u, x
 ; CHECK-NEXT:  .LBB1_6:
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    ldu 11,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 13,s
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    leas 11,s
+; CHECK-NEXT:    puls u,pc
   %r = call i16 @llvm.smulh.i16(i16 %a, i16 %b)
   ret i16 %r
 }
