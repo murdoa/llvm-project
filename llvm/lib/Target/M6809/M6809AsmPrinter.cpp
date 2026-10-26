@@ -13,6 +13,7 @@
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/MC/MCInst.h"
+#include "llvm/MC/MCInstBuilder.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Compiler.h"
@@ -40,10 +41,17 @@ public:
       return;
     M6809_MC::verifyInstructionPredicates(MI->getOpcode(),
                                           getSubtargetInfo().getFeatureBits());
+    if (MI->getOpcode() == M6809::COPYLOOP ||
+        MI->getOpcode() == M6809::SETLOOP) {
+      emitLoop(*MI);
+      return;
+    }
     MCInst Inst;
     MCInstLowering.lower(MI, Inst);
     EmitToStreamer(*OutStreamer, Inst);
   }
+
+  void emitLoop(const MachineInstr &MI);
 
   bool PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
                        const char *ExtraCode, raw_ostream &OS) override;
@@ -52,6 +60,51 @@ public:
 };
 
 } // namespace
+
+// ldb #len; 1: lda ,src+; sta ,dst+; decb; bne 1b
+// lda #val; ldb #len; 1: sta ,dst+; decb; bne 1b
+void M6809AsmPrinter::emitLoop(const MachineInstr &MI) {
+  bool Cpy = MI.getOpcode() == M6809::COPYLOOP;
+  MCRegister Dst = MI.getOperand(Cpy ? 2 : 1).getReg();
+  auto Mem = [](MCInst &I, MCRegister Base) {
+    I.addOperand(MCOperand::createReg(Base));
+    I.addOperand(MCOperand::createImm(0));
+    I.addOperand(MCOperand::createImm(M6809Mem::PostInc1));
+  };
+  if (!Cpy) {
+    int64_t Val = MI.getOperand(2).getImm();
+    if (Val == 0)
+      EmitToStreamer(*OutStreamer,
+                     MCInstBuilder(M6809::CLR8).addReg(M6809::A));
+    else
+      EmitToStreamer(*OutStreamer,
+                     MCInstBuilder(M6809::LD8i).addReg(M6809::A).addImm(Val));
+  }
+  EmitToStreamer(*OutStreamer, MCInstBuilder(M6809::LD8i)
+                                   .addReg(M6809::B)
+                                   .addImm(MI.getOperand(Cpy ? 4 : 3).getImm()));
+  MCSymbol *Loop = OutContext.createTempSymbol();
+  OutStreamer->emitLabel(Loop);
+  if (Cpy) {
+    MCInst Ld;
+    Ld.setOpcode(M6809::LD8m);
+    Ld.addOperand(MCOperand::createReg(M6809::A));
+    Mem(Ld, MI.getOperand(3).getReg());
+    EmitToStreamer(*OutStreamer, Ld);
+  }
+  MCInst St;
+  St.setOpcode(M6809::ST8m);
+  St.addOperand(MCOperand::createReg(M6809::A));
+  Mem(St, Dst);
+  EmitToStreamer(*OutStreamer, St);
+  EmitToStreamer(*OutStreamer, MCInstBuilder(M6809::DEC8)
+                                   .addReg(M6809::B)
+                                   .addReg(M6809::B));
+  EmitToStreamer(*OutStreamer,
+                 MCInstBuilder(M6809::Bcc)
+                     .addImm(M6809CC::NE)
+                     .addExpr(MCSymbolRefExpr::create(Loop, OutContext)));
+}
 
 bool M6809AsmPrinter::PrintAsmOperand(const MachineInstr *MI, unsigned OpNo,
                                       const char *ExtraCode, raw_ostream &OS) {

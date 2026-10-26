@@ -1017,3 +1017,30 @@ def : Pat<(i16 (atomic_load_nonext_16 addr:$a)), (LD16m addr:$a)>;
 def : Pat<(atomic_store_8 ACC8:$v, addr:$a), (ST8m ACC8:$v, addr:$a)>;
 def : Pat<(atomic_store_16 GR16:$v, addr:$a), (ST16m GR16:$v, addr:$a)>;
 def : Pat<(atomic_fence timm, timm), (MEMBARRIER)>;
+
+// Short block copy and fill, for lengths of 1 to 255 that are too long to
+// unroll at the size the function is optimized for:
+//   ldb #len; 1: lda ,src+; sta ,dst+; decb; bne 1b
+//   lda #val; ldb #len; 1: sta ,dst+; decb; bne 1b
+// M6809AsmPrinter writes the loop. The pseudos return the advanced pointers,
+// which nothing uses.
+def SDT_M6809CopyLoop : SDTypeProfile<0, 3, [SDTCisVT<0, i16>,
+                                             SDTCisVT<1, i16>,
+                                             SDTCisVT<2, i8>]>;
+def M6809CopyLoop : SDNode<"M6809ISD::COPYLOOP", SDT_M6809CopyLoop,
+                           [SDNPHasChain, SDNPMayLoad, SDNPMayStore]>;
+def SDT_M6809SetLoop : SDTypeProfile<0, 3, [SDTCisVT<0, i16>,
+                                            SDTCisVT<1, i8>,
+                                            SDTCisVT<2, i8>]>;
+def M6809SetLoop : SDNode<"M6809ISD::SETLOOP", SDT_M6809SetLoop,
+                          [SDNPHasChain, SDNPMayStore]>;
+let Defs = [A, B, CC], mayStore = 1, hasSideEffects = 0 in {
+  let mayLoad = 1, Size = 9, Constraints = "$dst = $dstout, $src = $srcout" in
+  def COPYLOOP : M6809Pseudo<(outs IDX16:$dstout, IDX16:$srcout),
+                             (ins IDX16:$dst, IDX16:$src, i8imm_op:$len),
+                             "", []>;
+  let Size = 9, Constraints = "$dst = $dstout" in
+  def SETLOOP : M6809Pseudo<(outs IDX16:$dstout),
+                            (ins IDX16:$dst, i8imm_op:$val, i8imm_op:$len),
+                            "", []>;
+}

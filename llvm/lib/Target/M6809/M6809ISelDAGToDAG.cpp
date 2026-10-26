@@ -247,5 +247,24 @@ void M6809DAGToDAGISel::Select(SDNode *N) {
     return;
   }
 
+  // Short copy and fill loops; see COPYLOOP.
+  if (N->getOpcode() == M6809ISD::COPYLOOP ||
+      N->getOpcode() == M6809ISD::SETLOOP) {
+    SDLoc DL(N);
+    bool Cpy = N->getOpcode() == M6809ISD::COPYLOOP;
+    SDValue Ops[] = {N->getOperand(1), N->getOperand(2), N->getOperand(3),
+                     N->getOperand(0)};
+    MachineSDNode *MN =
+        Cpy ? CurDAG->getMachineNode(M6809::COPYLOOP, DL, MVT::i16, MVT::i16,
+                                     MVT::Other, Ops)
+            : CurDAG->getMachineNode(M6809::SETLOOP, DL, MVT::i16, MVT::Other,
+                                     Ops);
+    if (auto *MemN = dyn_cast<MemSDNode>(N))
+      CurDAG->setNodeMemRefs(MN, {MemN->getMemOperand()});
+    ReplaceUses(SDValue(N, 0), SDValue(MN, Cpy ? 2 : 1));
+    CurDAG->RemoveDeadNode(N);
+    return;
+  }
+
   SelectCode(N);
 }

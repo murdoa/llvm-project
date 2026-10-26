@@ -7,15 +7,14 @@
 define void @from_word(ptr %agg.result, i16 %w) minsize {
 ; CHECK-LABEL: from_word:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldy 6,s
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldx 2,s
 ; CHECK-NEXT:    beq .LBB0_4
 ; CHECK-NEXT:  ; %bb.1: ; %if.end
-; CHECK-NEXT:    ldd 6,s
+; CHECK-NEXT:    ldd 2,s
 ; CHECK-NEXT:    ; kill: def $b killed $b killed $d
 ; CHECK-NEXT:    stb ,x
-; CHECK-NEXT:    ldd 6,s
+; CHECK-NEXT:    ldd 2,s
 ; CHECK-NEXT:    bge .LBB0_3
 ; CHECK-NEXT:  ; %bb.2:
 ; CHECK-NEXT:    nega
@@ -24,14 +23,15 @@ define void @from_word(ptr %agg.result, i16 %w) minsize {
 ; CHECK-NEXT:  .LBB0_3: ; %if.end
 ; CHECK-NEXT:    ; kill: def $b killed $b killed $d
 ; CHECK-NEXT:    stb 0
-; CHECK-NEXT:    ldd #5
-; CHECK-NEXT:    std 2,s
-; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    std ,s
-; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    jsr memcpy
+; CHECK-NEXT:    ldx #0
+; CHECK-NEXT:    ldb #5
+; CHECK-NEXT:  .Ltmp0:
+; CHECK-NEXT:    lda ,x+
+; CHECK-NEXT:    sta ,y+
+; CHECK-NEXT:    decb
+; CHECK-NEXT:    bne .Ltmp0
 ; CHECK-NEXT:  .LBB0_4: ; %if.then
-; CHECK-NEXT:    puls x,y,pc
+; CHECK-NEXT:    rts
 entry:
   %cmp = icmp eq i16 %w, 0
   br i1 %cmp, label %if.then, label %if.end

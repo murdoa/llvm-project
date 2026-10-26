@@ -56,7 +56,7 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   setSchedulingPreference(Sched::RegPressure);
   setMinFunctionAlignment(Align(1));
   MaxStoresPerMemcpyOptSize = MaxStoresPerMemmoveOptSize = 2;
-  MaxStoresPerMemsetOptSize = 5;
+  MaxStoresPerMemsetOptSize = 3;
   setPrefFunctionAlignment(Align(1));
 
   // Loads only produce whole registers. Extending loads become a load plus

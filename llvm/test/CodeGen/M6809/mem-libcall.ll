@@ -2,7 +2,9 @@
 ; RUN: llc -mtriple=m6809 -verify-machineinstrs < %s | FileCheck %s
 
 ; On the 6809, memcpy, memset and memmove that are not inlined as loads
-; and stores call the C library (hd6309-tfm.ll has the HD6309's TFM).
+; and stores call the C library (hd6309-tfm.ll has the HD6309's TFM), unless
+; the length is a constant of at most 255 (and for memset the value is a
+; constant too): then a loop counts in B (memcpy-inline.ll).
 
 declare void @use(ptr)
 
@@ -44,13 +46,14 @@ define void @memcpy_var(ptr %d, ptr %s, i16 %n) {
 define void @memcpy_volatile(ptr %d, ptr %s) {
 ; CHECK-LABEL: memcpy_volatile:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    ldx #64
-; CHECK-NEXT:    stx 2,s
-; CHECK-NEXT:    ldx 6,s
-; CHECK-NEXT:    stx ,s
-; CHECK-NEXT:    jsr memcpy
-; CHECK-NEXT:    leas 4,s
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    ldb #64
+; CHECK-NEXT:  .Ltmp0:
+; CHECK-NEXT:    lda ,x+
+; CHECK-NEXT:    sta ,y+
+; CHECK-NEXT:    decb
+; CHECK-NEXT:    bne .Ltmp0
 ; CHECK-NEXT:    rts
   call void @llvm.memcpy.p0.p0.i16(ptr %d, ptr %s, i16 64, i1 true)
   ret void
@@ -75,19 +78,19 @@ define void @memset_small(ptr %d) {
 define void @memset_local() {
 ; CHECK-LABEL: memset_local:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    pshs u
-; CHECK-NEXT:    leas -68,s
-; CHECK-NEXT:    ldd #64
-; CHECK-NEXT:    std 2,s
-; CHECK-NEXT:    ldd #1
-; CHECK-NEXT:    std ,s
-; CHECK-NEXT:    leau 4,s
-; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    jsr memset
-; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    leas -64,s
+; CHECK-NEXT:    leay ,s
+; CHECK-NEXT:    tfr y, x
+; CHECK-NEXT:    lda #1
+; CHECK-NEXT:    ldb #64
+; CHECK-NEXT:  .Ltmp1:
+; CHECK-NEXT:    sta ,x+
+; CHECK-NEXT:    decb
+; CHECK-NEXT:    bne .Ltmp1
+; CHECK-NEXT:    tfr y, d
 ; CHECK-NEXT:    jsr use
-; CHECK-NEXT:    leas 68,s
-; CHECK-NEXT:    puls u,pc
+; CHECK-NEXT:    leas 64,s
+; CHECK-NEXT:    rts
   %a = alloca [64 x i8]
   call void @llvm.memset.p0.i16(ptr %a, i8 1, i16 64, i1 false)
   call void @use(ptr %a)

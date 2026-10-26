@@ -26,8 +26,14 @@ SDValue M6809SelectionDAGInfo::EmitTargetCodeForMemcpy(
     SelectionDAG &DAG, const SDLoc &DL, SDValue Chain, SDValue Dst, SDValue Src,
     SDValue Size, Align, Align, bool, bool, MachinePointerInfo,
     MachinePointerInfo) const {
-  if (!DAG.getSubtarget<M6809Subtarget>().has6309())
-    return SDValue();
+  if (!DAG.getSubtarget<M6809Subtarget>().has6309()) {
+    // A copy of a known length short enough for B to count.
+    auto *C = dyn_cast<ConstantSDNode>(Size);
+    if (!C || C->getZExtValue() == 0 || C->getZExtValue() > 255)
+      return SDValue();
+    return DAG.getNode(M6809ISD::COPYLOOP, DL, MVT::Other, Chain, Dst, Src,
+                       DAG.getTargetConstant(C->getZExtValue(), DL, MVT::i8));
+  }
   Size = DAG.getZExtOrTrunc(Size, DL, MVT::i16);
   return DAG.getNode(M6809ISD::TFMCPY, DL, MVT::Other, Chain, Dst, Src, Size);
 }
@@ -35,8 +41,17 @@ SDValue M6809SelectionDAGInfo::EmitTargetCodeForMemcpy(
 SDValue M6809SelectionDAGInfo::EmitTargetCodeForMemset(
     SelectionDAG &DAG, const SDLoc &DL, SDValue Chain, SDValue Dst, SDValue Val,
     SDValue Size, Align, bool, bool, MachinePointerInfo) const {
-  if (!DAG.getSubtarget<M6809Subtarget>().has6309())
-    return SDValue();
+  if (!DAG.getSubtarget<M6809Subtarget>().has6309()) {
+    // A fill of a known value and length short enough for B to count.
+    auto *C = dyn_cast<ConstantSDNode>(Size);
+    auto *V = dyn_cast<ConstantSDNode>(Val);
+    if (!C || !V || C->getZExtValue() == 0 || C->getZExtValue() > 255)
+      return SDValue();
+    return DAG.getNode(
+        M6809ISD::SETLOOP, DL, MVT::Other, Chain, Dst,
+        DAG.getTargetConstant(V->getZExtValue() & 0xFF, DL, MVT::i8),
+        DAG.getTargetConstant(C->getZExtValue(), DL, MVT::i8));
+  }
   Size = DAG.getZExtOrTrunc(Size, DL, MVT::i16);
   Val = DAG.getZExtOrTrunc(Val, DL, MVT::i8);
   return DAG.getNode(M6809ISD::TFMSET, DL, MVT::Other, Chain, Dst, Val, Size);

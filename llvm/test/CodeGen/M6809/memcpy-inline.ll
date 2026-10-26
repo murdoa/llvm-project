@@ -2,8 +2,9 @@
 ; RUN: llc -mtriple=m6809 -verify-machineinstrs < %s | FileCheck %s
 
 ; A word may sit at any address, so small copies and fills at minsize move
-; words. Copies of up to two stores and fills of up to five are inlined;
-; anything longer is a call.
+; words. Copies of up to two stores and fills of up to three are inlined;
+; longer ones of up to 255 bytes are a loop that counts in B, and anything
+; longer is a call.
 
 define void @copy4(ptr %d, ptr %s) minsize {
 ; CHECK-LABEL: copy4:
@@ -22,13 +23,15 @@ define void @copy4(ptr %d, ptr %s) minsize {
 define void @copy5(ptr %d, ptr %s) minsize {
 ; CHECK-LABEL: copy5:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    ldx #5
-; CHECK-NEXT:    stx 2,s
-; CHECK-NEXT:    ldx 6,s
-; CHECK-NEXT:    stx ,s
-; CHECK-NEXT:    jsr memcpy
-; CHECK-NEXT:    puls x,y,pc
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    ldb #5
+; CHECK-NEXT:  .Ltmp0:
+; CHECK-NEXT:    lda ,x+
+; CHECK-NEXT:    sta ,y+
+; CHECK-NEXT:    decb
+; CHECK-NEXT:    bne .Ltmp0
+; CHECK-NEXT:    rts
   call void @llvm.memcpy.p0.p0.i16(ptr %d, ptr %s, i16 5, i1 false)
   ret void
 }
@@ -49,13 +52,28 @@ define void @zero5(ptr %d) minsize {
 define void @zero12(ptr %d) minsize {
 ; CHECK-LABEL: zero12:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    ldx #12
-; CHECK-NEXT:    stx 2,s
-; CHECK-NEXT:    ldx #0
-; CHECK-NEXT:    stx ,s
-; CHECK-NEXT:    jsr memset
-; CHECK-NEXT:    puls x,y,pc
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    clra
+; CHECK-NEXT:    ldb #12
+; CHECK-NEXT:  .Ltmp1:
+; CHECK-NEXT:    sta ,x+
+; CHECK-NEXT:    decb
+; CHECK-NEXT:    bne .Ltmp1
+; CHECK-NEXT:    rts
   call void @llvm.memset.p0.i16(ptr %d, i8 0, i16 12, i1 false)
+  ret void
+}
+
+define void @copy256(ptr %d, ptr %s) minsize {
+; CHECK-LABEL: copy256:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -4,s
+; CHECK-NEXT:    ldx #256
+; CHECK-NEXT:    stx 2,s
+; CHECK-NEXT:    ldx 6,s
+; CHECK-NEXT:    stx ,s
+; CHECK-NEXT:    jsr memcpy
+; CHECK-NEXT:    puls x,y,pc
+  call void @llvm.memcpy.p0.p0.i16(ptr %d, ptr %s, i16 256, i1 false)
   ret void
 }
