@@ -14,6 +14,7 @@ add_public_tablegen_target(M6809CommonTableGen)
 
 add_llvm_target(M6809CodeGen
   M6809AsmPrinter.cpp
+  M6809DirectPage.cpp
   M6809FrameLowering.cpp
   M6809InstrInfo.cpp
   M6809ISelDAGToDAG.cpp

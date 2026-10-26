@@ -14,6 +14,7 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/CodeGen/TargetLoweringObjectFileImpl.h"
 #include "llvm/CodeGen/TargetPassConfig.h"
+#include "llvm/IR/GlobalVariable.h"
 #include "llvm/MC/TargetRegistry.h"
 #include "llvm/Support/Compiler.h"
 #include <optional>
@@ -27,7 +28,25 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeM6809Target() {
   initializeM6809DAGToDAGISelLegacyPass(PR);
   initializeM6809SplitDOperandsPass(PR);
   initializeM6809PostRACleanupPass(PR);
+  initializeM6809DirectPagePass(PR);
 }
+
+namespace {
+// A zero-initialised variable in .dp.bss takes no space in the object file,
+// as one in .bss does: an explicit section otherwise makes it data.
+class M6809TargetObjectFile : public TargetLoweringObjectFileELF {
+  MCSection *getExplicitSectionGlobal(const GlobalObject *GO, SectionKind Kind,
+                                      const TargetMachine &TM) const override {
+    StringRef Name = GO->getSection();
+    if (auto *GV = dyn_cast<GlobalVariable>(GO))
+      if ((Name == ".dp.bss" || Name.starts_with(".dp.bss.")) &&
+          GV->hasInitializer() && GV->getInitializer()->isNullValue() &&
+          !GV->isConstant())
+        Kind = SectionKind::getBSS();
+    return TargetLoweringObjectFileELF::getExplicitSectionGlobal(GO, Kind, TM);
+  }
+};
+} // namespace
 
 static StringRef defaultCPU(StringRef CPU) {
   return CPU.empty() ? StringRef("6809") : CPU;
@@ -42,7 +61,7 @@ M6809TargetMachine::M6809TargetMachine(const Target &T, const Triple &TT,
     : CodeGenTargetMachineImpl(T, TT, defaultCPU(CPU), FS, Options,
                                RM.value_or(Reloc::Static),
                                getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(std::make_unique<TargetLoweringObjectFileELF>()) {
+      TLOF(std::make_unique<M6809TargetObjectFile>()) {
   initAsmInfo();
   // With two 8-bit and one 16-bit accumulator, a tied operand that stays
   // live often has no register to be copied into. TwoAddressInstruction
@@ -101,6 +120,7 @@ TargetPassConfig *M6809TargetMachine::createPassConfig(PassManagerBase &PM) {
 
 void M6809PassConfig::addIRPasses() {
   addPass(createAtomicExpandLegacyPass());
+  addPass(createM6809DirectPagePass());
   TargetPassConfig::addIRPasses();
 }
 

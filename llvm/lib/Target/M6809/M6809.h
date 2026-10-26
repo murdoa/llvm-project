@@ -15,6 +15,7 @@
 namespace llvm {
 
 class FunctionPass;
+class ModulePass;
 class M6809TargetMachine;
 class PassRegistry;
 
@@ -22,11 +23,13 @@ FunctionPass *createM6809ISelDag(M6809TargetMachine &TM,
                                  CodeGenOptLevel OptLevel);
 FunctionPass *createM6809SplitDOperandsPass();
 FunctionPass *createM6809PostRACleanupPass();
+ModulePass *createM6809DirectPagePass();
 
 void initializeM6809AsmPrinterPass(PassRegistry &);
 void initializeM6809DAGToDAGISelLegacyPass(PassRegistry &);
 void initializeM6809SplitDOperandsPass(PassRegistry &);
 void initializeM6809PostRACleanupPass(PassRegistry &);
+void initializeM6809DirectPagePass(PassRegistry &);
 
 } // namespace llvm
 
