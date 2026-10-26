@@ -509,6 +509,12 @@ static M6809CC::CondCode prepareCompare(SDValue &LHS, SDValue &RHS,
       CC = CC == ISD::SETEQ ? ISD::SETNE : ISD::SETEQ;
     }
   }
+  // x > -1 is x >= 0 (and x <= -1 is x < 0): a compare with zero is a
+  // TST, a byte shorter than CMP #-1.
+  if ((CC == ISD::SETGT || CC == ISD::SETLE) && isAllOnesConstant(RHS)) {
+    RHS = DAG.getConstant(0, SDLoc(RHS), RHS.getValueType());
+    CC = CC == ISD::SETGT ? ISD::SETGE : ISD::SETLT;
+  }
   switch (CC) {
   case ISD::SETEQ:
     return M6809CC::EQ;

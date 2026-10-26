@@ -46,8 +46,8 @@ end:
 define void @if_slt8(i8 %a) {
 ; CHECK-LABEL: if_slt8:
 ; CHECK:       ; %bb.0: ; %entry
-; CHECK-NEXT:    cmpb #-1
-; CHECK-NEXT:    ble .LBB2_1
+; CHECK-NEXT:    tstb
+; CHECK-NEXT:    blt .LBB2_1
 ; CHECK-NEXT:  ; %bb.2: ; %end
 ; CHECK-NEXT:    rts
 ; CHECK-NEXT:  .LBB2_1: ; %then
