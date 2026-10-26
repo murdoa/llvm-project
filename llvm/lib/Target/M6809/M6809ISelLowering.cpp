@@ -172,9 +172,11 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
       setOperationAction(Op, VT, Custom);
     for (unsigned Op :
          {ISD::FSHL, ISD::FSHR, ISD::SHL_PARTS, ISD::SRL_PARTS, ISD::SRA_PARTS,
-          ISD::BSWAP, ISD::CTPOP, ISD::CTLZ, ISD::CTTZ, ISD::ABS, ISD::SMIN,
+          ISD::BSWAP, ISD::CTPOP, ISD::CTLZ, ISD::CTTZ, ISD::SMIN,
           ISD::SMAX, ISD::UMIN, ISD::UMAX})
       setOperationAction(Op, VT, Expand);
+    // A test, a branch and a negation in place; see LowerOperation.
+    setOperationAction(ISD::ABS, VT, Custom);
   }
 
   // TODO: everything not listed here is left Legal and fails instruction
@@ -219,6 +221,16 @@ SDValue M6809TargetLowering::LowerOperation(SDValue Op,
     return DAG.getNode(M6809ISD::WRAPPER, SDLoc(Op), MVT::i16,
                        DAG.getTargetJumpTable(
                            cast<JumpTableSDNode>(Op)->getIndex(), MVT::i16));
+  case ISD::ABS: {
+    // The generic (x ^ s) - s with s = x >> 15 needs the sign word in a
+    // second register while x stays in D; "x < 0 ? -x : x" negates x where
+    // it is.
+    SDLoc DL(Op);
+    SDValue X = Op.getOperand(0);
+    EVT VT = Op.getValueType();
+    return DAG.getSelectCC(DL, X, DAG.getConstant(0, DL, VT),
+                           DAG.getNegative(X, DL, VT), X, ISD::SETLT);
+  }
   case ISD::BR_CC:
     return lowerBR_CC(Op, DAG);
   case ISD::SELECT_CC:

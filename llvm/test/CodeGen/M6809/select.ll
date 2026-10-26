@@ -280,28 +280,22 @@ define i8 @smax8(i8 %a, i8 %b) {
 define i16 @abs(i16 %a) {
 ; M6809-LABEL: abs:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    tfr d, x
-; M6809-NEXT:    tfr a, b
-; M6809-NEXT:    sex
-; M6809-NEXT:    tfr a, b
-; M6809-NEXT:    tfr d, y
-; M6809-NEXT:    tfr x, d
-; M6809-NEXT:    pshs y
-; M6809-NEXT:    eora ,s+
-; M6809-NEXT:    eorb ,s+
-; M6809-NEXT:    pshs y
-; M6809-NEXT:    subd ,s++
+; M6809-NEXT:    subd #0
+; M6809-NEXT:    bge .LBB10_2
+; M6809-NEXT:  ; %bb.1:
+; M6809-NEXT:    nega
+; M6809-NEXT:    negb
+; M6809-NEXT:    sbca #0
+; M6809-NEXT:  .LBB10_2:
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: abs:
 ; H6309:       ; %bb.0:
-; H6309-NEXT:    tfr d, x
-; H6309-NEXT:    tfr a, b
-; H6309-NEXT:    sex
-; H6309-NEXT:    tfr a, b
-; H6309-NEXT:    eorr d, x
-; H6309-NEXT:    subr d, x
-; H6309-NEXT:    tfr x, d
+; H6309-NEXT:    tstd
+; H6309-NEXT:    bge .LBB10_2
+; H6309-NEXT:  ; %bb.1:
+; H6309-NEXT:    negd
+; H6309-NEXT:  .LBB10_2:
 ; H6309-NEXT:    rts
   %r = call i16 @llvm.abs.i16(i16 %a, i1 false)
   ret i16 %r
