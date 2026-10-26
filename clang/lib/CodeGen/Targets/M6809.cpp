@@ -53,6 +53,15 @@ class M6809TargetCodeGenInfo : public TargetCodeGenInfo {
 public:
   M6809TargetCodeGenInfo(CodeGenTypes &CGT)
       : TargetCodeGenInfo(std::make_unique<M6809ABIInfo>(CGT)) {}
+
+  void setTargetAttributes(const Decl *D, llvm::GlobalValue *GV,
+                           CodeGen::CodeGenModule &CGM) const override {
+    if (GV->isDeclaration())
+      return;
+    const auto *FD = dyn_cast_or_null<FunctionDecl>(D);
+    if (FD && FD->hasAttr<M6809InterruptAttr>())
+      cast<llvm::Function>(GV)->addFnAttr("interrupt");
+  }
 };
 
 } // namespace

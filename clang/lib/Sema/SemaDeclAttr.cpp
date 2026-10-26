@@ -50,6 +50,7 @@
 #include "clang/Sema/SemaCUDA.h"
 #include "clang/Sema/SemaHLSL.h"
 #include "clang/Sema/SemaInternal.h"
+#include "clang/Sema/SemaM6809.h"
 #include "clang/Sema/SemaM68k.h"
 #include "clang/Sema/SemaMIPS.h"
 #include "clang/Sema/SemaMSP430.h"
@@ -6723,6 +6724,10 @@ static void handleInterruptAttr(Sema &S, Decl *D, const ParsedAttr &AL) {
     break;
   case llvm::Triple::m68k:
     S.M68k().handleInterruptAttr(D, AL);
+    break;
+  case llvm::Triple::m6800:
+  case llvm::Triple::m6809:
+    S.M6809().handleInterruptAttr(D, AL);
     break;
   case llvm::Triple::x86:
   case llvm::Triple::x86_64:

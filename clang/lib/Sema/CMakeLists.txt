@@ -66,6 +66,7 @@ add_clang_library(clangSema
   SemaLambda.cpp
   SemaLookup.cpp
   SemaLoongArch.cpp
+  SemaM6809.cpp
   SemaM68k.cpp
   SemaMIPS.cpp
   SemaMSP430.cpp

@@ -3362,6 +3362,27 @@ the type is not supported for that value of `__riscv_v_fixed_vlen`.
 }];
 }
 
+def M6809InterruptDocs : Documentation {
+  let Category = DocCatFunction;
+  let Heading = "interrupt (M6809, M6800)";
+  let Content = [{
+Clang supports the GNU style ``__attribute__((interrupt))`` attribute on the
+6809, HD6309 and HD6301 (``--target=m6809`` and ``--target=m6800``). It makes
+a function an interrupt handler, which returns with ``rti``. The function must
+take no parameters and return ``void``.
+
+For IRQ, NMI and SWI interrupts the 6809 saves every register before calling
+the handler, and the 6800 family saves A, B, X and CC, so ``rti`` restores
+them all and the handler saves none of its own. On the HD6309 it saves W,
+which the CPU does not save in emulation mode, when it might change. The
+6809's FIRQ, which saves only CC and PC, cannot be handled with this
+attribute.
+
+The handler is not put into the vector table: the program's startup code or
+linker script does that.
+  }];
+}
+
 def AVRInterruptDocs : Documentation {
   let Category = DocCatFunction;
   let Heading = "interrupt (AVR)";

@@ -486,6 +486,7 @@ def TargetMips32 : TargetArch<["mips", "mipsel"]>;
 def TargetAnyMips : TargetArch<["mips", "mipsel", "mips64", "mips64el"]>;
 def TargetMSP430 : TargetArch<["msp430"]>;
 def TargetM68k : TargetArch<["m68k"]>;
+def TargetM6809 : TargetArch<["m6809", "m6800"]>;
 def TargetRISCV : TargetArch<["riscv32", "riscv64", "riscv32be", "riscv64be"]>;
 def TargetX86 : TargetArch<["x86"]>;
 def TargetX86_64 : TargetArch<["x86_64"]>;
@@ -2299,6 +2300,15 @@ def MipsShortCall : InheritableAttr, TargetSpecificAttr<TargetAnyMips> {
   let SimpleHandler = 1;
 }
 def : MutualExclusions<[MipsLongCall, MipsShortCall]>;
+
+def M6809Interrupt : InheritableAttr, TargetSpecificAttr<TargetM6809> {
+  // NOTE: If you add any additional spellings, ARMInterrupt's, MipsInterrupt's
+  // MSP430Interrupt's and AnyX86Interrupt's spellings must match.
+  let Spellings = [GCC<"interrupt">];
+  let Subjects = SubjectList<[Function]>;
+  let ParseKind = "Interrupt";
+  let Documentation = [M6809InterruptDocs];
+}
 
 def M68kInterrupt : InheritableAttr, TargetSpecificAttr<TargetM68k> {
   // NOTE: If you add any additional spellings, ARMInterrupt's, MipsInterrupt's

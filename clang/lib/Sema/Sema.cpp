@@ -52,6 +52,7 @@
 #include "clang/Sema/SemaHLSL.h"
 #include "clang/Sema/SemaHexagon.h"
 #include "clang/Sema/SemaLoongArch.h"
+#include "clang/Sema/SemaM6809.h"
 #include "clang/Sema/SemaM68k.h"
 #include "clang/Sema/SemaMIPS.h"
 #include "clang/Sema/SemaMSP430.h"
@@ -295,6 +296,7 @@ Sema::Sema(Preprocessor &pp, ASTContext &ctxt, ASTConsumer &consumer,
       HLSLPtr(std::make_unique<SemaHLSL>(*this)),
       HexagonPtr(std::make_unique<SemaHexagon>(*this)),
       LoongArchPtr(std::make_unique<SemaLoongArch>(*this)),
+      M6809Ptr(std::make_unique<SemaM6809>(*this)),
       M68kPtr(std::make_unique<SemaM68k>(*this)),
       MIPSPtr(std::make_unique<SemaMIPS>(*this)),
       MSP430Ptr(std::make_unique<SemaMSP430>(*this)),
