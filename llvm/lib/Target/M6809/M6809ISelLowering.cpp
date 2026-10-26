@@ -564,10 +564,9 @@ SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
       if ((~Known.Zero & ~M).isZero())
         LHS = X;
       else
-        return DAG.getNode(
-            M6809ISD::BITBR, DL, MVT::Other, Chain, X,
-            DAG.getConstant(Mask->getZExtValue(), DL, MVT::i8),
-            DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
+        return DAG.getNode(M6809ISD::BITBR, DL, MVT::Other, Chain, X,
+                           DAG.getConstant(Mask->getZExtValue(), DL, MVT::i8),
+                           DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
     }
   return DAG.getNode(M6809ISD::CMPBR, DL, MVT::Other, Chain, LHS, RHS,
                      DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
