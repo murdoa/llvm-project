@@ -115,7 +115,8 @@ M6809TargetLowering::M6809TargetLowering(const TargetMachine &TM,
   // The generic combine only makes BR_CC for legal types, so
   // PerformDAGCombine makes the i32 ones.
   setOperationAction(ISD::BR_CC, MVT::i32, Custom);
-  setTargetDAGCombine({ISD::BRCOND, ISD::SELECT, ISD::MUL, ISD::ADD});
+  setTargetDAGCombine(
+      {ISD::BRCOND, ISD::SELECT, ISD::MUL, ISD::ADD, ISD::UDIV, ISD::UREM});
   setOperationAction(ISD::BRCOND, MVT::Other, Expand);
   setOperationAction(ISD::BR_JT, MVT::Other, Expand);
 
@@ -742,6 +743,30 @@ static SDValue combineAddSymbolIndex(SDNode *N, SelectionDAG &DAG) {
   return SDValue();
 }
 
+// An i8 divide or remainder by a constant: MUL's high byte and shifts.
+// The generic combine leaves these to the runtime library's i16 divide
+// when optimising for size, but here they are smaller as well as faster.
+static SDValue combineUDivRem8(SDNode *N, TargetLowering::DAGCombinerInfo &DCI,
+                               const TargetLowering &TLI) {
+  auto *C = dyn_cast<ConstantSDNode>(N->getOperand(1));
+  if (N->getValueType(0) != MVT::i8 || !C || C->isZero())
+    return SDValue();
+  SelectionDAG &DAG = DCI.DAG;
+  SDLoc DL(N);
+  SDValue X = N->getOperand(0), D = N->getOperand(1);
+  if (N->getOpcode() == ISD::UREM) { // x - (x / c) * c
+    SDValue Q = DAG.getNode(ISD::UDIV, DL, MVT::i8, X, D);
+    return DAG.getNode(ISD::SUB, DL, MVT::i8, X,
+                       DAG.getNode(ISD::MUL, DL, MVT::i8, Q, D));
+  }
+  SmallVector<SDNode *, 8> Built;
+  SDValue R = TLI.BuildUDIV(N, DAG, DCI.isAfterLegalizeDAG(),
+                            !DCI.isBeforeLegalize(), Built);
+  for (SDNode *B : Built)
+    DCI.AddToWorklist(B);
+  return R;
+}
+
 SDValue M6809TargetLowering::PerformDAGCombine(SDNode *N,
                                                DAGCombinerInfo &DCI) const {
   if (N->getOpcode() == ISD::ADD)
@@ -749,6 +774,8 @@ SDValue M6809TargetLowering::PerformDAGCombine(SDNode *N,
                                   : combineAddSymbolIndex(N, DCI.DAG);
   if (!DCI.isBeforeLegalize())
     return SDValue();
+  if (N->getOpcode() == ISD::UDIV || N->getOpcode() == ISD::UREM)
+    return combineUDivRem8(N, DCI, *this);
   if (N->getOpcode() == ISD::MUL)
     return combineMul8(N, DCI.DAG);
   if (N->getOpcode() == ISD::SELECT)
