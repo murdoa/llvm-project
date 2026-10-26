@@ -8,7 +8,6 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-LABEL: mul16x8:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    des
 ; CHECK-NEXT:    pshb
 ; CHECK-NEXT:    psha
 ; CHECK-NEXT:    pulx
@@ -19,19 +18,11 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 7,x
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 4,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldaa 2,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 4,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 6,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    pshx
@@ -41,7 +32,7 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    ; kill: def $a killed $a killed $d
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 2,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 4,x
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tba
 ; CHECK-NEXT:    clrb
@@ -55,7 +46,6 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-NEXT:    addd 0,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    ins
 ; CHECK-NEXT:    rts
   %x = zext i8 %b to i16
   %r = mul i16 %a, %x

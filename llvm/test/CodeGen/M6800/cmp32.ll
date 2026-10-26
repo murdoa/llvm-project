@@ -134,24 +134,28 @@ e:
 define void @sgt32(i32 %a, i32 %b) {
 ; CHECK-LABEL: sgt32:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 8,x
-; CHECK-NEXT:    ldx 6,x
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    subd 6,x
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 8,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    subd 4,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 6,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    sbcb 1,x
 ; CHECK-NEXT:    sbca 0,x
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    bge .LBB4_2
 ; CHECK-NEXT:  ; %bb.1: ; %t
 ; CHECK-NEXT:    jsr f
 ; CHECK-NEXT:  .LBB4_2: ; %e
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    rts
   %c = icmp sgt i32 %a, %b
   br i1 %c, label %t, label %e
@@ -165,24 +169,28 @@ e:
 define void @ule32(i32 %a, i32 %b) {
 ; CHECK-LABEL: ule32:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 8,x
-; CHECK-NEXT:    ldx 6,x
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    subd 6,x
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 8,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    subd 4,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 6,x
+; CHECK-NEXT:    pulx
+; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    sbcb 1,x
 ; CHECK-NEXT:    sbca 0,x
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    bcs .LBB5_2
 ; CHECK-NEXT:  ; %bb.1: ; %t
 ; CHECK-NEXT:    jsr f
 ; CHECK-NEXT:  .LBB5_2: ; %e
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    rts
   %c = icmp ule i32 %a, %b
   br i1 %c, label %t, label %e
@@ -330,43 +338,26 @@ e:
 define i32 @sel32(i32 %a, i32 %b) {
 ; CHECK-LABEL: sel32:
 ; CHECK:       ; %bb.0:
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    subd #10
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    txs
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 14,x
 ; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 16,x
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 14,x
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
+; CHECK-NEXT:    ldd 8,x
+; CHECK-NEXT:    ldx 12,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    subd 0,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 8,x
 ; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 10,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -376,20 +367,14 @@ define i32 @sel32(i32 %a, i32 %b) {
 ; CHECK-NEXT:    blt .LBB11_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 0,x ; 2-byte Folded Reload
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 10,x
+; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 12,x
+; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
 ; CHECK-NEXT:  .LBB11_2:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
-; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
-; CHECK-NEXT:    ins
-; CHECK-NEXT:    ins
-; CHECK-NEXT:    ins
-; CHECK-NEXT:    ins
+; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    ins
 ; CHECK-NEXT:    ins
 ; CHECK-NEXT:    ins
@@ -410,37 +395,19 @@ define i16 @sel32_i16(i32 %a, i32 %b, i16 %x, i16 %y) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 12,x
-; CHECK-NEXT:    clrb
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    ldab #1
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 5,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 8,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 6,x ; 2-byte Folded Reload
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    des
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 3,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    stab 0,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldab #1
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 1,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldx 9,x
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 5,x ; 2-byte Folded Reload
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    subd 0,x
@@ -449,14 +416,11 @@ define i16 @sel32_i16(i32 %a, i32 %b, i16 %x, i16 %y) {
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldab 0,x ; 1-byte Folded Reload
-; CHECK-NEXT:    stab 6,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 1,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB12_2:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 14,x
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 12,x
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    ldd 7,x
+; CHECK-NEXT:    ldx 11,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    subd 0,x
@@ -465,38 +429,41 @@ define i16 @sel32_i16(i32 %a, i32 %b, i16 %x, i16 %y) {
 ; CHECK-NEXT:  ; %bb.3:
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldab 0,x ; 1-byte Folded Reload
-; CHECK-NEXT:    stab 3,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB12_4:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
-; CHECK-NEXT:    subd 1,x
+; CHECK-NEXT:    ldd 3,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 9,x
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    subd 0,x
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    beq .LBB12_6
 ; CHECK-NEXT:  ; %bb.5:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 6,x ; 1-byte Folded Reload
-; CHECK-NEXT:    stab 3,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldab 1,x ; 1-byte Folded Reload
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB12_6:
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    addd #18
+; CHECK-NEXT:    addd #15
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldab #16
+; CHECK-NEXT:    std 3,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldab #13
 ; CHECK-NEXT:    abx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 5,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 4,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    bne .LBB12_8
 ; CHECK-NEXT:  ; %bb.7:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 3,x ; 2-byte Folded Reload
 ; CHECK-NEXT:  .LBB12_8:
 ; CHECK-NEXT:    ldd 0,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    ins
 ; CHECK-NEXT:    rts
   %c = icmp slt i32 %a, %b
   %r = select i1 %c, i16 %x, i16 %y
@@ -529,37 +496,19 @@ define i16 @setcc32(i32 %a, i32 %b) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    des
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 11,x
-; CHECK-NEXT:    clrb
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    ldab #1
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 5,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 8,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 6,x ; 2-byte Folded Reload
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshb
-; CHECK-NEXT:    psha
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 3,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    pula
-; CHECK-NEXT:    pulb
+; CHECK-NEXT:    clrb
+; CHECK-NEXT:    stab 0,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldab #1
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 1,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldx 9,x
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldd 5,x ; 2-byte Folded Reload
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    subd 0,x
@@ -568,13 +517,13 @@ define i16 @setcc32(i32 %a, i32 %b) {
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldab 0,x ; 1-byte Folded Reload
-; CHECK-NEXT:    stab 6,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 1,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB14_2:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 13,x
+; CHECK-NEXT:    ldx 11,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 11,x
+; CHECK-NEXT:    ldd 9,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -584,22 +533,25 @@ define i16 @setcc32(i32 %a, i32 %b) {
 ; CHECK-NEXT:  ; %bb.3:
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldab 0,x ; 1-byte Folded Reload
-; CHECK-NEXT:    stab 3,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB14_4:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
-; CHECK-NEXT:    subd 1,x
+; CHECK-NEXT:    ldd 3,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 9,x
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    subd 0,x
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    beq .LBB14_6
 ; CHECK-NEXT:  ; %bb.5:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 6,x ; 1-byte Folded Reload
-; CHECK-NEXT:    stab 3,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldab 1,x ; 1-byte Folded Reload
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB14_6:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 3,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 2,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    ins

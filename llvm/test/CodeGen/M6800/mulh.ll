@@ -157,12 +157,12 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    subd #14
+; CHECK-NEXT:    subd #12
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    txs
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 12,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 16,x
+; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldx 14,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pula
 ; CHECK-NEXT:    pulb
@@ -180,37 +180,36 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    tab
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 9,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 7,x ; 1-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 14,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 12,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    tba
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    staa 7,x ; 1-byte Folded Spill
+; CHECK-NEXT:    staa 5,x ; 1-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 9,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 7,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 3,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    ; kill: def $b killed $b killed $d
-; CHECK-NEXT:    stab 10,x ; 1-byte Folded Spill
-; CHECK-NEXT:    ldaa 5,x ; 1-byte Folded Reload
-; CHECK-NEXT:    ldab 10,x ; 1-byte Folded Reload
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    stab 8,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldaa 3,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 8,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tab
 ; CHECK-NEXT:    clra
-; CHECK-NEXT:    ldx 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    addd 0,x
@@ -218,7 +217,7 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 14,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 12,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    ; kill: def $a killed $a killed $d
 ; CHECK-NEXT:    pshx
@@ -227,32 +226,32 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 12,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 10,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 12,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pula
 ; CHECK-NEXT:    pulb
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    addd 12,x ; 2-byte Folded Reload
+; CHECK-NEXT:    addd 10,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 12,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    ldab #1
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 10,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 8,x ; 1-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 12,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -262,29 +261,29 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 8,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 6,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB1_2:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 8,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 6,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    andb #1
-; CHECK-NEXT:    stab 8,x ; 1-byte Folded Spill
-; CHECK-NEXT:    ldd 12,x ; 2-byte Folded Reload
+; CHECK-NEXT:    stab 6,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    tab
 ; CHECK-NEXT:    asla
 ; CHECK-NEXT:    ldaa #0
 ; CHECK-NEXT:    sbca #0
 ; CHECK-NEXT:    jsr __mulhi3
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 5,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 3,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    tab
-; CHECK-NEXT:    addb 8,x ; 1-byte Folded Reload
+; CHECK-NEXT:    addb 6,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    tba
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 7,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 5,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    pshx
@@ -295,7 +294,7 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 12,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    tab
 ; CHECK-NEXT:    clra
@@ -306,33 +305,33 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 5,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 16,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 10,x ; 2-byte Folded Spill
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    subd 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    subd 6,x ; 2-byte Folded Reload
+; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldab 2,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    blt .LBB1_4
 ; CHECK-NEXT:  ; %bb.3:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
 ; CHECK-NEXT:  .LBB1_4:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 12,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 10,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -341,17 +340,17 @@ define i16 @smulh16(i16 %a, i16 %b) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 9,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 7,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    blt .LBB1_6
 ; CHECK-NEXT:  ; %bb.5:
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 6,x ; 2-byte Folded Reload
 ; CHECK-NEXT:  .LBB1_6:
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    xgdx
-; CHECK-NEXT:    addd #14
+; CHECK-NEXT:    addd #12
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    txs
 ; CHECK-NEXT:    rts
@@ -406,7 +405,6 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-LABEL: mul16x8:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    des
 ; CHECK-NEXT:    pshb
 ; CHECK-NEXT:    psha
 ; CHECK-NEXT:    pulx
@@ -417,19 +415,11 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 7,x
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 4,x ; 1-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldaa 2,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 4,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 6,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    pshx
@@ -439,7 +429,7 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    ; kill: def $a killed $a killed $d
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldab 2,x ; 1-byte Folded Reload
+; CHECK-NEXT:    ldab 4,x
 ; CHECK-NEXT:    mul
 ; CHECK-NEXT:    tba
 ; CHECK-NEXT:    clrb
@@ -453,7 +443,6 @@ define i16 @mul16x8(i16 %a, i8 %b) {
 ; CHECK-NEXT:    addd 0,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    ins
 ; CHECK-NEXT:    rts
   %y = zext i8 %b to i16
   %r = mul i16 %a, %y

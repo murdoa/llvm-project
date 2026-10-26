@@ -12,17 +12,8 @@ define i16 @f(ptr %o, i16 %0) {
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 12,x
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
@@ -41,7 +32,7 @@ define i16 @f(ptr %o, i16 %0) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 6,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 10,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    subd 0,x
 ; CHECK-NEXT:    bcs .LBB0_3
@@ -49,7 +40,7 @@ define i16 @f(ptr %o, i16 %0) {
 ; CHECK-NEXT:    ; in Loop: Header=BB0_2 Depth=1
 ; CHECK-NEXT:    ldd #1
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 6,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    ldd 0,x
 ; CHECK-NEXT:    bne .LBB0_2
@@ -57,17 +48,16 @@ define i16 @f(ptr %o, i16 %0) {
 ; CHECK-NEXT:  .LBB0_3: ; %if.then1.i.i617
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    ldd 0,x ; 2-byte Folded Reload
-; CHECK-NEXT:    addd 6,x ; 2-byte Folded Reload
+; CHECK-NEXT:    addd 4,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    clrb
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    stab 8,x ; 1-byte Folded Spill
+; CHECK-NEXT:    stab 6,x ; 1-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    stab 0,x
 ; CHECK-NEXT:  .LBB0_4: ; %common.ret
 ; CHECK-NEXT:    ldd #0
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx

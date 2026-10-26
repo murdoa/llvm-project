@@ -186,9 +186,11 @@ def addrr : PatFrag<(ops node:$a, node:$b), (add node:$a, node:$b), [{
          !isa<ConstantSDNode>(N->getOperand(1));
 }]>;
 
-// Loads and stores. Size is a guess until the encoder knows the mode.
+// Loads and stores. Size is a guess until the encoder knows the mode. A load
+// is rematerialized only when its memory cannot change, such as an argument
+// on the stack; with so few registers, reloading those beats spilling.
 let Defs = [CC] in {
-  let mayLoad = 1, canFoldAsLoad = 1 in {
+  let mayLoad = 1, canFoldAsLoad = 1, isReMaterializable = 1 in {
     def LD8m : M6800Inst<(outs ACC8:$dst), (ins memidx:$addr),
                          "lda${dst}\t$addr",
                          [(set ACC8:$dst, (load addr:$addr))], 2>;

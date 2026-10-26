@@ -47,6 +47,11 @@ public:
       unsigned SubReg = 0,
       MachineInstr::MIFlag Flags = MachineInstr::NoFlags) const override;
 
+  Register isLoadFromStackSlot(const MachineInstr &MI,
+                               int &FrameIndex) const override;
+  Register isStoreToStackSlot(const MachineInstr &MI,
+                              int &FrameIndex) const override;
+
   bool expandPostRAPseudo(MachineInstr &MI) const override;
 
 protected:

@@ -182,9 +182,10 @@ def addrr : PatFrag<(ops node:$a, node:$b), (add node:$a, node:$b), [{
 }]>;
 
 // Indexed loads and stores. Size is a guess (no offset or a 5-bit one) until
-// the encoder knows the real postbyte form.
+// the encoder knows the real postbyte form. A load is rematerialized only when
+// its memory cannot change, such as an argument on the stack.
 let Defs = [CC] in {
-  let mayLoad = 1, canFoldAsLoad = 1 in {
+  let mayLoad = 1, canFoldAsLoad = 1, isReMaterializable = 1 in {
     def LD8m : M6809Inst<(outs ACC8:$dst), (ins memidx:$addr),
                          "ld${dst}\t$addr",
                          [(set ACC8:$dst, (load addr:$addr))], 2>;

@@ -125,6 +125,39 @@ void M6809InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
   markFlagsDead(*Load);
 }
 
+// Does MI load or store the whole of a stack slot? Operand 1 is the base,
+// operand 2 the offset.
+static bool isWholeSlot(const MachineInstr &MI, unsigned Bytes,
+                        int &FrameIndex) {
+  const MachineOperand &Base = MI.getOperand(1);
+  const MachineOperand &Offset = MI.getOperand(2);
+  if (!Base.isFI() || !Offset.isImm() || Offset.getImm() != 0)
+    return false;
+  const MachineFrameInfo &MFI = MI.getMF()->getFrameInfo();
+  if (MFI.getObjectSize(Base.getIndex()) != Bytes)
+    return false;
+  FrameIndex = Base.getIndex();
+  return true;
+}
+
+Register M6809InstrInfo::isLoadFromStackSlot(const MachineInstr &MI,
+                                             int &FrameIndex) const {
+  unsigned Opc = MI.getOpcode();
+  if ((Opc == M6809::LD8m || Opc == M6809::LD16m) &&
+      isWholeSlot(MI, Opc == M6809::LD8m ? 1 : 2, FrameIndex))
+    return MI.getOperand(0).getReg();
+  return Register();
+}
+
+Register M6809InstrInfo::isStoreToStackSlot(const MachineInstr &MI,
+                                            int &FrameIndex) const {
+  unsigned Opc = MI.getOpcode();
+  if ((Opc == M6809::ST8m || Opc == M6809::ST16m) &&
+      isWholeSlot(MI, Opc == M6809::ST8m ? 1 : 2, FrameIndex))
+    return MI.getOperand(0).getReg();
+  return Register();
+}
+
 // The memory form of a pseudo whose right-hand register operand (RhsIdx) can
 // be read from memory instead.
 static unsigned getMemForm(unsigned Opc, unsigned &RhsIdx) {

@@ -55,12 +55,12 @@ define i16 @or16_mem(i16 %a, i16 %b) {
 define i16 @xor16_rr(i16 %a, ptr %p) {
 ; CHECK-LABEL: xor16_rr:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx 2,s
-; CHECK-NEXT:    ldd ,x
-; CHECK-NEXT:    eora ,x
-; CHECK-NEXT:    eorb 1,x
-; CHECK-NEXT:    pshs y
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldy 2,s
+; CHECK-NEXT:    ldd ,y
+; CHECK-NEXT:    eora ,y
+; CHECK-NEXT:    eorb 1,y
+; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    eora ,s+
 ; CHECK-NEXT:    eorb ,s+
 ; CHECK-NEXT:    rts

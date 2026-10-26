@@ -93,8 +93,8 @@ define i8 @setcc8_ult(i8 %a, i8 %b) {
 ; CHECK-NEXT:    des
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    stab 0,x ; 1-byte Folded Spill
-; CHECK-NEXT:    ldaa 3,x
 ; CHECK-NEXT:    ldab #1
+; CHECK-NEXT:    ldaa 3,x
 ; CHECK-NEXT:    cmpa 0,x
 ; CHECK-NEXT:    bhi .LBB3_2
 ; CHECK-NEXT:  ; %bb.1:
@@ -111,27 +111,32 @@ define i16 @setcc16_eq(i16 %a, i16 %b) {
 ; CHECK-LABEL: setcc16_eq:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
+; CHECK-NEXT:    des
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 6,x
 ; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldab #1
-; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
+; CHECK-NEXT:    ldx 5,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    subd 2,x
+; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    pshx
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    subd 0,x
+; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    beq .LBB4_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    clrb
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    stab 2,x ; 1-byte Folded Spill
 ; CHECK-NEXT:  .LBB4_2:
+; CHECK-NEXT:    tsx
+; CHECK-NEXT:    ldab 2,x ; 1-byte Folded Reload
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pulx
+; CHECK-NEXT:    ins
 ; CHECK-NEXT:    rts
   %c = icmp eq i16 %a, %b
   %r = zext i1 %c to i16

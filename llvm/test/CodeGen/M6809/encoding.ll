@@ -14,8 +14,8 @@
 
 define i16 @f(i16 %a, ptr %p, i8 %c) {
 ; CHECK-LABEL: f:
-; CHECK: ldx 4,s ; encoding: [0xae,0x64]
-; CHECK: addd ,x ; encoding: [0xe3,0x84]
+; CHECK: ldy 4,s ; encoding: [0x10,0xae,0x64]
+; CHECK: addd ,y ; encoding: [0xe3,0xa4]
 ; CHECK: subd g ; encoding: [0xb3,A,A]
 ; CHECK: pshs x ; encoding: [0x34,0x10]
 ; CHECK: eora ,s+ ; encoding: [0xa8,0xe0]
@@ -36,13 +36,13 @@ declare i16 @h(i16)
 ; Long offsets. Branches start short (the assembler lengthens them).
 define void @far(ptr %p, i16 %n) {
 ; CHECK-LABEL: far:
-; CHECK: ldx 2,s ; encoding: [0xae,0x62]
+; CHECK: ldy 2,s ; encoding: [0x10,0xae,0x62]
 ; CHECK: beq .LBB1_2 ; encoding: [0x27,A]
 ; CHECK-NEXT: fixup A - offset: 1, value: .LBB1_2, kind: fixup_pcrel8
-; CHECK: stb -100,y ; encoding: [0xe7,0xa8,0x9c]
-; CHECK: stb 300,y ; encoding: [0xe7,0xa9,0x01,0x2c]
-; CHECK: stx g+2 ; encoding: [0xbf,A,A]
-; CHECK-NEXT: fixup A - offset: 1, value: g+2, kind: FK_Data_2
+; CHECK: stb -100,x ; encoding: [0xe7,0x88,0x9c]
+; CHECK: stb 300,x ; encoding: [0xe7,0x89,0x01,0x2c]
+; CHECK: sty g+2 ; encoding: [0x10,0xbf,A,A]
+; CHECK-NEXT: fixup A - offset: 2, value: g+2, kind: FK_Data_2
 entry:
   %z = icmp eq i16 %n, 0
   br i1 %z, label %done, label %body

@@ -444,11 +444,9 @@ define i32 @shl32_5(i32 %a) {
 ; CHECK-LABEL: shl32_5:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 6,x
 ; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 4,x
 ; CHECK-NEXT:    tab
 ; CHECK-NEXT:    lsrb
 ; CHECK-NEXT:    lsrb
@@ -458,7 +456,7 @@ define i32 @shl32_5(i32 %a) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    asld
 ; CHECK-NEXT:    asld
@@ -471,8 +469,8 @@ define i32 @shl32_5(i32 %a) {
 ; CHECK-NEXT:    orab 1,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 0,x ; 2-byte Folded Reload
+; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
+; CHECK-NEXT:    ldd 4,x
 ; CHECK-NEXT:    asld
 ; CHECK-NEXT:    asld
 ; CHECK-NEXT:    asld
@@ -481,10 +479,8 @@ define i32 @shl32_5(i32 %a) {
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
-; CHECK-NEXT:    ins
-; CHECK-NEXT:    ins
 ; CHECK-NEXT:    ins
 ; CHECK-NEXT:    ins
 ; CHECK-NEXT:    rts

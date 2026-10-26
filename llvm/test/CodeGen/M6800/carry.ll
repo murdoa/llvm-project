@@ -270,7 +270,7 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -278,7 +278,7 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -290,15 +290,7 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 12,x
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
-; CHECK-NEXT:    pulx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -306,11 +298,11 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -322,7 +314,7 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 4,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -342,7 +334,7 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 12,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
@@ -354,16 +346,16 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 8,x ; 2-byte Folded Spill
+; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    std 6,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 4,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    std 4,x
 ; CHECK-NEXT:    pshx
@@ -373,7 +365,7 @@ define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-NEXT:    std 2,x
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 8,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    std 0,x
 ; CHECK-NEXT:    pulx

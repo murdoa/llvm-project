@@ -9,29 +9,41 @@ define i8 @f(i8 %a, i8 %b, i8 %c) {
 ; M6809-LABEL: f:
 ; M6809:       ; %bb.0:
 ; M6809-NEXT:    leas -4,s
+; M6809-NEXT:    stb 3,s ; 1-byte Folded Spill
+; M6809-NEXT:    ldb 6,s
+; M6809-NEXT:    stb ,s ; 1-byte Folded Spill
 ; M6809-NEXT:    lda 7,s
-; M6809-NEXT:    sta 1,s ; 1-byte Folded Spill
+; M6809-NEXT:    ldb ,s ; 1-byte Folded Reload
+; M6809-NEXT:    sta 1,s
+; M6809-NEXT:    subb 1,s
+; M6809-NEXT:    stb ,s ; 1-byte Folded Spill
+; M6809-NEXT:    ldb 3,s ; 1-byte Folded Reload
 ; M6809-NEXT:    lda 6,s
-; M6809-NEXT:    sta ,s ; 1-byte Folded Spill
-; M6809-NEXT:    suba 1,s ; 1-byte Folded Reload
-; M6809-NEXT:    addb ,s ; 1-byte Folded Reload
-; M6809-NEXT:    sta 2,s
-; M6809-NEXT:    orb 2,s
-; M6809-NEXT:    eorb 1,s ; 1-byte Folded Reload
+; M6809-NEXT:    sta 1,s
+; M6809-NEXT:    addb 1,s
+; M6809-NEXT:    orb ,s ; 1-byte Folded Reload
+; M6809-NEXT:    lda 7,s
+; M6809-NEXT:    sta 1,s
+; M6809-NEXT:    eorb 1,s
 ; M6809-NEXT:    leas 4,s
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: f:
 ; H6309:       ; %bb.0:
 ; H6309-NEXT:    leas -2,s
+; H6309-NEXT:    stb 1,s ; 1-byte Folded Spill
+; H6309-NEXT:    ldb 4,s
+; H6309-NEXT:    stb ,s ; 1-byte Folded Spill
 ; H6309-NEXT:    lda 5,s
-; H6309-NEXT:    sta 1,s ; 1-byte Folded Spill
+; H6309-NEXT:    ldb ,s ; 1-byte Folded Reload
+; H6309-NEXT:    subr a, b
+; H6309-NEXT:    stb ,s ; 1-byte Folded Spill
+; H6309-NEXT:    ldb 1,s ; 1-byte Folded Reload
 ; H6309-NEXT:    lda 4,s
-; H6309-NEXT:    sta ,s ; 1-byte Folded Spill
-; H6309-NEXT:    suba 1,s ; 1-byte Folded Reload
-; H6309-NEXT:    addb ,s ; 1-byte Folded Reload
-; H6309-NEXT:    orr a, b
-; H6309-NEXT:    eorb 1,s ; 1-byte Folded Reload
+; H6309-NEXT:    addr a, b
+; H6309-NEXT:    orb ,s ; 1-byte Folded Reload
+; H6309-NEXT:    lda 5,s
+; H6309-NEXT:    eorr a, b
 ; H6309-NEXT:    leas 2,s
 ; H6309-NEXT:    rts
   %x = add i8 %a, %b

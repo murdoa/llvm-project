@@ -13,11 +13,11 @@
 define i16 @v16_c16(i16 %a, i16 %b) {
 ; M6809-LABEL: v16_c16:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    tfr d, y
-; M6809-NEXT:    ldx 2,s
+; M6809-NEXT:    tfr d, x
+; M6809-NEXT:    ldy 2,s
 ; M6809-NEXT:    ldd #7
-; M6809-NEXT:    pshs x
-; M6809-NEXT:    cmpy ,s++
+; M6809-NEXT:    pshs y
+; M6809-NEXT:    cmpx ,s++
 ; M6809-NEXT:    blt .LBB0_2
 ; M6809-NEXT:  ; %bb.1:
 ; M6809-NEXT:    ldd #9
@@ -26,10 +26,10 @@ define i16 @v16_c16(i16 %a, i16 %b) {
 ;
 ; H6309-LABEL: v16_c16:
 ; H6309:       ; %bb.0:
-; H6309-NEXT:    tfr d, y
-; H6309-NEXT:    ldx 2,s
+; H6309-NEXT:    tfr d, x
+; H6309-NEXT:    ldy 2,s
 ; H6309-NEXT:    ldd #7
-; H6309-NEXT:    cmpr x, y
+; H6309-NEXT:    cmpr y, x
 ; H6309-NEXT:    blt .LBB0_2
 ; H6309-NEXT:  ; %bb.1:
 ; H6309-NEXT:    ldd #9
@@ -44,19 +44,17 @@ define i16 @v16_c16(i16 %a, i16 %b) {
 define i16 @v16_c8(i8 %a, i8 %b) {
 ; CHECK-LABEL: v16_c8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    stb 1,s ; 1-byte Folded Spill
-; CHECK-NEXT:    ldb 4,s
+; CHECK-NEXT:    leas -1,s
 ; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
 ; CHECK-NEXT:    ldx #100
-; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
-; CHECK-NEXT:    cmpb 1,s
+; CHECK-NEXT:    ldb 3,s
+; CHECK-NEXT:    cmpb ,s
 ; CHECK-NEXT:    blo .LBB1_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    ldx #200
 ; CHECK-NEXT:  .LBB1_2:
 ; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    leas 2,s
+; CHECK-NEXT:    leas 1,s
 ; CHECK-NEXT:    rts
   %c = icmp ugt i8 %a, %b
   %r = select i1 %c, i16 100, i16 200
@@ -103,8 +101,8 @@ define i8 @v8_c8(i8 %a, i8 %b) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -1,s
 ; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
-; CHECK-NEXT:    lda 3,s
 ; CHECK-NEXT:    ldb #3
+; CHECK-NEXT:    lda 3,s
 ; CHECK-NEXT:    cmpa ,s
 ; CHECK-NEXT:    beq .LBB4_2
 ; CHECK-NEXT:  ; %bb.1:
@@ -171,20 +169,22 @@ define i16 @v16_mem(i16 %a, i16 %x, i16 %y) {
 define i32 @v32_c16(i16 %a, i16 %b, i32 %x, i32 %y) {
 ; M6809-LABEL: v32_c16:
 ; M6809:       ; %bb.0:
-; M6809-NEXT:    leas -6,s
-; M6809-NEXT:    stu 4,s ; 2-byte Folded Spill
-; M6809-NEXT:    ldu 8,s
-; M6809-NEXT:    leax 14,s
+; M6809-NEXT:    leas -8,s
+; M6809-NEXT:    stu 6,s ; 2-byte Folded Spill
+; M6809-NEXT:    leax 16,s
 ; M6809-NEXT:    stx 2,s ; 2-byte Folded Spill
-; M6809-NEXT:    leax 10,s
-; M6809-NEXT:    tfr x, y
-; M6809-NEXT:    stu ,s
+; M6809-NEXT:    leax 12,s
+; M6809-NEXT:    tfr x, u
+; M6809-NEXT:    ldy 10,s
+; M6809-NEXT:    sty ,s
 ; M6809-NEXT:    cmpd ,s
 ; M6809-NEXT:    bhi .LBB7_2
 ; M6809-NEXT:  ; %bb.1:
-; M6809-NEXT:    ldy 2,s ; 2-byte Folded Reload
+; M6809-NEXT:    ldu 2,s ; 2-byte Folded Reload
 ; M6809-NEXT:  .LBB7_2:
-; M6809-NEXT:    ldy ,y
+; M6809-NEXT:    ldu ,u
+; M6809-NEXT:    stu 4,s ; 2-byte Folded Spill
+; M6809-NEXT:    ldu 10,s
 ; M6809-NEXT:    stu ,s
 ; M6809-NEXT:    cmpd ,s
 ; M6809-NEXT:    bhi .LBB7_4
@@ -193,36 +193,33 @@ define i32 @v32_c16(i16 %a, i16 %b, i32 %x, i32 %y) {
 ; M6809-NEXT:  .LBB7_4:
 ; M6809-NEXT:    leax 2,x
 ; M6809-NEXT:    ldx ,x
-; M6809-NEXT:    tfr y, d
-; M6809-NEXT:    ldu 4,s ; 2-byte Folded Reload
-; M6809-NEXT:    leas 6,s
+; M6809-NEXT:    ldd 4,s ; 2-byte Folded Reload
+; M6809-NEXT:    ldu 6,s ; 2-byte Folded Reload
+; M6809-NEXT:    leas 8,s
 ; M6809-NEXT:    rts
 ;
 ; H6309-LABEL: v32_c16:
 ; H6309:       ; %bb.0:
 ; H6309-NEXT:    leas -2,s
 ; H6309-NEXT:    stu ,s ; 2-byte Folded Spill
-; H6309-NEXT:    tfr d, w
-; H6309-NEXT:    ldu 4,s
+; H6309-NEXT:    ldy 4,s
 ; H6309-NEXT:    leax 10,s
-; H6309-NEXT:    tfr x, d
+; H6309-NEXT:    tfr x, w
 ; H6309-NEXT:    leax 6,s
-; H6309-NEXT:    tfr x, y
-; H6309-NEXT:    cmpr u, w
+; H6309-NEXT:    tfr x, u
+; H6309-NEXT:    cmpr y, d
 ; H6309-NEXT:    bhi .LBB7_2
 ; H6309-NEXT:  ; %bb.1:
-; H6309-NEXT:    tfr d, y
+; H6309-NEXT:    tfr w, u
 ; H6309-NEXT:  .LBB7_2:
-; H6309-NEXT:    ldy ,y
-; H6309-NEXT:    cmpr u, w
-; H6309-NEXT:    bhi .LBB7_3
-; H6309-NEXT:  ; %bb.4:
-; H6309-NEXT:    addd #2
-; H6309-NEXT:    tfr d, x
-; H6309-NEXT:    bra .LBB7_5
-; H6309-NEXT:  .LBB7_3:
+; H6309-NEXT:    ldy ,u
+; H6309-NEXT:    ldu 4,s
+; H6309-NEXT:    cmpr u, d
+; H6309-NEXT:    bhi .LBB7_4
+; H6309-NEXT:  ; %bb.3:
+; H6309-NEXT:    tfr w, x
+; H6309-NEXT:  .LBB7_4:
 ; H6309-NEXT:    leax 2,x
-; H6309-NEXT:  .LBB7_5:
 ; H6309-NEXT:    ldx ,x
 ; H6309-NEXT:    tfr y, d
 ; H6309-NEXT:    ldu ,s ; 2-byte Folded Reload

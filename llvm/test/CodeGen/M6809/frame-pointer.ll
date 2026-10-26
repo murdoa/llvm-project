@@ -22,20 +22,19 @@ define i16 @stack_arg(i16 %n, i16 %b) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshs u
 ; CHECK-NEXT:    leau ,s
-; CHECK-NEXT:    leas -4,s
+; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    tfr s, d
-; CHECK-NEXT:    stx -4,u
-; CHECK-NEXT:    subd -4,u
+; CHECK-NEXT:    stx -2,u
+; CHECK-NEXT:    subd -2,u
 ; CHECK-NEXT:    tfr d, s
 ; CHECK-NEXT:    leas -4,s
 ; CHECK-NEXT:    stx 2,s
 ; CHECK-NEXT:    ldx 4,u
-; CHECK-NEXT:    stx -2,u ; 2-byte Folded Spill
 ; CHECK-NEXT:    stx ,s
 ; CHECK-NEXT:    jsr use3
 ; CHECK-NEXT:    leas 4,s
-; CHECK-NEXT:    ldd -2,u ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 4,u
 ; CHECK-NEXT:    leas ,u
 ; CHECK-NEXT:    puls u
 ; CHECK-NEXT:    rts

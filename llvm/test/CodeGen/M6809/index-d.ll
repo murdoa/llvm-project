@@ -33,10 +33,10 @@ define i8 @ld8(ptr %p, i16 %i) {
 define void @st16(ptr %p, i16 %i, i16 %v) {
 ; CHECK-LABEL: st16:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd 2,s
-; CHECK-NEXT:    ldx 4,s
-; CHECK-NEXT:    stx d,y
+; CHECK-NEXT:    ldy 4,s
+; CHECK-NEXT:    sty d,x
 ; CHECK-NEXT:    rts
   %a = getelementptr i8, ptr %p, i16 %i
   store i16 %v, ptr %a

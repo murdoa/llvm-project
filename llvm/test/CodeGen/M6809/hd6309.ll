@@ -92,10 +92,10 @@ define i8 @lt0(i16 %a) {
 define i8 @cmp_rr(i16 %a, i16 %b) {
 ; CHECK-LABEL: cmp_rr:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldx 2,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    ldy 2,s
 ; CHECK-NEXT:    ldb #1
-; CHECK-NEXT:    cmpr x, y
+; CHECK-NEXT:    cmpr y, x
 ; CHECK-NEXT:    blt .LBB7_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    ldb #2
@@ -155,15 +155,15 @@ define void @or_xy(ptr %p, ptr %q) {
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -2,s
 ; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldu 4,s
-; CHECK-NEXT:    ldw ,u
+; CHECK-NEXT:    tfr d, u
+; CHECK-NEXT:    ldy 4,s
+; CHECK-NEXT:    ldw ,y
 ; CHECK-NEXT:    tfr w, d
-; CHECK-NEXT:    ord ,y
+; CHECK-NEXT:    ord ,u
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    eorr w, d
-; CHECK-NEXT:    std ,y
-; CHECK-NEXT:    stx ,u
+; CHECK-NEXT:    std ,u
+; CHECK-NEXT:    stx ,y
 ; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts

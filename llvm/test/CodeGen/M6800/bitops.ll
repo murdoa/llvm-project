@@ -123,13 +123,12 @@ define i32 @bswap32(i32 %a) {
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    ldd 6,x
-; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
 ; CHECK-NEXT:    tab
 ; CHECK-NEXT:    clra
 ; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    pshx
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldd 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 8,x
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    tba
 ; CHECK-NEXT:    clrb

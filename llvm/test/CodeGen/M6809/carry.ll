@@ -49,22 +49,22 @@ define i32 @add32_imm(i32 %a) {
 define void @add32_mem(ptr %p, ptr %q) {
 ; CHECK-LABEL: add32_mem:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -4,s
-; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    leas -2,s
+; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd 2,x
 ; CHECK-NEXT:    ldu ,x
-; CHECK-NEXT:    stu ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldy 6,s
+; CHECK-NEXT:    ldy 4,s
 ; CHECK-NEXT:    addd 2,y
-; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    adcb 1,y
-; CHECK-NEXT:    adca ,y
+; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr u, d
+; CHECK-NEXT:    ldu 4,s
+; CHECK-NEXT:    adcb 1,u
+; CHECK-NEXT:    adca ,u
 ; CHECK-NEXT:    std ,x
-; CHECK-NEXT:    stu 2,x
-; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 4,s
+; CHECK-NEXT:    sty 2,x
+; CHECK-NEXT:    ldu ,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 2,s
 ; CHECK-NEXT:    rts
   %a = load i32, ptr %p
   %b = load i32, ptr %q
@@ -76,38 +76,34 @@ define void @add32_mem(ptr %p, ptr %q) {
 define i64 @add64(i64 %a, i64 %b) {
 ; CHECK-LABEL: add64:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -10,s
-; CHECK-NEXT:    stu 8,s ; 2-byte Folded Spill
+; CHECK-NEXT:    leas -6,s
+; CHECK-NEXT:    stu 4,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, x
-; CHECK-NEXT:    ldy 18,s
-; CHECK-NEXT:    ldu 16,s
 ; CHECK-NEXT:    ldd 14,s
+; CHECK-NEXT:    ldu 12,s
+; CHECK-NEXT:    ldy 10,s
+; CHECK-NEXT:    addd 22,s
 ; CHECK-NEXT:    std ,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd 12,s
-; CHECK-NEXT:    std 4,s ; 2-byte Folded Spill
-; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    addd 26,s
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr u, d
-; CHECK-NEXT:    adcb 25,s
-; CHECK-NEXT:    adca 24,s
-; CHECK-NEXT:    std 6,s ; 2-byte Folded Spill
-; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
-; CHECK-NEXT:    adcb 23,s
-; CHECK-NEXT:    adca 22,s
-; CHECK-NEXT:    tfr d, u
-; CHECK-NEXT:    ldd 4,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    adcb 21,s
 ; CHECK-NEXT:    adca 20,s
+; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    adcb 19,s
+; CHECK-NEXT:    adca 18,s
+; CHECK-NEXT:    tfr d, u
+; CHECK-NEXT:    ldd 8,s
+; CHECK-NEXT:    adcb 17,s
+; CHECK-NEXT:    adca 16,s
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd ,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 6,x
-; CHECK-NEXT:    ldd 6,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldd 2,s ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 4,x
 ; CHECK-NEXT:    stu 2,x
 ; CHECK-NEXT:    sty ,x
-; CHECK-NEXT:    ldu 8,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 10,s
+; CHECK-NEXT:    ldu 4,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 6,s
 ; CHECK-NEXT:    rts
   %r = add i64 %a, %b
   ret i64 %r

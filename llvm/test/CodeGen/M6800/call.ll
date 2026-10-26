@@ -363,25 +363,19 @@ define void @inline_memcpy(ptr %d, ptr %s) {
 ; CHECK-LABEL: inline_memcpy:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    pshx
-; CHECK-NEXT:    pshx
-; CHECK-NEXT:    tsx
-; CHECK-NEXT:    std 2,x ; 2-byte Folded Spill
-; CHECK-NEXT:    ldx 6,x
-; CHECK-NEXT:    xgdx
 ; CHECK-NEXT:    tsx
 ; CHECK-NEXT:    std 0,x ; 2-byte Folded Spill
-; CHECK-NEXT:    xgdx
+; CHECK-NEXT:    ldx 4,x
 ; CHECK-NEXT:    ldd 2,x
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 0,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 2,x
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 0,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 4,x
 ; CHECK-NEXT:    ldd 0,x
 ; CHECK-NEXT:    tsx
-; CHECK-NEXT:    ldx 2,x ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 0,x ; 2-byte Folded Reload
 ; CHECK-NEXT:    std 0,x
-; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    pulx
 ; CHECK-NEXT:    rts
   call void @llvm.memcpy.p0.p0.i16(ptr %d, ptr %s, i16 4, i1 false)

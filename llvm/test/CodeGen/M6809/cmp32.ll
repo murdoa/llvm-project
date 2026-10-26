@@ -33,12 +33,12 @@ e:
 define void @br_ugt(i32 %a, i32 %b) {
 ; CHECK-LABEL: br_ugt:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    tfr d, y
+; CHECK-NEXT:    tfr d, x
 ; CHECK-NEXT:    ldd 6,s
-; CHECK-NEXT:    ldx 4,s
+; CHECK-NEXT:    ldy 4,s
 ; CHECK-NEXT:    subd 2,s
-; CHECK-NEXT:    tfr x, d
-; CHECK-NEXT:    pshs y
+; CHECK-NEXT:    tfr y, d
+; CHECK-NEXT:    pshs x
 ; CHECK-NEXT:    sbcb 1,s
 ; CHECK-NEXT:    sbca ,s++
 ; CHECK-NEXT:    bhs .LBB1_2
@@ -118,13 +118,12 @@ e:
 define i32 @smax(i32 %a, i32 %b) {
 ; CHECK-LABEL: smax:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    leas -6,s
-; CHECK-NEXT:    stu 4,s ; 2-byte Folded Spill
+; CHECK-NEXT:    leas -4,s
+; CHECK-NEXT:    stu 2,s ; 2-byte Folded Spill
 ; CHECK-NEXT:    tfr d, y
-; CHECK-NEXT:    ldu 10,s
-; CHECK-NEXT:    ldd 12,s
-; CHECK-NEXT:    ldx 8,s
-; CHECK-NEXT:    std 2,s ; 2-byte Folded Spill
+; CHECK-NEXT:    ldu 8,s
+; CHECK-NEXT:    ldd 10,s
+; CHECK-NEXT:    ldx 6,s
 ; CHECK-NEXT:    stx ,s
 ; CHECK-NEXT:    subd ,s
 ; CHECK-NEXT:    tfr u, d
@@ -134,11 +133,11 @@ define i32 @smax(i32 %a, i32 %b) {
 ; CHECK-NEXT:    blt .LBB5_2
 ; CHECK-NEXT:  ; %bb.1:
 ; CHECK-NEXT:    tfr u, y
-; CHECK-NEXT:    ldx 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    ldx 10,s
 ; CHECK-NEXT:  .LBB5_2:
 ; CHECK-NEXT:    tfr y, d
-; CHECK-NEXT:    ldu 4,s ; 2-byte Folded Reload
-; CHECK-NEXT:    leas 6,s
+; CHECK-NEXT:    ldu 2,s ; 2-byte Folded Reload
+; CHECK-NEXT:    leas 4,s
 ; CHECK-NEXT:    rts
   %c = icmp sgt i32 %a, %b
   %r = select i1 %c, i32 %a, i32 %b
