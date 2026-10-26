@@ -18,6 +18,7 @@
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/KnownBits.h"
 
 using namespace llvm;
 
@@ -492,11 +493,21 @@ void M6809TargetLowering::ReplaceNodeResults(SDNode *N,
 
 // Maps an integer condition to a 6809 branch condition. A constant LHS is
 // swapped to the right first, since only the right side can be an immediate.
+// A value that is 0 or 1 (a bool) compared for equality with 1 is compared
+// with 0 instead, the other way round: the load or operation that makes it
+// sets Z already, so the compare goes.
 static M6809CC::CondCode prepareCompare(SDValue &LHS, SDValue &RHS,
-                                        ISD::CondCode CC) {
+                                        ISD::CondCode CC, SelectionDAG &DAG) {
   if (isa<ConstantSDNode>(LHS) && !isa<ConstantSDNode>(RHS)) {
     std::swap(LHS, RHS);
     CC = ISD::getSetCCSwappedOperands(CC);
+  }
+  if ((CC == ISD::SETEQ || CC == ISD::SETNE) && isOneConstant(RHS)) {
+    KnownBits Known = DAG.computeKnownBits(LHS);
+    if (Known.countMinLeadingZeros() >= Known.getBitWidth() - 1) {
+      RHS = DAG.getConstant(0, SDLoc(RHS), RHS.getValueType());
+      CC = CC == ISD::SETEQ ? ISD::SETNE : ISD::SETEQ;
+    }
   }
   switch (CC) {
   case ISD::SETEQ:
@@ -534,7 +545,7 @@ SDValue M6809TargetLowering::lowerBR_CC(SDValue Op, SelectionDAG &DAG) const {
   SDValue Dest = Op.getOperand(4);
   SDLoc DL(Op);
 
-  M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC);
+  M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC, DAG);
   return DAG.getNode(M6809ISD::CMPBR, DL, MVT::Other, Chain, LHS, RHS,
                      DAG.getTargetConstant(MCC, DL, MVT::i8), Dest);
 }
@@ -873,7 +884,7 @@ SDValue M6809TargetLowering::lowerSELECT_CC(SDValue Op,
   ISD::CondCode CC = cast<CondCodeSDNode>(Op.getOperand(4))->get();
   SDLoc DL(Op);
 
-  M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC);
+  M6809CC::CondCode MCC = prepareCompare(LHS, RHS, CC, DAG);
   return DAG.getNode(M6809ISD::SELECT_CC, DL, Op.getValueType(), TVal, FVal,
                      LHS, RHS, DAG.getTargetConstant(MCC, DL, MVT::i8));
 }
