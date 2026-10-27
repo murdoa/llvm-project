@@ -24,6 +24,12 @@
 //   pshs x / addd ,s++ / tfr d,x   into   leax d,x
 //   ldd 4,s / tfr d,x              into   ldx 4,s
 //
+// and drops the second of two moves that undo each other, and of two
+// constant steps of one index register:
+//
+//   tfr d,u / tfr u,d              into   tfr d,u
+//   leau 13,s / leau 4,u           into   leau 17,s
+//
 //===----------------------------------------------------------------------===//
 
 #include "M6809.h"
@@ -247,6 +253,48 @@ static bool loadIntoTransferDest(MachineBasicBlock &MBB,
   return Changed;
 }
 
+// "tfr d,u; tfr u,d": the second moves nothing (TFR sets no flags).
+// "leau 13,s; leau 4,u": one step. LEAX and LEAY set Z from the result,
+// which is the same either way, and the shortest offset form of the sum is
+// never longer than the two.
+static bool foldPairs(MachineBasicBlock &MBB) {
+  bool Changed = false;
+  for (MachineInstr &MI : MBB) {
+    MachineInstr *Next;
+    while ((Next = nextInstr(MI))) {
+      unsigned Opc = MI.getOpcode();
+      if ((Opc == M6809::TFR16 || Opc == M6809::TFR8) &&
+          Next->getOpcode() == Opc &&
+          Next->getOperand(0).getReg() == MI.getOperand(1).getReg() &&
+          Next->getOperand(1).getReg() == MI.getOperand(0).getReg()) {
+        Next->eraseFromParent();
+        Changed = true;
+        continue;
+      }
+      if (Opc != M6809::LEA16 || Next->getOpcode() != M6809::LEA16)
+        break;
+      Register R = MI.getOperand(0).getReg();
+      const MachineOperand &Base = MI.getOperand(1);
+      const MachineOperand &Off = MI.getOperand(2);
+      const MachineOperand &NBase = Next->getOperand(1);
+      const MachineOperand &NOff = Next->getOperand(2);
+      if (Next->getOperand(0).getReg() != R || !NBase.isReg() ||
+          NBase.getReg() != R || !Base.isReg() || !Base.getReg() ||
+          Base.getReg() == M6809::PC || !Off.isImm() || !NOff.isImm() ||
+          MI.getOperand(3).getImm() != M6809Mem::Auto ||
+          Next->getOperand(3).getImm() != M6809Mem::Auto)
+        break;
+      int64_t Sum = Off.getImm() + NOff.getImm();
+      if (Sum < -32768 || Sum > 32767)
+        break;
+      MI.getOperand(2).setImm(Sum);
+      Next->eraseFromParent();
+      Changed = true;
+    }
+  }
+  return Changed;
+}
+
 bool M6809PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
   if (DisableCleanup || skipFunction(MF.getFunction()))
     return false;
@@ -258,6 +306,7 @@ bool M6809PostRACleanup::runOnMachineFunction(MachineFunction &MF) {
   for (MachineBasicBlock &MBB : MF) {
     bool BlockChanged = foldAddIntoLea(MBB, TRI, TII);
     BlockChanged |= loadIntoTransferDest(MBB, TRI);
+    BlockChanged |= foldPairs(MBB);
     for (MachineInstr &MI : MBB) {
       unsigned W = loadWidth(MI) | storeWidth(MI);
       MachineInstr *Next;

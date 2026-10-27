@@ -14,8 +14,7 @@ define i16 @two_args(i16 %n, ...) {
 ; CHECK-LABEL: two_args:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    leax 4,s
-; CHECK-NEXT:    leax 2,x
+; CHECK-NEXT:    leax 6,s
 ; CHECK-NEXT:    ldb ,x+
 ; CHECK-NEXT:    stx ,s
 ; CHECK-NEXT:    ; kill: def $b killed $b def $d
@@ -39,8 +38,7 @@ define i16 @no_fixed(...) {
 ; CHECK-LABEL: no_fixed:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    leax 4,s
-; CHECK-NEXT:    leax 2,x
+; CHECK-NEXT:    leax 6,s
 ; CHECK-NEXT:    stx ,s
 ; CHECK-NEXT:    ldd 4,s
 ; CHECK-NEXT:    leas 2,s

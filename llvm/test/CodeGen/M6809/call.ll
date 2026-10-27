@@ -115,8 +115,7 @@ define i16 @va_first(i16 %n, ...) {
 ; CHECK-LABEL: va_first:
 ; CHECK:       ; %bb.0:
 ; CHECK-NEXT:    leas -2,s
-; CHECK-NEXT:    leax 4,s
-; CHECK-NEXT:    leax 2,x
+; CHECK-NEXT:    leax 6,s
 ; CHECK-NEXT:    stx ,s
 ; CHECK-NEXT:    ldd 4,s
 ; CHECK-NEXT:    leas 2,s
