@@ -104,8 +104,7 @@ define void @br_neg(i32 %a) {
 ; CHECK-NEXT:  ; %bb.2: ; %e
 ; CHECK-NEXT:    rts
 ; CHECK-NEXT:  .LBB4_1: ; %t
-; CHECK-NEXT:    jsr f
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp f
   %c = icmp slt i32 %a, 0
   br i1 %c, label %t, label %e
 t:

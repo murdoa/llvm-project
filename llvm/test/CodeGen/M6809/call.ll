@@ -11,8 +11,7 @@ declare void @vf(i16, ...)
 define i16 @call_no_args() {
 ; CHECK-LABEL: call_no_args:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    jsr f0
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp f0
   %r = call i16 @f0()
   ret i16 %r
 }
@@ -31,8 +30,7 @@ define i16 @call_reg_arg(i16 %a) {
 define i8 @call_i8(i8 %a) {
 ; CHECK-LABEL: call_i8:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    jsr f8
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp f8
   %r = call i8 @f8(i8 %a)
   ret i8 %r
 }

@@ -28,6 +28,7 @@ extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeM6809Target() {
   initializeM6809DAGToDAGISelLegacyPass(PR);
   initializeM6809SplitDOperandsPass(PR);
   initializeM6809PostRACleanupPass(PR);
+  initializeM6809TailCallsPass(PR);
   initializeM6809DirectPagePass(PR);
 }
 
@@ -107,6 +108,7 @@ public:
   void addPreRegAlloc() override;
   void addFastRegAlloc() override;
   void addPreSched2() override;
+  void addPreEmitPass2() override;
 };
 
 } // namespace
@@ -147,6 +149,12 @@ void M6809PassConfig::addPreRegAlloc() {
 void M6809PassConfig::addPreSched2() {
   if (getOptLevel() != CodeGenOptLevel::None)
     addPass(createM6809PostRACleanupPass());
+}
+
+// After the machine outliner, which leaves calls just before a return.
+void M6809PassConfig::addPreEmitPass2() {
+  if (getOptLevel() != CodeGenOptLevel::None)
+    addPass(createM6809TailCallsPass());
 }
 
 MachineFunctionInfo *M6809TargetMachine::createMachineFunctionInfo(

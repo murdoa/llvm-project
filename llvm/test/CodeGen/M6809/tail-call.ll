@@ -101,7 +101,9 @@ define void @indirect_framed(ptr %p, i16 %a) {
 }
 
 ; Not sibling calls: a stack argument, a variadic callee, a result the
-; caller does not pass on unchanged, and a callee that returns twice.
+; caller does not pass on unchanged, and a callee that returns twice. A call
+; with nothing left after it but rts still becomes a jump, late
+; (M6809TailCalls), except to a callee that returns twice.
 define i16 @stack_arg(i16 %a) {
 ; CHECK-LABEL: stack_arg:
 ; CHECK:       ; %bb.0:
@@ -118,8 +120,7 @@ define i16 @stack_arg(i16 %a) {
 define i16 @variadic(i16 %a) {
 ; CHECK-LABEL: variadic:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    jsr v
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp v
   %r = tail call i16 (i16, ...) @v(i16 %a)
   ret i16 %r
 }
@@ -127,8 +128,7 @@ define i16 @variadic(i16 %a) {
 define i8 @extension(i16 %a) {
 ; CHECK-LABEL: extension:
 ; CHECK:       ; %bb.0:
-; CHECK-NEXT:    jsr b
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp b
   %r = tail call zeroext i8 @b(i16 %a)
   ret i8 %r
 }

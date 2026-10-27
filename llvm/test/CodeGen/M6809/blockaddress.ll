@@ -21,8 +21,7 @@ define void @target(ptr %p) {
 ; CHECK-NEXT:  .LBB1_1: ; %l
 ; CHECK-NEXT:    rts
 ; CHECK-NEXT:  .LBB1_2: ; %m
-; CHECK-NEXT:    jsr g
-; CHECK-NEXT:    rts
+; CHECK-NEXT:    jmp g
 entry:
   indirectbr ptr %p, [label %l, label %m]
 l:
