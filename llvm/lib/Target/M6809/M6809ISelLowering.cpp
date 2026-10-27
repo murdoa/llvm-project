@@ -1370,6 +1370,10 @@ static CCAssignFn *getArgCC(CallingConv::ID CC, bool IsVarArg) {
   return CC == CallingConv::Fast && !IsVarArg ? CC_M6809_Fast : CC_M6809;
 }
 
+static CCAssignFn *getRetCC(CallingConv::ID CC, bool IsVarArg) {
+  return CC == CallingConv::Fast && !IsVarArg ? RetCC_M6809_Fast : RetCC_M6809;
+}
+
 SDValue M6809TargetLowering::LowerFormalArguments(
     SDValue Chain, CallingConv::ID CallConv, bool IsVarArg,
     const SmallVectorImpl<ISD::InputArg> &Ins, const SDLoc &DL,
@@ -1453,6 +1457,11 @@ bool M6809TargetLowering::isEligibleForSiblingCall(
   for (const ISD::OutputArg &Out : CLI.Outs)
     if (Out.Flags.isSRet() || Out.Flags.isByVal())
       return false;
+  // The callee's result must be where the caller returns its own.
+  if (!Caller.getReturnType()->isVoidTy() &&
+      getRetCC(Caller.getCallingConv(), Caller.isVarArg()) !=
+          getRetCC(CLI.CallConv, CLI.IsVarArg))
+    return false;
   // setjmp-like callees come back to their caller's frame.
   if (CLI.CB && CLI.CB->hasFnAttr(Attribute::ReturnsTwice))
     return false;
@@ -1556,7 +1565,7 @@ SDValue M6809TargetLowering::LowerCall(TargetLowering::CallLoweringInfo &CLI,
   // Results.
   SmallVector<CCValAssign, 4> RVLocs;
   CCState RetInfo(CLI.CallConv, CLI.IsVarArg, MF, RVLocs, *DAG.getContext());
-  RetInfo.AnalyzeCallResult(CLI.Ins, RetCC_M6809);
+  RetInfo.AnalyzeCallResult(CLI.Ins, getRetCC(CLI.CallConv, CLI.IsVarArg));
   for (const CCValAssign &VA : RVLocs) {
     SDValue Val =
         DAG.getCopyFromReg(Chain, DL, VA.getLocReg(), VA.getLocVT(), Glue);
@@ -1573,7 +1582,7 @@ bool M6809TargetLowering::CanLowerReturn(
     const Type *RetTy) const {
   SmallVector<CCValAssign, 4> RVLocs;
   CCState CCInfo(CallConv, IsVarArg, MF, RVLocs, Context);
-  return CCInfo.CheckReturn(Outs, RetCC_M6809);
+  return CCInfo.CheckReturn(Outs, getRetCC(CallConv, IsVarArg));
 }
 
 SDValue
@@ -1585,7 +1594,7 @@ M6809TargetLowering::LowerReturn(SDValue Chain, CallingConv::ID CallConv,
   SmallVector<CCValAssign, 4> RVLocs;
   CCState CCInfo(CallConv, IsVarArg, DAG.getMachineFunction(), RVLocs,
                  *DAG.getContext());
-  CCInfo.AnalyzeReturn(Outs, RetCC_M6809);
+  CCInfo.AnalyzeReturn(Outs, getRetCC(CallConv, IsVarArg));
 
   SDValue Glue;
   SmallVector<SDValue, 4> RetOps(1, Chain);

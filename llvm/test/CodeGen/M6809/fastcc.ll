@@ -60,3 +60,84 @@ define void @caller() {
   call fastcc void @mixed(i8 5, i16 6, i8 7, i16 8)
   ret void
 }
+
+; fastcc results: words in X first (an i32 has its high word in X, its low
+; word in D), bytes in B as for C.
+define internal fastcc ptr @pointer(ptr %p) noinline {
+; CHECK-LABEL: pointer:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leax 3,x
+; CHECK-NEXT:    rts
+  %q = getelementptr i8, ptr %p, i16 3
+  ret ptr %q
+}
+
+define internal fastcc i32 @long(i16 %a, i16 %b) noinline {
+; CHECK-LABEL: long:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    rts
+  %h = zext i16 %a to i32
+  %s = shl i32 %h, 16
+  %l = zext i16 %b to i32
+  %r = or i32 %s, %l
+  ret i32 %r
+}
+
+define i8 @use_results(ptr %p) {
+; CHECK-LABEL: use_results:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    leas -3,s
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    jsr pointer
+; CHECK-NEXT:    ldb ,x
+; CHECK-NEXT:    stb ,s ; 1-byte Folded Spill
+; CHECK-NEXT:    ldx #1
+; CHECK-NEXT:    ldd #2
+; CHECK-NEXT:    jsr long
+; CHECK-NEXT:    tfr b, a
+; CHECK-NEXT:    ldb ,s ; 1-byte Folded Reload
+; CHECK-NEXT:    sta 1,s
+; CHECK-NEXT:    addb 1,s
+; CHECK-NEXT:    leas 3,s
+; CHECK-NEXT:    rts
+  %q = call fastcc ptr @pointer(ptr %p)
+  %v = load i8, ptr %q
+  %l = call fastcc i32 @long(i16 1, i16 2)
+  %t = trunc i32 %l to i8
+  %s = add i8 %v, %t
+  ret i8 %s
+}
+
+; A C function's word comes back in D, but a fastcc one returns it in X, so
+; a fastcc caller cannot jump to it; a C caller to a C callee still can.
+declare i16 @c_word(i16)
+
+define internal fastcc i16 @fast_to_c(i16 %a) noinline {
+; CHECK-LABEL: fast_to_c:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    jsr c_word
+; CHECK-NEXT:    tfr d, x
+; CHECK-NEXT:    rts
+  %r = tail call i16 @c_word(i16 %a)
+  ret i16 %r
+}
+
+define i16 @c_to_c(i16 %a) {
+; CHECK-LABEL: c_to_c:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    jmp c_word
+  %r = tail call i16 @c_word(i16 %a)
+  ret i16 %r
+}
+
+define i16 @call_fast_to_c() {
+; CHECK-LABEL: call_fast_to_c:
+; CHECK:       ; %bb.0:
+; CHECK-NEXT:    ldx #9
+; CHECK-NEXT:    jsr fast_to_c
+; CHECK-NEXT:    tfr x, d
+; CHECK-NEXT:    rts
+  %r = call fastcc i16 @fast_to_c(i16 9)
+  ret i16 %r
+}

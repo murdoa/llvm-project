@@ -41,7 +41,8 @@ def CC_M6809 : CallingConv<[
 // more of the arguments in registers. Bytes take B then A, words X, D then
 // Y, each while no part of the register is taken; the rest go on the stack
 // as for C. X first leaves D free for the arithmetic, and a pointer argument
-// is where indexing wants it.
+// is where indexing wants it. RetCC_M6809_Fast below returns words in X
+// for the same reason.
 def CC_M6809_Fast : CallingConv<[
   CCIfByVal<CCCustom<"CC_M6809_ByVal">>,
   CCIfType<[i1], CCPromoteToType<i8>>,
@@ -49,6 +50,14 @@ def CC_M6809_Fast : CallingConv<[
   CCIfType<[i16], CCAssignToReg<[X, D, Y]>>,
   CCIfType<[i8], CCAssignToStack<1, 1>>,
   CCIfType<[i16], CCAssignToStack<2, 1>>
+]>;
+
+// fastcc results: words in X first, where a returned pointer is wanted
+// for indexing; bytes in B as for C.
+def RetCC_M6809_Fast : CallingConv<[
+  CCIfType<[i1], CCPromoteToType<i8>>,
+  CCIfType<[i8], CCAssignToReg<[B]>>,
+  CCIfType<[i16], CCAssignToReg<[X, D]>>
 ]>;
 
 def CSR_M6809 : CalleeSavedRegs<(add U)>;

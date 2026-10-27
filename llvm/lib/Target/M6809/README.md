@@ -44,6 +44,12 @@ The two backends share one C calling convention; clang's M6809ABIInfo and
   (`long`, `float`) with the high word in D and the low word in X.
   Anything larger, such as `long long` and `double`, is returned through a
   hidden pointer, as aggregates are.
+- **fastcc.** Internal functions whose every call the optimizer sees
+  (`fastcc`) pass bytes in B then A and words in X, D then Y, each while
+  no part of the register is taken, and return a word in X (an i32 with its
+  high word in X and its low word in D), so that a returned pointer is
+  ready for indexing. Bytes return in B. A fastcc function makes no sibling
+  call to a function that returns its result elsewhere.
 - **Registers.** U is callee-saved and is the frame pointer when the
   function needs one. A, B, X and Y are caller-saved. CC and DP are never
   allocated.
