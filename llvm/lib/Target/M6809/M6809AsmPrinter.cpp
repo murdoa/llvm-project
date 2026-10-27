@@ -10,20 +10,26 @@
 #include "M6809MCInstLower.h"
 #include "MCTargetDesc/M6809InstPrinter.h"
 #include "TargetInfo/M6809TargetInfo.h"
+#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/CodeGen/AsmPrinter.h"
 #include "llvm/CodeGen/MachineInstr.h"
-#include "llvm/BinaryFormat/ELF.h"
 #include "llvm/MC/MCContext.h"
-#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCInstBuilder.h"
+#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/TargetRegistry.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include <set>
 #include <string>
 
 using namespace llvm;
+
+static cl::opt<unsigned> CopyEntry(
+    "m6809-copy-entry", cl::Hidden, cl::init(0),
+    cl::desc("Give each copy routine an entry for copies of this many "
+             "bytes, which loads B itself (0 for none)"));
 
 #define DEBUG_TYPE "asm-printer"
 
@@ -89,6 +95,12 @@ public:
 // A call is five bytes where the loop is nine, and a call just before a
 // return jumps instead (see SkipReturn). The routines leave what the
 // loop would: the pointers advanced, B zero, A the last byte, the flags set.
+//
+// With -m6809-copy-entry=n, a program that copies n bytes often (a number
+// type, say) calls __m6809_copy<n>_<src><dst>, which loads B itself and
+// falls into the loop: three bytes a call. The group's name has n in it, so
+// objects built without the option, whose group lacks the entry, do not
+// stand in for it; their weak loop is then a duplicate.
 static char regLetter(MCRegister R) {
   return R == M6809::X ? 'x' : R == M6809::Y ? 'y' : 'u';
 }
@@ -97,9 +109,16 @@ void M6809AsmPrinter::emitLoop(const MachineInstr &MI) {
   bool Cpy = MI.getOpcode() == M6809::COPYLOOP;
   MCRegister Dst = MI.getOperand(Cpy ? 2 : 1).getReg();
   std::string Name;
+  int64_t Len = MI.getOperand(Cpy ? 4 : 3).getImm();
+  bool Entry = false;
   if (Cpy) {
     MCRegister Src = MI.getOperand(3).getReg();
-    Name = std::string("__m6809_copy_") + regLetter(Src) + regLetter(Dst);
+    std::string Pair = std::string() + regLetter(Src) + regLetter(Dst);
+    Name = "__m6809_copy_" + Pair;
+    LoopRoutines.insert(Name);
+    Entry = CopyEntry && Len == CopyEntry;
+    if (Entry)
+      Name = "__m6809_copy" + std::to_string(Len) + "_" + Pair;
   } else {
     int64_t Val = MI.getOperand(2).getImm();
     if (Val != 0)
@@ -108,9 +127,9 @@ void M6809AsmPrinter::emitLoop(const MachineInstr &MI) {
     Name = std::string(Val == 0 ? "__m6809_clear_" : "__m6809_fill_") +
            regLetter(Dst);
   }
-  EmitToStreamer(*OutStreamer, MCInstBuilder(M6809::LD8i)
-                                   .addReg(M6809::B)
-                                   .addImm(MI.getOperand(Cpy ? 4 : 3).getImm()));
+  if (!Entry)
+    EmitToStreamer(*OutStreamer,
+                   MCInstBuilder(M6809::LD8i).addReg(M6809::B).addImm(Len));
   // "jsr routine; rts" is "jmp routine".
   MachineBasicBlock::const_iterator Next = std::next(MI.getIterator());
   while (Next != MI.getParent()->end() && Next->isMetaInstruction())
@@ -124,7 +143,8 @@ void M6809AsmPrinter::emitLoop(const MachineInstr &MI) {
   Call.addOperand(MCOperand::createImm(M6809Mem::Auto));
   EmitToStreamer(*OutStreamer, Call);
   // A copy names its pair; clear and fill share one routine per register.
-  LoopRoutines.insert(Cpy ? Name : std::string("fill_") + regLetter(Dst));
+  if (!Cpy)
+    LoopRoutines.insert(std::string("fill_") + regLetter(Dst));
 }
 
 void M6809AsmPrinter::emitEndOfAsmFile(Module &M) {
@@ -148,7 +168,10 @@ void M6809AsmPrinter::emitEndOfAsmFile(Module &M) {
   for (const std::string &R : LoopRoutines) {
     bool Cpy = StringRef(R).starts_with("__m6809_copy_");
     char D = R.back();
-    std::string Group = Cpy ? R : std::string("__m6809_fill_") + D;
+    std::string Routine = Cpy ? R : std::string("__m6809_fill_") + D;
+    std::string Group = Routine;
+    if (Cpy && CopyEntry)
+      Group += "." + std::to_string(CopyEntry);
     OutStreamer->switchSection(OutContext.getELFSection(
         ".text." + Group, ELF::SHT_PROGBITS,
         ELF::SHF_ALLOC | ELF::SHF_EXECINSTR | ELF::SHF_GROUP, 0, Group,
@@ -156,8 +179,13 @@ void M6809AsmPrinter::emitEndOfAsmFile(Module &M) {
     if (!Cpy) {
       Define(OutContext.getOrCreateSymbol(std::string("__m6809_clear_") + D));
       Emit(MCInstBuilder(M6809::CLR8).addReg(M6809::A));
+    } else if (CopyEntry) {
+      Define(OutContext.getOrCreateSymbol("__m6809_copy" +
+                                          std::to_string(CopyEntry) + "_" +
+                                          R.substr(R.size() - 2)));
+      Emit(MCInstBuilder(M6809::LD8i).addReg(M6809::B).addImm(CopyEntry));
     }
-    Define(OutContext.getOrCreateSymbol(Group));
+    Define(OutContext.getOrCreateSymbol(Routine));
     // Branch to a local label: the global one is weak, so the assembler
     // could not resolve a branch to it.
     MCSymbol *Loop = OutContext.createTempSymbol();
