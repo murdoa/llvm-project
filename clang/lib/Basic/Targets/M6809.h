@@ -65,6 +65,10 @@ public:
     // loads and stores plain ones and calls __sync_* for the rest.
     MaxAtomicPromoteWidth = 16;
     MaxAtomicInlineWidth = 16;
+    // Itanium C++ with the method pointers that carry the virtual bit in
+    // the this adjustment (as ARM's), so member functions need not be
+    // aligned to two bytes: no filler before them.
+    TheCXXABI.set(TargetCXXABI::WebAssembly);
     resetDataLayout();
   }
 

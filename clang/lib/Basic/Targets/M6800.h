@@ -65,6 +65,9 @@ public:
     // loads and stores plain ones and calls __sync_* for the rest.
     MaxAtomicPromoteWidth = 16;
     MaxAtomicInlineWidth = 16;
+    // As the M6809: method pointers carry the virtual bit in the this
+    // adjustment, so member functions need not be aligned to two bytes.
+    TheCXXABI.set(TargetCXXABI::WebAssembly);
     resetDataLayout();
   }
 
