@@ -19,6 +19,13 @@
 
 using namespace llvm;
 
+namespace {
+class M6800TargetObjectFile : public TargetLoweringObjectFileELF {
+  // Code needs no alignment: no filler before each object's .text.
+  unsigned getTextSectionAlignment() const override { return 1; }
+};
+} // namespace
+
 extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void LLVMInitializeM6800Target() {
   RegisterTargetMachine<M6800TargetMachine> X(getTheM6800Target());
   PassRegistry &PR = *PassRegistry::getPassRegistry();
@@ -42,7 +49,7 @@ M6800TargetMachine::M6800TargetMachine(const Target &T, const Triple &TT,
     : CodeGenTargetMachineImpl(T, TT, defaultCPU(CPU), FS, Options,
                                RM.value_or(Reloc::Static),
                                getEffectiveCodeModel(CM, CodeModel::Small), OL),
-      TLOF(std::make_unique<TargetLoweringObjectFileELF>()) {
+      TLOF(std::make_unique<M6800TargetObjectFile>()) {
   initAsmInfo();
   // With two 8-bit and one 16-bit accumulator, a tied operand that stays
   // live often has no register to be copied into. TwoAddressInstruction

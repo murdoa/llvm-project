@@ -35,6 +35,8 @@ namespace {
 // A zero-initialised variable in .dp.bss takes no space in the object file,
 // as one in .bss does: an explicit section otherwise makes it data.
 class M6809TargetObjectFile : public TargetLoweringObjectFileELF {
+  // Code needs no alignment: no filler before each object's .text.
+  unsigned getTextSectionAlignment() const override { return 1; }
   MCSection *getExplicitSectionGlobal(const GlobalObject *GO, SectionKind Kind,
                                       const TargetMachine &TM) const override {
     StringRef Name = GO->getSection();

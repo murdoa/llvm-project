@@ -11,6 +11,7 @@
 #include "M6809MCAsmInfo.h"
 #include "TargetInfo/M6809TargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -62,6 +63,20 @@ static MCInstPrinter *createM6809MCInstPrinter(const Triple &T,
   return new M6809InstPrinter(MAI, MII, MRI);
 }
 
+namespace {
+// Code needs no alignment: no filler before each object's .text.
+class M6809MCObjectFileInfo : public MCObjectFileInfo {
+  unsigned getTextSectionAlignment() const override { return 1; }
+};
+} // namespace
+
+static MCObjectFileInfo *createM6809MCObjectFileInfo(MCContext &Ctx, bool PIC,
+                                                    bool LargeCodeModel) {
+  auto *MOFI = new M6809MCObjectFileInfo();
+  MOFI->initMCObjectFileInfo(Ctx, PIC, LargeCodeModel);
+  return MOFI;
+}
+
 extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void
 LLVMInitializeM6809TargetMC() {
   Target &T = getTheM6809Target();
@@ -72,4 +87,5 @@ LLVMInitializeM6809TargetMC() {
   TargetRegistry::RegisterMCInstPrinter(T, createM6809MCInstPrinter);
   TargetRegistry::RegisterMCCodeEmitter(T, createM6809MCCodeEmitter);
   TargetRegistry::RegisterMCAsmBackend(T, createM6809AsmBackend);
+  TargetRegistry::RegisterMCObjectFileInfo(T, createM6809MCObjectFileInfo);
 }

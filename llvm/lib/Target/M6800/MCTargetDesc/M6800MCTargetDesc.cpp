@@ -11,6 +11,7 @@
 #include "M6800MCAsmInfo.h"
 #include "TargetInfo/M6800TargetInfo.h"
 #include "llvm/MC/MCInstrInfo.h"
+#include "llvm/MC/MCObjectFileInfo.h"
 #include "llvm/MC/MCRegisterInfo.h"
 #include "llvm/MC/MCSubtargetInfo.h"
 #include "llvm/MC/TargetRegistry.h"
@@ -62,6 +63,20 @@ static MCInstPrinter *createM6800MCInstPrinter(const Triple &T,
   return new M6800InstPrinter(MAI, MII, MRI);
 }
 
+namespace {
+// Code needs no alignment: no filler before each object's .text.
+class M6800MCObjectFileInfo : public MCObjectFileInfo {
+  unsigned getTextSectionAlignment() const override { return 1; }
+};
+} // namespace
+
+static MCObjectFileInfo *createM6800MCObjectFileInfo(MCContext &Ctx, bool PIC,
+                                                    bool LargeCodeModel) {
+  auto *MOFI = new M6800MCObjectFileInfo();
+  MOFI->initMCObjectFileInfo(Ctx, PIC, LargeCodeModel);
+  return MOFI;
+}
+
 extern "C" LLVM_ABI LLVM_EXTERNAL_VISIBILITY void
 LLVMInitializeM6800TargetMC() {
   Target &T = getTheM6800Target();
@@ -72,4 +87,5 @@ LLVMInitializeM6800TargetMC() {
   TargetRegistry::RegisterMCInstPrinter(T, createM6800MCInstPrinter);
   TargetRegistry::RegisterMCCodeEmitter(T, createM6800MCCodeEmitter);
   TargetRegistry::RegisterMCAsmBackend(T, createM6800AsmBackend);
+  TargetRegistry::RegisterMCObjectFileInfo(T, createM6800MCObjectFileInfo);
 }
