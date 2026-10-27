@@ -24,10 +24,19 @@
 // Such offsets are read through a fresh ACC16 copy just before the access,
 // and the original register is widened to whatever its other uses allow.
 //
+// A value copied out of a physical register (an argument, a call's result)
+// may have been narrowed by the SSA optimizations to a one-register class
+// that does not hold it: MachineCSE folds "%b:breg = COPY %a" into
+// "%a = COPY $a". The value must then move to B where it is defined, while
+// B may still hold another argument, and allocation fails. Such a value is
+// put back in a class that holds its source, and each use reads it through
+// its own copy.
+//
 //===----------------------------------------------------------------------===//
 
 #include "M6809.h"
 #include "M6809InstrInfo.h"
+#include "M6809RegisterInfo.h"
 #include "M6809Subtarget.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
@@ -109,12 +118,14 @@ static bool widenTiedDSources(MachineFunction &MF) {
 }
 
 static bool splitDOffsets(MachineFunction &MF);
+static bool widenPhysCopies(MachineFunction &MF);
 
 bool M6809SplitDOperands::runOnMachineFunction(MachineFunction &MF) {
   MachineRegisterInfo &MRI = MF.getRegInfo();
   const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
   bool FastRA = MF.getTarget().getOptLevel() == CodeGenOptLevel::None;
   bool Changed = splitDOffsets(MF);
+  Changed |= widenPhysCopies(MF);
   if (FastRA)
     Changed |= widenTiedDSources(MF);
 
@@ -179,6 +190,65 @@ static bool splitDOffsets(MachineFunction &MF) {
         MRI.recomputeRegClass(Reg);
         Changed = true;
       }
+    }
+  }
+  return Changed;
+}
+
+// True if Reg is defined by a copy from a physical register that RC, a
+// one-register class, does not hold. See the third paragraph at the top.
+bool llvm::M6809::isPinnedPhysCopy(Register Reg,
+                                   const TargetRegisterClass *RC,
+                                   const MachineRegisterInfo &MRI) {
+  if (!Reg.isVirtual() || RC->getNumRegs() != 1)
+    return false;
+  const MachineInstr *Def = MRI.getUniqueVRegDef(Reg);
+  if (!Def || !Def->isCopy())
+    return false;
+  Register Src = Def->getOperand(1).getReg();
+  return Src.isPhysical() && !RC->contains(Src);
+}
+
+// See the third paragraph at the top of the file.
+static bool widenPhysCopies(MachineFunction &MF) {
+  MachineRegisterInfo &MRI = MF.getRegInfo();
+  const TargetInstrInfo &TII = *MF.getSubtarget().getInstrInfo();
+  const TargetRegisterInfo &TRI = *MF.getSubtarget().getRegisterInfo();
+  bool Changed = false;
+  for (MachineBasicBlock &MBB : MF) {
+    for (MachineInstr &Def : MBB) {
+      if (!Def.isCopy() || !Def.getOperand(0).getReg().isVirtual())
+        continue;
+      Register Reg = Def.getOperand(0).getReg();
+      const TargetRegisterClass *RC = MRI.getRegClass(Reg);
+      if (!M6809::isPinnedPhysCopy(Reg, RC, MRI))
+        continue;
+      // The smallest class that holds both the source and RC's register.
+      Register Src = Def.getOperand(1).getReg();
+      const TargetRegisterClass *Wide = nullptr;
+      for (const TargetRegisterClass &C : TRI.regclasses())
+        if (C.contains(Src) && C.hasSubClassEq(RC) &&
+            (!Wide || C.getNumRegs() < Wide->getNumRegs()))
+          Wide = &C;
+      if (!Wide || llvm::any_of(MRI.use_nodbg_instructions(Reg),
+                                [](const MachineInstr &U) { return U.isPHI(); }))
+        continue; // a PHI's copies are made in its predecessors
+      // Collected first: the copies made below are uses of Reg too.
+      SmallVector<MachineOperand *, 4> Uses;
+      for (MachineOperand &MO : MRI.use_nodbg_operands(Reg))
+        Uses.push_back(&MO);
+      for (MachineOperand *Use : Uses) {
+        MachineOperand &MO = *Use;
+        MachineInstr &User = *MO.getParent();
+        Register Copy = MRI.createVirtualRegister(RC);
+        BuildMI(*User.getParent(), User, User.getDebugLoc(),
+                TII.get(TargetOpcode::COPY), Copy)
+            .addReg(Reg);
+        MO.setReg(Copy);
+        MO.setIsKill(true);
+      }
+      MRI.setRegClass(Reg, Wide);
+      Changed = true;
     }
   }
   return Changed;

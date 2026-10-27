@@ -13,6 +13,7 @@
 #include "llvm/ADT/BitVector.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
 
 using namespace llvm;
 
@@ -120,4 +121,15 @@ bool M6809RegisterInfo::eliminateFrameIndex(MachineBasicBlock::iterator II,
 
 Register M6809RegisterInfo::getFrameRegister(const MachineFunction &MF) const {
   return getFrameLowering(MF)->hasFP(MF) ? M6809::U : M6809::S;
+}
+
+bool M6809RegisterInfo::shouldCoalesce(
+    MachineInstr *MI, const TargetRegisterClass *SrcRC, unsigned SubReg,
+    const TargetRegisterClass *DstRC, unsigned DstSubReg,
+    const TargetRegisterClass *NewRC, LiveIntervals &LIS) const {
+  const MachineRegisterInfo &MRI = MI->getMF()->getRegInfo();
+  if (M6809::isPinnedPhysCopy(MI->getOperand(0).getReg(), NewRC, MRI) ||
+      M6809::isPinnedPhysCopy(MI->getOperand(1).getReg(), NewRC, MRI))
+    return false;
+  return NewRC != &M6809::ACC16RegClass || (SrcRC == NewRC && DstRC == NewRC);
 }

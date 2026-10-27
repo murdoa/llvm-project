@@ -43,13 +43,12 @@ public:
   // 16-bit register between uses. Letting the allocator widen split ranges
   // is what makes "D op D" (both sides computed in D) allocatable.
   // Don't merge a copy that moves a value out of D (or into it) if that
-  // would pin both sides to D. See M6809SplitDOperands.cpp.
+  // would pin both sides to D, nor one that would pin a value copied out of
+  // a physical register to another. See M6809SplitDOperands.cpp.
   bool shouldCoalesce(MachineInstr *MI, const TargetRegisterClass *SrcRC,
                       unsigned SubReg, const TargetRegisterClass *DstRC,
                       unsigned DstSubReg, const TargetRegisterClass *NewRC,
-                      LiveIntervals &LIS) const override {
-    return NewRC != &M6809::ACC16RegClass || (SrcRC == NewRC && DstRC == NewRC);
-  }
+                      LiveIntervals &LIS) const override;
 
   const TargetRegisterClass *
   getLargestLegalSuperClass(const TargetRegisterClass *RC,
@@ -59,6 +58,13 @@ public:
     return RC;
   }
 };
+
+namespace M6809 {
+// A copy out of a physical register into a one-register class that does not
+// hold it, which M6809SplitDOperands undoes (M6809SplitDOperands.cpp).
+bool isPinnedPhysCopy(Register Reg, const TargetRegisterClass *RC,
+                      const MachineRegisterInfo &MRI);
+} // namespace M6809
 
 } // namespace llvm
 
