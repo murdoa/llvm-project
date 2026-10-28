@@ -1,0 +1,37 @@
+# RUN: llc -mtriple=m6809 -run-pass=m6809-tail-calls -verify-machineinstrs %s -o - | FileCheck %s
+
+# A call to an outlined sequence whose offsets reach into its caller's frame
+# counts on JSR's return address: it stays a call. Other calls before a
+# return become jumps.
+--- |
+  declare void @reads_frame() #0
+  declare void @plain()
+  define void @to_reads_frame() { ret void }
+  define void @to_plain() { ret void }
+  attributes #0 = { "m6809-reads-caller-frame" }
+...
+---
+name: to_reads_frame
+tracksRegLiveness: true
+noVRegs: true
+body: |
+  bb.0:
+    JSRe @reads_frame
+    RTS
+...
+---
+name: to_plain
+tracksRegLiveness: true
+noVRegs: true
+body: |
+  bb.0:
+    JSRe @plain
+    RTS
+...
+
+# CHECK-LABEL: name: to_reads_frame
+# CHECK:       JSRe @reads_frame
+# CHECK-NEXT:  RTS
+# CHECK-LABEL: name: to_plain
+# CHECK:       TAILJMPe @plain
+# CHECK-NOT:   RTS

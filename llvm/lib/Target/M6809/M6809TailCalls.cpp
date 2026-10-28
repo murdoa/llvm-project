@@ -11,10 +11,12 @@
 // not end in one, and a call that ended an outlined sequence's caller. This
 // pass, after the outliner, makes each of them "jmp sym", a byte shorter.
 //
-// It is always safe: a block that returns right after the call has no frame
-// left, so S is as it was at entry and the callee can have no arguments on
-// the stack (2,s for it would be this function's return address). A
-// function that calls setjmp and the like keeps its calls.
+// A block that returns right after the call has no frame left, so S is as
+// it was at entry and the callee can have no arguments on the stack (2,s
+// for it would be this function's return address). Two calls stay:
+// those in a function that calls setjmp and the like, and those to an
+// outlined sequence that reaches into its caller's frame, whose offsets
+// count the return address the JSR pushes (M6809::CallerFrameAttr).
 //
 //===----------------------------------------------------------------------===//
 
@@ -64,6 +66,11 @@ bool M6809TailCalls::runOnMachineFunction(MachineFunction &MF) {
     MachineBasicBlock::iterator Call = prev_nodbg(Ret, MBB.begin());
     if (Call->getOpcode() != M6809::JSRe)
       continue;
+    const MachineOperand &Callee = Call->getOperand(0);
+    if (Callee.isGlobal())
+      if (const auto *F = dyn_cast<Function>(Callee.getGlobal()))
+        if (F->hasFnAttribute(M6809::CallerFrameAttr))
+          continue;
     BuildMI(MBB, Ret, Call->getDebugLoc(), TII.get(M6809::TAILJMPe))
         .add(Call->getOperand(0));
     Call->eraseFromParent();

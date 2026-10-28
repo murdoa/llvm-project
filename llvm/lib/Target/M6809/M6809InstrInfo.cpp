@@ -1751,15 +1751,22 @@ void M6809InstrInfo::buildOutlinedFrame(
     const outliner::OutlinedFunction &OF) const {
   if (OF.FrameConstructionID == OutlinerTail)
     return;
+  bool Moved = false;
   [[maybe_unused]] bool OK = walkCalledSequence(
-      make_range(MBB.begin(), MBB.end()), [](MachineInstr &MI, unsigned Idx) {
+      make_range(MBB.begin(), MBB.end()),
+      [&Moved](MachineInstr &MI, unsigned Idx) {
         MachineOperand &Off = MI.getOperand(Idx);
         if (Off.isImm())
           Off.setImm(Off.getImm() + 2);
         else
           Off.setOffset(Off.getOffset() + 2);
+        Moved = true;
       });
   assert(OK && "M6809: outlined an unbalanced sequence");
+  // Its offsets count the JSR's return address: it must not be jumped to
+  // (M6809TailCalls).
+  if (Moved)
+    MF.getFunction().addFnAttr(M6809::CallerFrameAttr);
   MBB.insert(MBB.end(), BuildMI(MF, DebugLoc(), get(M6809::RTS)));
 }
 

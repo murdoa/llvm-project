@@ -24,6 +24,12 @@ FunctionPass *createM6809ISelDag(M6809TargetMachine &TM,
 FunctionPass *createM6809SplitDOperandsPass();
 FunctionPass *createM6809PostRACleanupPass();
 FunctionPass *createM6809TailCallsPass();
+
+namespace M6809 {
+// On a function the machine outliner made whose stack offsets reach into
+// its caller's frame past the return address JSR pushed.
+inline constexpr const char *CallerFrameAttr = "m6809-reads-caller-frame";
+} // namespace M6809
 ModulePass *createM6809DirectPagePass();
 
 void initializeM6809AsmPrinterPass(PassRegistry &);
